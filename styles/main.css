@@ -1613,63 +1613,63 @@ textarea.contact-input {
 }
 
 .footer {
-  background-color: #f5ab1d;
-  color: #fff;
-  padding: 30px 0 15px;
-  position: relative;
-  font-size: 13px;
-  overflow-x: hidden;
+  background-color: #f5ab1d !important;
+  color: #fff !important;
+  padding: 30px 0 15px !important;
+  position: relative !important;
+  font-size: 13px !important;
+  overflow-x: hidden !important;
 }
 
 /* Main Footer Row */
 .main-footer-row {
-  margin-top: 25px;
-  margin-bottom: 20px;
+  margin-top: 25px !important;
+  margin-bottom: 20px !important;
 }
 
 /* Logo Styles */
 .footer-logo-container {
-  margin-bottom: 30px;
+  margin-bottom: 30px !important; 
 }
 
 .footer-logo {
-  max-width: 80px;
-  height: auto;
+  max-width: 80px !important; 
+  height: auto !important;
 }
 
 /* Text Styles */
 .footer-text {
-  font-family: "Poppins-Reguler", sans-serif;
-  font-size: 0.8rem;
-  margin-bottom: 12px;
-  line-height: 1.4;
-  text-align: justify;
+  font-family: "Poppins-Reguler", sans-serif !important;
+  font-size: 0.8rem !important;  
+  margin-bottom: 12px !important;
+  line-height: 1.4 !important;
+  text-align: justify !important;
 }
 
 /* Newsletter Form */
 .newsletter-form {
-  margin-bottom: 15px;
+  margin-bottom: 15px !important; 
 }
 
 .newsletter-form .input-group {
-  border-radius: 4px;
-  overflow: hidden;
+  border-radius: 4px !important;
+  overflow: hidden !important;
 }
 
 .newsletter-form .form-control {
-  border: none;
-  padding: 12px 10px;
-  font-size: 0.8rem;
-  background-color: #ffffff;
-  font-family: "Roboto-Reguler", sans-serif;
-  height: auto;
-  font-weight: 500;
+  border: none !important;
+  padding: 12px 10px !important;
+  font-size: 0.8rem !important;
+  background-color: #ffffff !important;
+  font-family: "Roboto-Reguler", sans-serif !important;
+  height: auto !important;
+  font-weight: 500 !important;
   color: grey !important;
 }
 
 .newsletter-form .form-control:focus {
-  box-shadow: none;
-  border-color: transparent;
+  box-shadow: none !important;
+  border-color: transparent !important;
 }
 
 .newsletter-form .form-control::placeholder {
@@ -1678,203 +1678,203 @@ textarea.contact-input {
 
 .newsletter-form .btn-submit,
 .newsletter-form .btn-submit a {
-  background-color: #fff;
-  color: grey;
-  border: none;
-  font-size: 1.2rem;
-  padding: 0 10px 6px;
-  transition: all 0.3s ease;
+  background-color: #fff !important;
+  color: grey !important;
+  border: none !important; 
+  font-size: 1.2rem !important;
+  padding: 0 10px 6px !important;
+  transition: all 0.3s ease !important;
 }
 
 .newsletter-form .btn-submit:hover {
-  background-color: #fff;
-  color: #e09400;
+  background-color: #fff !important;
+  color: #e09400 !important;
 }
 
 /* Footer Columns */
 .footer-col {
-  font-family: "Overpass", sans-serif;
-  margin-bottom: 12px;
-  margin-top: 15px;
-  transform: translateX(50px);
+  font-family: "Overpass", sans-serif !important;
+  margin-bottom: 12px !important;
+  margin-top: 15px !important;
+  transform: translateX(50px) !important;
 }
 
 .footer-col h5 {
-  color: var(--color-text);
+  color: var(--color-text) !important;
 }
 
 .footer-left-col {
-  margin-bottom: 10px;
-  padding-left: 130px;
+  margin-bottom: 10px !important;
+  padding-left: 130px !important;
 }
 
 /* Headings */
 .footer-heading {
-  font-size: 0.9rem;
-  font-family: "Overpass", sans-serif;
-  font-weight: 400;
-  margin-bottom: 12px;
-  position: relative;
-  padding-bottom: 4px;
-  text-transform: none;
+  font-size: 0.9rem !important;
+  font-family: "Overpass", sans-serif !important;
+  font-weight: 400 !important;
+  margin-bottom: 12px !important;
+  position: relative !important;
+  padding-bottom: 4px !important;
+  text-transform: none !important; 
 }
 
 /* Footer Links */
 .footer-links {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-family: "Overpass", sans-serif;
-  font-weight: 400;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-family: "Overpass", sans-serif !important;
+  font-weight: 400 !important;
 }
 
 .footer-links li {
-  margin-bottom: 6px;
+  margin-bottom: 6px !important;
 }
 
 .footer-links a {
-  color: #fff;
-  text-decoration: none;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-  display: inline-block;
+  color: #fff !important;
+  text-decoration: none !important;
+  font-size: 0.8rem !important;
+  transition: all 0.2s ease !important; 
+  display: inline-block !important;
 }
 
 .footer-links a:hover {
-  color: #fff;
-  opacity: 0.8;
+  color: #fff !important;
+  opacity: 0.8 !important;
 }
 
 /* Contact Info */
 .contact-info-footer {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .contact-info-footer li {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
+  display: flex !important;
+  align-items: center !important;
+  margin-bottom: 10px !important;
 }
 
 .contact-icon-footer a {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background-color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 8px;
-  font-size: 0.9rem;
-  flex-shrink: 0; /* Mencegah ikon mengecil */
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  background-color: #fff !important;
+  display: flex  !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 8px !important;
+  font-size: 0.9rem !important;
+  flex-shrink: 0 !important; /* Mencegah ikon mengecil */
 }
 
 .whatsapp-icon,
 .whatsapp-icon a {
-  color: #f5ab1d;
+  color: #f5ab1d !important;
 }
 
 .instagram-icon,
 .instagram-icon a {
-  color: #f5ab1d;
+  color: #f5ab1d !important;
 }
 
 .email-icon,
 .email-icon a {
-  color: #f5ab1d;
+  color: #f5ab1d !important; 
 }
 
 .contact-details-footer {
-  flex: 1;
-  min-width: 0; /* Memastikan flex item bisa menyusut jika perlu */
+  flex: 1 !important;
+  min-width: 0 !important; /* Memastikan flex item bisa menyusut jika perlu */
 }
 
 .contact-details-footer strong {
-  display: block;
-  font-size: 0.75rem;
-  margin-bottom: 0;
-  white-space: nowrap; /* Mencegah text wrapping */
+  display: block !important;
+  font-size: 0.75rem !important;
+  margin-bottom: 0 !important;
+  white-space: nowrap !important; /* Mencegah text wrapping */
 }
 
 .contact-details-footer p {
-  margin: 0;
-  font-size: 1rem;
-  font-family: "Roboto-Reguler", sans-serif;
-  white-space: nowrap; /* Mencegah text wrapping */
-  overflow: hidden; /* Menyembunyikan teks yang terlalu panjang */
-  text-overflow: ellipsis; /* Menampilkan ... jika teks terpotong */
+  margin: 0 !important;
+  font-size: 1rem !important;
+  font-family: "Roboto-Reguler", sans-serif !important;
+  white-space: nowrap !important; /* Mencegah text wrapping */
+  overflow: hidden !important; /* Menyembunyikan teks yang terlalu panjang */
+  text-overflow: ellipsis !important; /* Menampilkan ... jika teks terpotong */
 }
 
 /* Bottom Footer Row (Social Media and Copyright) */
 .bottom-footer-row {
-  margin-top: 20px;
-  margin-left: 105px;
-  align-items: center;
-  margin-right: 90px;
+  margin-top: 20px !important;
+  margin-left: 105px !important;
+  align-items: center !important;
+  margin-right: 90px !important;
 }
 
 /* Social Media */
 .social-media-col {
-  text-align: left;
-  margin-bottom: 10px;
+  text-align: left !important;
+  margin-bottom: 10px !important;
 }
 
 .social-media-container-footer {
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  align-items: center !important;
 }
 
 .follow-us-footer {
-  margin-right: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
+  margin-right: 12px !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
 }
 
 .social-icons-footer {
-  display: flex;
-  gap: 8px;
+  display: flex !important;
+  gap: 8px !important;
 }
 
 .social-icon-footer {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background-color: #000;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  transition: all 0.3s ease;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background-color: #000 !important; 
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.8rem !important;
+  transition: all 0.3s ease !important;
 }
 
 .social-icon-footer:hover {
-  transform: translateY(-2px);
-  opacity: 0.9;
+  transform: translateY(-2px) !important;
+  opacity: 0.9 !important;
 }
 
 /* Copyright */
 .copyright-col {
-  text-align: right;
-  transform: translateX(60px);
+  text-align: right !important;
+  transform: translateX(60px) !important;
 }
 
 .copyright-text {
-  font-family: "Overpass", sans-serif;
-  font-size: 1rem;
-  opacity: 0.9;
+  font-family: "Overpass", sans-serif !important;
+  font-size: 1rem !important;
+  opacity: 0.9 !important;
 }
 
 .copyright-text span {
-  color: #000;
+  color: #000 !important;
 }
 
 /* Responsive Styles */
 @media (max-width: 991px) {
   .footer {
-    padding: 25px 0 12px;
+    padding: 25px 0 12px !important;
   }
   .footer-left-col {
     padding-left: 12px !important;
@@ -1889,25 +1889,25 @@ textarea.contact-input {
 
   /* Untuk tampilan mobile, kembalikan ke tampilan sebelumnya */
   .social-media-col {
-    text-align: center;
-    margin-bottom: 15px;
+    text-align: center !important;
+    margin-bottom: 15px !important;
   }
 
   .social-media-container-footer {
-    justify-content: center;
+    justify-content: center !important;
   }
 
   .copyright-col {
-    text-align: center;
+    text-align: center !important;
     transform: none !important;
   }
 
   .copyright-text {
-    font-size: 0.8rem;
+    font-size: 0.8rem !important;
   }
 
   .bottom-footer-row {
-    margin-top: 15px;
+    margin-top: 15px !important;
   }
 }
 
@@ -1943,7 +1943,7 @@ textarea.contact-input {
   }
 
   .footer-col {
-    display: block;
+    display: block !important;
     flex: 0 0 auto !important;
     width: 180px !important;
     padding-right: 15px !important;
