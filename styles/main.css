@@ -1932,12 +1932,12 @@ textarea.contact-input {
 @media (max-width: 768px) {
   /* Mengatur main footer row menjadi satu baris horizontal dengan scroll */
   .footer {
-    display: block;
-    width: 100%;
+    display: block !important;
+    width: 100% !important;
   }
   .main-footer-row {
-    display: flex;
-    flex-wrap: nowrap;
+    display: flex !important;
+    flex-wrap: nowrap !important;
     overflow-x: auto;
     margin-bottom: 20px;
     padding-bottom: 10px;
@@ -1952,7 +1952,7 @@ textarea.contact-input {
 
   /* Mengatur ukuran kolom dalam satu baris */
   .footer-left-col {
-    display: block;
+    display: block !important;
     flex: 0 0 auto;
     width: 250px;
     padding-left: 12px !important;
@@ -1961,7 +1961,7 @@ textarea.contact-input {
   }
 
   .footer-col {
-    display: block;
+    display: block !important;
     flex: 0 0 auto;
     width: 180px;
     padding-right: 15px;
