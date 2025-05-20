@@ -1943,7 +1943,7 @@ textarea.contact-input {
   }
 
   .footer-col {
-    display: block !important;
+    display: block;
     flex: 0 0 auto !important;
     width: 180px !important;
     padding-right: 15px !important;
