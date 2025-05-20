@@ -79,7 +79,7 @@
 :root {
   --navbar-color: #ffffff;
   --primary-color: #ffffff;
-  --color-text: #000000;
+  --color-text: #231942;
 }
 
 .navbar,
@@ -1598,6 +1598,22 @@ textarea.contact-input {
 /* Contact Us Section Styling */
 
 /* FOOTER STYLES*/
+/* Fix footer rendering issues */
+.footer {
+  display: block !important;
+  width: 100% !important;
+}
+
+.main-footer-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+}
+
+.footer-col,
+.footer-left-col {
+  display: block !important;
+}
+
 .footer {
   background-color: #f5ab1d;
   color: #fff;
@@ -2069,7 +2085,28 @@ textarea.contact-input {
     margin-bottom: 8px;
   }
 }
+
+/* Ensure proper spacing in footer */
+@media (min-width: 992px) {
+  .footer-left-col {
+    padding-left: 130px !important;
+  }
+
+  .footer-col {
+    transform: translateX(50px) !important;
+  }
+
+  .bottom-footer-row {
+    margin-left: 105px !important;
+    margin-right: 90px !important;
+  }
+
+  .copyright-col {
+    transform: translateX(60px) !important;
+  }
+}
 /* FOOTER STYLES*/
+
 /* STYLE HOMEPAGE */
 
 /* STYLE ABOUTUSPAGE */

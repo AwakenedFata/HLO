@@ -72,7 +72,7 @@ function NavbarComponent() {
           <Nav className="mx-auto">
             {navLinks.map((link) => {
               const isMerchandise = link.path === "/merchan"
-              const isActive = pathname === link.path || (link.path === "/" && pathname === "/")
+              const isActive = pathname === link.path
 
               return (
                 <Link
