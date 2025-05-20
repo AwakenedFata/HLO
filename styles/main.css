@@ -94,53 +94,53 @@
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  padding: 15px 0 15px 0;
-  transition: background-color 0.5s ease, padding 0.5s ease;
-  z-index: 10000;
-  animation-name: fadeInDown;
-  animation-duration: 1s;
+  padding: 15px 0 15px 0 !important;
+  transition: background-color 0.5s ease, padding 0.5s ease !important;
+  z-index: 10000 !important;
+  animation-name: fadeInDown !important;
+  animation-duration: 1s !important;
   background-color: transparent !important;
 }
 
 .navbar.color-active {
   background-color: var(--navbar-color) !important;
-  transition: background 0.5s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  padding: 20px 0 20px 0;
+  transition: background 0.5s ease !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+  padding: 20px 0 20px 0 !important;
 }
 
 .navbar .logo-navbar {
-  transform: translateX(5px);
-  display: block;
-  margin: 0;
+  transform: translateX(5px) !important;
+  display: block !important;
+  margin: 0 !important;
 }
 
 .logo-navbar {
-  transition: transform 0.5s ease;
+  transition: transform 0.5s ease !important;
 }
 
 .navbar .nav-link:hover {
-  color: #f5ab1d;
-  padding: 5px 10px 5px 10px;
-  font-weight: 500;
+  color: #f5ab1d !important;
+  padding: 5px 10px 5px 10px !important;
+  font-weight: 500 !important;
 }
 
 .navbar .active {
-  color: var(--used-color);
+  color: var(--used-color) !important;
 }
 
 .navbar .nav-link.active {
-  color: #f5ab1d;
+  color: #f5ab1d !important;
 }
 
 .merch-button {
-  background-color: #f5ab1d;
+  background-color: #f5ab1d !important;
   color: var(--primary-color);
   margin-top: 2px !important;
   padding: 6px 24px !important;
-  font-weight: 700;
-  border-radius: 6px;
-  transition: background-color 0.3s ease, transform 0.3s ease;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  transition: background-color 0.3s ease, transform 0.3s ease !important;
 }
 
 .merch-button:hover {
@@ -158,7 +158,6 @@
     transform: translate3d(0, 0, 0);
   }
 }
-
 /* STYLE NAVBAR */
 
 /* ========== GENERAL HOMEPAGE ========== */
