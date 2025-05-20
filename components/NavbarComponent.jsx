@@ -72,16 +72,23 @@ function NavbarComponent() {
           <Nav className="mx-auto">
             {navLinks.map((link) => {
               const isMerchandise = link.path === "/merchan"
+              // Check if current path exactly matches link path
               const isActive = pathname === link.path
+
+              // Apply different classes based on link type and active state
+              let linkClass = "nav-link"
+              if (isActive) linkClass += " active"
+              if (isMerchandise) linkClass += " merch-button"
 
               return (
                 <Link
                   key={link.id}
                   href={link.path}
-                  className={isMerchandise ? "nav-link merch-button" : isActive ? "nav-link active" : "nav-link"}
+                  className={linkClass}
                   onClick={handleLinkClick}
+                  style={isActive ? { color: "#f5ab1d" } : {}}
                 >
-                  {link.text}
+                  <span className={isMerchandise ? "merch-text" : ""}>{link.text}</span>
                 </Link>
               )
             })}

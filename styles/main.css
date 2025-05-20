@@ -147,7 +147,6 @@
   color: var(--color-text) !important;
 }
 
-
 /* Add fadeInDown animation */
 @keyframes fadeInDown {
   from {
@@ -161,7 +160,6 @@
 }
 
 /* STYLE NAVBAR */
-
 
 /* ========== GENERAL HOMEPAGE ========== */
 .homepage header {
@@ -1600,18 +1598,18 @@ textarea.contact-input {
 /* FOOTER STYLES*/
 /* Fix footer rendering issues */
 .footer {
-  display: block !important;
-  width: 100% !important;
+  display: block;
+  width: 100%;
 }
 
 .main-footer-row {
-  display: flex !important;
-  flex-wrap: wrap !important;
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .footer-col,
 .footer-left-col {
-  display: block !important;
+  display: block;
 }
 
 .footer {
@@ -1913,8 +1911,30 @@ textarea.contact-input {
   }
 }
 
+/* Apply !important flags only for screens above 768px */
+@media (min-width: 769px) {
+  .footer {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .main-footer-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+
+  .footer-col,
+  .footer-left-col {
+    display: block !important;
+  }
+}
+
 @media (max-width: 768px) {
   /* Mengatur main footer row menjadi satu baris horizontal dengan scroll */
+  .footer {
+    display: block;
+    width: 100%;
+  }
   .main-footer-row {
     display: flex;
     flex-wrap: nowrap;
@@ -1932,6 +1952,7 @@ textarea.contact-input {
 
   /* Mengatur ukuran kolom dalam satu baris */
   .footer-left-col {
+    display: block;
     flex: 0 0 auto;
     width: 250px;
     padding-left: 12px !important;
@@ -1940,6 +1961,7 @@ textarea.contact-input {
   }
 
   .footer-col {
+    display: block;
     flex: 0 0 auto;
     width: 180px;
     padding-right: 15px;
