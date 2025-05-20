@@ -76,6 +76,15 @@
 }
 
 /* STYLE NAVBAR */
+:root {
+  --primary-color: #f6f8fd;
+  --secondary-color: #dc3545;
+  --color-text: #231942;
+  --navbar-color: #ffffff;
+  --used-color: #f5ab1d;
+  --active-color: #f5ab1d;
+}
+
 .navbar,
 .navbar .nav-link,
 .navbar .merch-button {
@@ -83,60 +92,115 @@
 }
 
 .navbar {
-  position: fixed !important; 
+  position: fixed !important;
   top: 0 !important;
-  padding: 15px 0 15px 0 !important;
+  left: 0 !important;
+  right: 0 !important;
   width: 100% !important;
-  transition: background-color 0.5s ease, padding 0.5s ease !important;
-  z-index: 10000 !important;
-  animation-name: fadeInDown !important;
-  animation-duration: 1s !important;
+  padding: 15px 0 15px 0;
+  transition: background-color 0.5s ease, padding 0.5s ease;
+  z-index: 10000;
+  animation-name: fadeInDown;
+  animation-duration: 1s;
+  background-color: transparent !important;
+}
+
+.navbar.color-active {
+  background-color: var(--navbar-color) !important;
+  transition: background 0.5s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px 0 20px 0;
 }
 
 .navbar .logo-navbar {
-  transform: translateX(5px) !important;
-  display: block !important;
-  margin: 0 !important;
+  transform: translateX(5px);
+  display: block;
+  margin: 0;
 }
 
 .logo-navbar {
-  transition: transform 0.5s ease !important;
+  transition: transform 0.5s ease;
 }
 
-.color-active {
-  background: var(--navbar-color) !important;
-  transition: background 0.5s ease !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
-  padding: 20px 0 20px 0 !important;
+/* Nav Link Styles - Enhanced */
+.navbar .nav-link {
+  color: var(--color-text) !important;
+  transition: color 0.3s ease !important;
+  padding: 5px 10px !important;
+  font-weight: 400 !important;
+  display: inline-block !important;
 }
 
 .navbar .nav-link:hover {
-  color: #f5ab1d !important;
-  padding: 5px 10px 5px 10px !important;
+  color: var(--active-color) !important;
   font-weight: 500 !important;
 }
 
-.navbar .active {
-  color: var(--color-text) !important;
-}
-
+/* Active Link Style - Enhanced */
 .navbar .nav-link.active {
-  color: #f5ab1d !important;
+  color: var(--active-color) !important;
+  font-weight: 500 !important;
 }
 
-.merch-button {
-  background-color: #f5ab1d !important;
+/* Merchandise Button - Enhanced */
+.navbar .merch-button {
+  background-color: var(--active-color) !important;
   color: var(--primary-color) !important;
   margin-top: 2px !important;
   padding: 6px 24px !important;
   font-weight: 700 !important;
   border-radius: 6px !important;
+  transition: background-color 0.3s ease, transform 0.3s ease !important;
+  text-align: center !important;
 }
 
-.merch-button:hover {
+.navbar .merch-button:hover {
+  color: var(--color-text) !important;
+  background-color: #e09400 !important;
+}
+
+.navbar .merch-button.active {
+  color: var(--color-text) !important;
+  background-color: #e09400 !important;
+}
+
+/* Ensure merchandise text is visible */
+.merch-text {
+  color: var(--primary-color) !important;
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.merch-button.active .merch-text {
   color: var(--color-text) !important;
 }
-/* STYLE NAVBAR */
+
+/* Add fadeInDown animation */
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -100%, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+  .navbar .nav-link {
+    padding: 10px 15px !important;
+    margin: 2px 0 !important;
+  }
+
+  .navbar .merch-button {
+    display: inline-block !important;
+    width: auto !important;
+    margin: 5px 15px !important;
+  }
+}
 
 /* ========== GENERAL HOMEPAGE ========== */
 .homepage header {
