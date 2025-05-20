@@ -1920,173 +1920,173 @@ textarea.contact-input {
   .main-footer-row {
     display: flex !important;
     flex-wrap: nowrap !important;
-    overflow-x: auto;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    -webkit-overflow-scrolling: touch; /* Untuk scroll yang smooth di iOS */
-    scrollbar-width: none; /* Menyembunyikan scrollbar di Firefox */
+    overflow-x: auto !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 10px !important;
+    -webkit-overflow-scrolling: touch !important; /* Untuk scroll yang smooth di iOS */
+    scrollbar-width: none !important; /* Menyembunyikan scrollbar di Firefox */
   }
 
   /* Menyembunyikan scrollbar di Chrome/Safari */
   .main-footer-row::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
 
   /* Mengatur ukuran kolom dalam satu baris */
   .footer-left-col {
     display: block !important;
-    flex: 0 0 auto;
-    width: 250px;
+    flex: 0 0 auto !important;
+    width: 250px !important;
     padding-left: 12px !important;
-    padding-right: 15px;
-    margin-bottom: 0;
+    padding-right: 15px !important;
+    margin-bottom: 0 !important;
   }
 
   .footer-col {
     display: block !important;
-    flex: 0 0 auto;
-    width: 180px;
-    padding-right: 15px;
-    margin-bottom: 0;
+    flex: 0 0 auto !important;
+    width: 180px !important;
+    padding-right: 15px !important;
+    margin-bottom: 0 !important;
     transform: translateX(50px) !important;
   }
 
   /* Mengatur ukuran font dan spacing untuk tampilan yang lebih compact */
   .footer-heading {
-    font-size: 0.85rem;
-    margin-bottom: 10px;
+    font-size: 0.85rem !important;
+    margin-bottom: 10px !important;
   }
 
   .footer-text {
-    font-size: 0.75rem;
-    margin-bottom: 10px;
+    font-size: 0.75rem !important;
+    margin-bottom: 10px !important;
   }
 
   .footer-links li {
-    margin-bottom: 5px;
+    margin-bottom: 5px !important;
   }
 
   .footer-links a {
-    font-size: 0.75rem;
+    font-size: 0.75rem !important;
   }
 
   .contact-info-footer li {
-    margin-bottom: 8px;
+    margin-bottom: 8px !important;
   }
 
   /* Memperbaiki masalah dengan contact-info-footer untuk email */
   .contact-info-footer li:last-child .contact-details-footer p {
-    font-size: 0.65rem; /* Sedikit lebih kecil untuk email */
+    font-size: 0.65rem !important; /* Sedikit lebih kecil untuk email */
   }
 
   /* Menambahkan border-top untuk memisahkan dari konten di atas */
   .bottom-footer-row {
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    padding-top: 10px;
-    margin-top: 5px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 5px;
-    margin-left: 0;
-    margin-right: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+    padding-top: 10px !important;
+    margin-top: 5px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    gap: 5px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
 
   .social-media-container-footer {
-    flex-direction: row; /* pastikan icon masih horizontal */
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
+    flex-direction: row !important; /* pastikan icon masih horizontal */
+    justify-content: center !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
   }
 
   .copyright-col {
-    text-align: center;
+    text-align: center !important;
     transform: none !important;
   }
 
   .copyright-text {
-    font-size: 0.75rem;
-    white-space: nowrap; /* agar satu baris */
+    font-size: 0.75rem !important;
+    white-space: nowrap !important; /* agar satu baris */
   }
 }
 
 @media (max-width: 575px) {
   .main-footer-row {
-    margin-top: 0;
-    margin-bottom: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
   }
   .footer {
-    padding: 20px 0 10px;
+    padding: 20px 0 10px !important;
   }
 
   /* Mengatur ukuran kolom lebih kecil untuk layar sangat kecil */
   .footer-left-col {
-    width: 220px;
+    width: 220px !important;
   }
 
   .footer-col {
-    width: 160px;
+    width: 160px !important;
     transform: translateX(30px) !important;
   }
 
   .footer-text {
-    font-size: 0.7rem;
+    font-size: 0.7rem !important;
   }
 
   .footer-links a {
-    font-size: 0.7rem;
+    font-size: 0.7rem !important;
   }
 
   .contact-details-footer strong {
-    font-size: 0.7rem;
+    font-size: 0.7rem !important;
   }
 
   .contact-details-footer p {
-    font-size: 0.65rem;
+    font-size: 0.65rem !important;
   }
 
   /* Memperbaiki masalah dengan contact-info-footer untuk email di layar sangat kecil */
   .contact-info-footer li:last-child .contact-details-footer p {
-    font-size: 0.6rem; /* Lebih kecil lagi untuk email di layar kecil */
+    font-size: 0.6rem !important; /* Lebih kecil lagi untuk email di layar kecil */
   }
 }
 
 @media (max-width: 575px) {
   .footer {
-    padding: 20px 0 10px;
-    text-align: center;
+    padding: 20px 0 10px !important;
+    text-align: center !important;
   }
 
   .footer-logo-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
+    display: flex !important;
+    justify-content: center !important;
+    margin-bottom: 20px !important;
   }
 
   .footer-heading::after {
-    left: 50%;
-    transform: translateX(-50%);
+    left: 50% !important;
+    transform: translateX(-50%) !important;
   }
 
   .footer-links li {
-    text-align: center;
+    text-align: center !important;
   }
 
   .contact-info-footer li {
-    justify-content: center;
+    justify-content: center !important;
   }
 
   .social-media-container-footer {
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: column !important;
+    gap: 8px !important;
   }
 
   .follow-us-footer {
-    margin-right: 0;
-    margin-bottom: 8px;
+    margin-right: 0 !important;
+    margin-bottom: 8px !important;
   }
 }
 
@@ -2110,7 +2110,6 @@ textarea.contact-input {
   }
 }
 /* FOOTER STYLES*/
-
 /* STYLE HOMEPAGE */
 
 /* STYLE ABOUTUSPAGE */
