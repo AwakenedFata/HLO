@@ -126,7 +126,7 @@
 }
 
 .navbar .active {
-  color: var(--color-text);
+  color: var(--used-color);
 }
 
 .navbar .nav-link.active {
