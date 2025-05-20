@@ -1598,18 +1598,18 @@ textarea.contact-input {
 /* FOOTER STYLES*/
 /* Fix footer rendering issues */
 .footer {
-  display: block;
-  width: 100%;
+  display: block !important;
+  width: 100% !important;
 }
 
 .main-footer-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: flex !important;
+  flex-wrap: wrap !important;
 }
 
 .footer-col,
 .footer-left-col {
-  display: block;
+  display: block !important;
 }
 
 .footer {
@@ -1908,24 +1908,6 @@ textarea.contact-input {
 
   .bottom-footer-row {
     margin-top: 15px;
-  }
-}
-
-/* Apply !important flags only for screens above 768px */
-@media (min-width: 769px) {
-  .footer {
-    display: block !important;
-    width: 100% !important;
-  }
-
-  .main-footer-row {
-    display: flex !important;
-    flex-wrap: wrap !important;
-  }
-
-  .footer-col,
-  .footer-left-col {
-    display: block !important;
   }
 }
 
