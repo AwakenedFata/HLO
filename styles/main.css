@@ -76,12 +76,6 @@
 }
 
 /* STYLE NAVBAR */
-:root {
-  --navbar-color: #ffffff;
-  --primary-color: #ffffff;
-  --color-text: #231942;
-}
-
 .navbar,
 .navbar .nav-link,
 .navbar .merch-button {
@@ -89,24 +83,14 @@
 }
 
 .navbar {
-  position: fixed !important;
+  position: fixed !important; 
   top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
   padding: 15px 0 15px 0 !important;
+  width: 100% !important;
   transition: background-color 0.5s ease, padding 0.5s ease !important;
   z-index: 10000 !important;
   animation-name: fadeInDown !important;
   animation-duration: 1s !important;
-  background-color: transparent !important;
-}
-
-.navbar.color-active {
-  background-color: var(--navbar-color) !important;
-  transition: background 0.5s ease !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
-  padding: 20px 0 20px 0 !important;
 }
 
 .navbar .logo-navbar {
@@ -119,6 +103,13 @@
   transition: transform 0.5s ease !important;
 }
 
+.color-active {
+  background: var(--navbar-color) !important;
+  transition: background 0.5s ease !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+  padding: 20px 0 20px 0 !important;
+}
+
 .navbar .nav-link:hover {
   color: #f5ab1d !important;
   padding: 5px 10px 5px 10px !important;
@@ -126,7 +117,7 @@
 }
 
 .navbar .active {
-  color: var(--used-color) !important;
+  color: var(--color-text) !important;
 }
 
 .navbar .nav-link.active {
@@ -135,28 +126,15 @@
 
 .merch-button {
   background-color: #f5ab1d !important;
-  color: var(--primary-color);
+  color: var(--primary-color) !important;
   margin-top: 2px !important;
   padding: 6px 24px !important;
   font-weight: 700 !important;
   border-radius: 6px !important;
-  transition: background-color 0.3s ease, transform 0.3s ease !important;
 }
 
 .merch-button:hover {
   color: var(--color-text) !important;
-}
-
-/* Add fadeInDown animation */
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translate3d(0, -100%, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
 }
 /* STYLE NAVBAR */
 
@@ -1628,18 +1606,18 @@ textarea.contact-input {
 
 /* Logo Styles */
 .footer-logo-container {
-  margin-bottom: 30px !important; 
+  margin-bottom: 30px !important;
 }
 
 .footer-logo {
-  max-width: 80px !important; 
+  max-width: 80px !important;
   height: auto !important;
 }
 
 /* Text Styles */
 .footer-text {
   font-family: "Poppins-Reguler", sans-serif !important;
-  font-size: 0.8rem !important;  
+  font-size: 0.8rem !important;
   margin-bottom: 12px !important;
   line-height: 1.4 !important;
   text-align: justify !important;
@@ -1647,7 +1625,7 @@ textarea.contact-input {
 
 /* Newsletter Form */
 .newsletter-form {
-  margin-bottom: 15px !important; 
+  margin-bottom: 15px !important;
 }
 
 .newsletter-form .input-group {
@@ -1679,7 +1657,7 @@ textarea.contact-input {
 .newsletter-form .btn-submit a {
   background-color: #fff !important;
   color: grey !important;
-  border: none !important; 
+  border: none !important;
   font-size: 1.2rem !important;
   padding: 0 10px 6px !important;
   transition: all 0.3s ease !important;
@@ -1715,7 +1693,7 @@ textarea.contact-input {
   margin-bottom: 12px !important;
   position: relative !important;
   padding-bottom: 4px !important;
-  text-transform: none !important; 
+  text-transform: none !important;
 }
 
 /* Footer Links */
@@ -1735,7 +1713,7 @@ textarea.contact-input {
   color: #fff !important;
   text-decoration: none !important;
   font-size: 0.8rem !important;
-  transition: all 0.2s ease !important; 
+  transition: all 0.2s ease !important;
   display: inline-block !important;
 }
 
@@ -1762,7 +1740,7 @@ textarea.contact-input {
   height: 26px !important;
   border-radius: 50% !important;
   background-color: #fff !important;
-  display: flex  !important;
+  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   margin-right: 8px !important;
@@ -1782,7 +1760,7 @@ textarea.contact-input {
 
 .email-icon,
 .email-icon a {
-  color: #f5ab1d !important; 
+  color: #f5ab1d !important;
 }
 
 .contact-details-footer {
@@ -1840,7 +1818,7 @@ textarea.contact-input {
   width: 28px !important;
   height: 28px !important;
   border-radius: 50% !important;
-  background-color: #000 !important; 
+  background-color: #000 !important;
   color: #fff !important;
   display: flex !important;
   align-items: center !important;
