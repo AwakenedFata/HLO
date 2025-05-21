@@ -1,5 +1,15 @@
-import AdminLayout from "@/components/admin/AdminLayout"
+"use client"
 
-export default function AdminLayoutWrapper({ children }) {
-  return <AdminLayout>{children}</AdminLayout>
+import AdminLayout from "@/components/admin/AdminLayout"
+import SocketInitializer from "@/components/admin/SocketInitializer"
+import "@/styles/adminstyles.css"
+
+export default function AdminWrappedLayout({ children }) {
+  return (
+    <AdminLayout>
+      {/* Inisialisasi Socket.io di level layout */}
+      <SocketInitializer />
+      {children}
+    </AdminLayout>
+  )
 }

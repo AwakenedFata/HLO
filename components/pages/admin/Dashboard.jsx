@@ -8,6 +8,7 @@ import { Pie, Bar } from "react-chartjs-2"
 import { useRouter } from "next/navigation"
 import { FaSync, FaExclamationTriangle } from "react-icons/fa"
 import "@/styles/adminstyles.css"
+import { CACHE_KEYS } from "@/lib/utils/cache-utils"
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
@@ -30,23 +31,47 @@ function Dashboard() {
   const [showRateLimitModal, setShowRateLimitModal] = useState(false)
   const [showForceRefreshModal, setShowForceRefreshModal] = useState(false)
 
-  // Cache keys for localStorage
-  const STATS_CACHE_KEY = "dashboard_stats_cache"
-  const STATS_LAST_FETCH_KEY = "dashboard_stats_last_fetch"
-
   // Minimum time between fetches (15 minutes in milliseconds)
   const MIN_FETCH_INTERVAL = 15 * 60 * 1000
 
-  // Add a global variable to track the last fetch time across component instances
-  const globalLastFetchTime = typeof window !== "undefined" ? window._dashboardLastFetchTime || 0 : 0
-
   // Reference to track if component is mounted
   const isMounted = useRef(true)
+  
+  // Timeout reference for cleanup
+  const timeoutRef = useRef(null)
+  
+  // AbortController for cancelling requests
+  const abortControllerRef = useRef(null)
 
   useEffect(() => {
     setIsClient(true)
+    
+    // Tambahkan event listener untuk update data
+    const handleDataUpdate = () => {
+      if (isMounted.current) {
+        fetchStats(true);
+      }
+    };
+    
+    window.addEventListener('pin-data-updated', handleDataUpdate);
+    window.addEventListener('cache-invalidated', handleDataUpdate);
+    
     return () => {
       isMounted.current = false
+      
+      // Clear any pending timeouts
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+      
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      
+      // Remove event listeners
+      window.removeEventListener('pin-data-updated', handleDataUpdate);
+      window.removeEventListener('cache-invalidated', handleDataUpdate);
     }
   }, [])
 
@@ -56,8 +81,8 @@ function Dashboard() {
 
     // Try to load from cache first
     try {
-      const cachedData = localStorage.getItem(STATS_CACHE_KEY)
-      const lastFetch = localStorage.getItem(STATS_LAST_FETCH_KEY)
+      const cachedData = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
+      const lastFetch = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH)
 
       if (cachedData) {
         setStats(JSON.parse(cachedData))
@@ -75,36 +100,30 @@ function Dashboard() {
         // If it's been more than the minimum interval, fetch fresh data
         // But add a random delay to prevent multiple components from fetching simultaneously
         if (Date.now() > nextTime) {
-          const randomDelay = Math.floor(Math.random() * 5000) // Random delay up to 5 seconds
-          const timeoutId = setTimeout(() => {
+          const randomDelay = Math.floor(Math.random() * 2000) // Random delay up to 2 seconds
+          timeoutRef.current = setTimeout(() => {
             if (isMounted.current) {
               fetchStats()
             }
           }, randomDelay)
-
-          return () => clearTimeout(timeoutId)
         }
       } else {
         // No record of last fetch, so fetch data after a short delay
-        const timeoutId = setTimeout(() => {
+        timeoutRef.current = setTimeout(() => {
           if (isMounted.current) {
             fetchStats()
           }
-        }, 2000) // 2 second delay
-
-        return () => clearTimeout(timeoutId)
+        }, 1000) // 1 second delay
       }
     } catch (error) {
       console.error("Error loading from cache:", error)
 
       // Add delay before fetching
-      const timeoutId = setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         if (isMounted.current) {
           fetchStats()
         }
-      }, 2000) // 2 second delay
-
-      return () => clearTimeout(timeoutId)
+      }, 1000) // 1 second delay
     }
   }, [isClient])
 
@@ -115,19 +134,34 @@ function Dashboard() {
     // Check if we're allowed to fetch based on time interval
     const now = Date.now()
 
-    // Use the global last fetch time for more strict rate limiting
-    const lastGlobalFetch = typeof window !== "undefined" ? window._dashboardLastFetchTime || 0 : 0
-
-    if (!force && lastGlobalFetch && now - lastGlobalFetch < MIN_FETCH_INTERVAL) {
-      const timeRemaining = Math.ceil((lastGlobalFetch + MIN_FETCH_INTERVAL - now) / 1000)
+    if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
+      const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
       setError(`Untuk menghindari rate limit, tunggu ${timeRemaining} detik sebelum refresh data.`)
       setShowRateLimitModal(true)
       return
     }
 
     setIsRefreshing(true)
-    setLoading(true)
+    
+    // Jangan set loading ke true jika kita sudah memiliki data
+    if (!stats.total) {
+      setLoading(true)
+    }
+    
     setError("")
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
+    // Create a new AbortController
+    abortControllerRef.current = new AbortController()
 
     try {
       const token = sessionStorage.getItem("adminToken")
@@ -138,17 +172,18 @@ function Dashboard() {
       }
 
       // Add a timeout to abort the request if it takes too long
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+      timeoutRef.current = setTimeout(() => {
+        if (abortControllerRef.current && isMounted.current) {
+          abortControllerRef.current.abort()
+        }
+      }, 15000) // 15 second timeout
 
       const response = await axios.get(`/api/admin/stats`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        signal: controller.signal,
+        signal: abortControllerRef.current.signal,
       })
-
-      clearTimeout(timeoutId)
 
       // Only update state if component is still mounted
       if (!isMounted.current) return
@@ -157,15 +192,10 @@ function Dashboard() {
       setStats(response.data)
 
       // Update cache
-      localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(response.data))
-      localStorage.setItem(STATS_LAST_FETCH_KEY, now.toString())
+      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data))
+      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
       setLastFetchTime(now)
       setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
-
-      // Update global last fetch time when a successful fetch occurs
-      if (typeof window !== "undefined") {
-        window._dashboardLastFetchTime = now
-      }
 
       // Clear any error messages
       setError("")
@@ -186,14 +216,9 @@ function Dashboard() {
         // Update last fetch time to prevent immediate retries
         // Use a longer backoff period for 429 errors - 30 minutes
         const backoffTime = now - MIN_FETCH_INTERVAL + 30 * 60 * 1000
-        localStorage.setItem(STATS_LAST_FETCH_KEY, backoffTime.toString())
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, backoffTime.toString())
         setLastFetchTime(backoffTime)
         setNextAllowedFetchTime(backoffTime + MIN_FETCH_INTERVAL)
-
-        // Update global last fetch time
-        if (typeof window !== "undefined") {
-          window._dashboardLastFetchTime = backoffTime
-        }
       } else {
         setError("Gagal mengambil data statistik: " + (error.response?.data?.error || "Terjadi kesalahan"))
       }
@@ -201,6 +226,12 @@ function Dashboard() {
       if (isMounted.current) {
         setLoading(false)
         setIsRefreshing(false)
+        
+        // Clear timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
+        }
       }
     }
   }
@@ -210,7 +241,7 @@ function Dashboard() {
     if (lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
       setShowForceRefreshModal(true)
     } else {
-      fetchStats()
+      fetchStats(true)
     }
   }
 

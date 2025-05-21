@@ -22,10 +22,18 @@ export async function POST(request) {
       return NextResponse.json({ error: "Valid PIN IDs array is required" }, { status: 400 })
     }
 
-    // Batch update all pins in a single operation
+    const now = new Date()
+
+    // Batch update all pins in a single operation with processedAt and processedBy
     const result = await PinCode.updateMany(
       { _id: { $in: pinIds }, used: true, processed: false },
-      { $set: { processed: true } },
+      { 
+        $set: { 
+          processed: true,
+          processedAt: now,
+          processedBy: authResult.user._id
+        } 
+      },
     )
 
     if (result.modifiedCount === 0) {
@@ -37,17 +45,31 @@ export async function POST(request) {
 
     logger.info(`${result.modifiedCount} PINs ditandai sebagai diproses oleh ${authResult.user.username}`)
 
-    // Emit batch update event
+    // Emit batch update event with more comprehensive data
     pinUpdateEmitter.emit("pins-batch-processed", {
       count: result.modifiedCount,
       pinIds,
+      processedAt: now,
+      processedBy: {
+        id: authResult.user._id,
+        username: authResult.user.username
+      }
     })
 
-    return NextResponse.json({
-      success: true,
-      message: `${result.modifiedCount} PIN berhasil diproses`,
-      processed: result.modifiedCount,
-    })
+    // Return response with cache control headers
+    return NextResponse.json(
+      {
+        success: true,
+        message: `${result.modifiedCount} PIN berhasil diproses`,
+        processed: result.modifiedCount,
+        processedAt: now
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
   } catch (error) {
     logger.error("Error batch processing pins:", error)
     return NextResponse.json({ error: "Server error" }, { status: 500 })

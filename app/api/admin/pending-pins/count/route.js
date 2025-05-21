@@ -19,7 +19,31 @@ export async function GET(request) {
 
     logger.info(`Pending pins count fetched by ${authResult.user.username}: ${count}`)
 
-    return NextResponse.json({ count })
+    // Generate ETag based on count
+    const etag = `"count-${count}"`
+    
+    // Check if client has a valid cached version
+    const ifNoneMatch = request.headers.get('if-none-match')
+    if (ifNoneMatch === etag) {
+      return new NextResponse(null, { 
+        status: 304, 
+        headers: {
+          'ETag': etag,
+          'Cache-Control': 'private, max-age=10',
+        }
+      })
+    }
+
+    // Return response with caching headers
+    return NextResponse.json(
+      { count },
+      { 
+        headers: {
+          'ETag': etag,
+          'Cache-Control': 'private, max-age=10',
+        }
+      }
+    )
   } catch (error) {
     logger.error("Error fetching pending pins count:", error)
     return NextResponse.json({ error: "Server error" }, { status: 500 })

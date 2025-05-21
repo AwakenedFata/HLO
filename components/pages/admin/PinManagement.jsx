@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation"
 import axios from "axios"
 import { FaFileUpload, FaFileDownload, FaPlus, FaSync, FaTrash, FaCheck, FaFilter, FaSearch } from "react-icons/fa"
 import Papa from "papaparse"
+import { CACHE_KEYS, invalidateAllCaches, updatePendingCountInCaches, getPendingPinsCacheKey } from "@/lib/utils/cache-utils"
 import "@/styles/adminstyles.css"
 
 function PinManagement() {
@@ -89,6 +90,17 @@ function PinManagement() {
   // Tandai bahwa kita sudah di client-side
   useEffect(() => {
     setIsClient(true)
+    
+    // Tambahkan event listener untuk update data
+    const handleDataUpdate = () => {
+      if (isMounted.current) {
+        fetchPins();
+      }
+    };
+    
+    window.addEventListener('pin-data-updated', handleDataUpdate);
+    window.addEventListener('cache-invalidated', handleDataUpdate);
+    
     return () => {
       isMounted.current = false
       // Cancel any pending requests when component unmounts
@@ -98,6 +110,9 @@ function PinManagement() {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current)
       }
+      // Remove event listeners
+      window.removeEventListener('pin-data-updated', handleDataUpdate);
+      window.removeEventListener('cache-invalidated', handleDataUpdate);
     }
   }, [])
 
@@ -151,7 +166,7 @@ function PinManagement() {
     try {
       // Set a timeout for the request (15 seconds)
       const timeoutId = setTimeout(() => {
-        if (abortControllerRef.current) {
+        if (abortControllerRef.current && isMounted.current) {
           abortControllerRef.current.abort()
         }
       }, 15000)
@@ -189,6 +204,10 @@ function PinManagement() {
       // Update stats if available in response
       if (response.data.stats) {
         setStats(response.data.stats)
+        
+        // Cache the stats for other components to use
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data.stats))
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, Date.now().toString())
       } else {
         // Calculate stats from pins data
         const total = response.data.total || response.data.pins?.length || 0
@@ -196,19 +215,26 @@ function PinManagement() {
         const pending = response.data.pins?.filter((pin) => pin.used && !pin.processed).length || 0
         const processed = response.data.pins?.filter((pin) => pin.used && pin.processed).length || 0
 
-        setStats({
+        const calculatedStats = {
           total,
           used,
           available: total - used,
           pending,
           processed,
-        })
+        }
+        
+        setStats(calculatedStats)
+        
+        // Cache the calculated stats
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(calculatedStats))
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, Date.now().toString())
       }
 
       // Apply filters to the fetched data
       applyFilters(response.data.pins || [], filterStatus, searchTerm)
 
       setLoading(false)
+      setIsRefreshing(false)
     } catch (error) {
       console.error("Error fetching pins:", error)
 
@@ -227,6 +253,7 @@ function PinManagement() {
       }
 
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -269,14 +296,12 @@ function PinManagement() {
       clearTimeout(refreshTimeoutRef.current)
     }
 
-    // Clear dashboard and stats cache to force refresh
-    localStorage.removeItem("dashboard_stats_cache")
-    localStorage.removeItem("pending_pins_cache")
+    // Invalidate all caches to force refresh
+    invalidateAllCaches()
 
     // Set a timeout to prevent rapid refreshes
     refreshTimeoutRef.current = setTimeout(() => {
       fetchPins(currentPage, itemsPerPage)
-      setIsRefreshing(false)
     }, 1000)
   }
 
@@ -335,8 +360,11 @@ function PinManagement() {
 
       setSuccessMessage(`Berhasil generate ${response.data.count} PIN baru`)
 
-      // Clear dashboard and stats cache to force refresh
-      localStorage.removeItem("dashboard_stats_cache")
+      // Invalidate all caches to force refresh
+      invalidateAllCaches()
+      
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(new CustomEvent('cache-invalidated'));
 
       // Refresh data after generate
       fetchPins()
@@ -443,9 +471,6 @@ function PinManagement() {
     )
   }
 
-  // Rest of your component methods...
-  // I'm not including all of them to keep the response concise, but you should
-  // update all methods that make API calls to use the handleApiCall helper
   const handleExportCSV = () => {
     if (!isClient) return
 
@@ -544,8 +569,11 @@ function PinManagement() {
       fileInputRef.current.value = ""
       setImportPreview([])
 
-      // Clear dashboard and stats cache to force refresh
-      localStorage.removeItem("dashboard_stats_cache")
+      // Invalidate all caches to force refresh
+      invalidateAllCaches()
+      
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(new CustomEvent('cache-invalidated'));
 
       // Refresh data after import
       fetchPins()
@@ -589,8 +617,11 @@ function PinManagement() {
       setPinToDelete(null)
       setSuccessMessage("PIN berhasil dihapus")
 
-      // Clear dashboard and stats cache to force refresh
-      localStorage.removeItem("dashboard_stats_cache")
+      // Invalidate all caches to force refresh
+      invalidateAllCaches()
+      
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(new CustomEvent('cache-invalidated'));
 
       fetchPins() // Refresh data setelah hapus
 
@@ -658,8 +689,11 @@ function PinManagement() {
 
       setSuccessMessage(response.data.message || "PIN berhasil dihapus")
 
-      // Clear dashboard and stats cache to force refresh
-      localStorage.removeItem("dashboard_stats_cache")
+      // Invalidate all caches to force refresh
+      invalidateAllCaches()
+      
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(new CustomEvent('cache-invalidated'));
 
       fetchPins() // Refresh data setelah hapus multiple
 
@@ -700,10 +734,6 @@ function PinManagement() {
       setPins(updatedPins)
       applyFilters(updatedPins, filterStatus, searchTerm)
 
-      // Clear dashboard and stats cache to force refresh
-      localStorage.removeItem("dashboard_stats_cache")
-      localStorage.removeItem("pending_pins_cache")
-
       const token = checkAuthAndGetToken()
       if (!token) return
 
@@ -722,7 +752,17 @@ function PinManagement() {
       setShowProcessModal(false)
       setPinToProcess(null)
       setSuccessMessage("PIN berhasil ditandai sebagai diproses")
-      fetchPins() // Refresh data after update
+      
+      // Update global stats cache to reflect the change
+      updatePendingCountInCaches(1)
+      
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(new CustomEvent('pin-data-updated', { 
+        detail: { processedCount: 1 } 
+      }));
+
+      // Refresh data after update
+      fetchPins()
 
       return response
     } catch (error) {
@@ -761,7 +801,6 @@ function PinManagement() {
     )
   }
 
-  // Rest of your component render code...
   return (
     <div className="adminpanelmanajemenpinpage">
       <h1 className="mb-4">Manajemen PIN</h1>
@@ -938,7 +977,7 @@ function PinManagement() {
               onClick={handleRefresh}
               disabled={loading || isRefreshing}
             >
-              <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
+              <FaSync className={`me-1 ${isRefreshing ? "fa-spin" : ""}`} />
               {loading ? "Memuat..." : "Refresh"}
             </Button>
             <Button variant="outline-success" size="sm" onClick={handleExportCSV}>

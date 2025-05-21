@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from "react"
 import { Card, Table, Button, Alert, Row, Col, Spinner, Modal, Form, Pagination } from "react-bootstrap"
 import axios from "axios"
-import { FaSync, FaCheck, FaExclamationTriangle, FaCheckDouble } from "react-icons/fa"
+import { FaSync, FaCheck, FaExclamationTriangle, FaCheckDouble, FaWifi } from "react-icons/fa"
 import { useRouter } from "next/navigation"
 import "@/styles/adminstyles.css"
-import { CACHE_KEYS, updatePendingCountInCaches } from "@/lib/utils/cache-utils"
+import { CACHE_KEYS, updatePendingCountInCaches, getPendingPinsCacheKey } from "@/lib/utils/cache-utils"
+import getAdminSocketClient from "@/lib/utils/socket-client"
 
 function PendingPins() {
   // Pagination state
@@ -32,6 +33,7 @@ function PendingPins() {
   const [showBatchProcessModal, setShowBatchProcessModal] = useState(false)
   const [authError, setAuthError] = useState(false)
   const [totalItems, setTotalItems] = useState(0)
+  const [socketConnected, setSocketConnected] = useState(false)
 
   // Minimum time between fetches (5 minutes in milliseconds)
   const MIN_FETCH_INTERVAL = 5 * 60 * 1000
@@ -42,16 +44,209 @@ function PendingPins() {
   // AbortController for cancelling requests
   const abortControllerRef = useRef(null)
 
+  // Timeout reference for cleanup
+  const timeoutRef = useRef(null)
+
+  // Di dalam useEffect di PendingPins.jsx
   useEffect(() => {
     setIsClient(true)
-    return () => {
-      isMounted.current = false
-      // Cancel any pending requests when component unmounts
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+
+    // Tambahkan event listener untuk update data
+    const handleDataUpdate = () => {
+      if (isMounted.current) {
+        fetchPendingPins(true)
+      }
+    }
+
+    window.addEventListener("pin-data-updated", handleDataUpdate)
+    window.addEventListener("cache-invalidated", handleDataUpdate)
+
+    // Inisialisasi Socket.io hanya jika token tersedia
+    const token = sessionStorage.getItem("adminToken")
+
+    if (token && token.length > 10) {
+      // Variabel untuk menyimpan fungsi cleanup
+      let socketCleanup = () => {}
+
+      // Fungsi untuk inisialisasi Socket.io
+      const initializeSocket = async () => {
+        try {
+          // Ping API route terlebih dahulu untuk memastikan server siap
+          const response = await fetch("/api/socket")
+          if (!response.ok) {
+            throw new Error(`Failed to initialize Socket.io: ${response.status}`)
+          }
+
+          // Inisialisasi Socket.io client
+          const socketClient = getAdminSocketClient()
+          socketClient.connect()
+
+          // Handler untuk event Socket.io
+          const handlePinProcessed = (data) => {
+            console.log("Socket: Pin processed:", data)
+
+            // Jika pin yang diproses ada di halaman ini, hapus dari daftar
+            if (pendingPins.some((pin) => pin._id === data.pinId)) {
+              if (isMounted.current) {
+                // Update daftar pin
+                const updatedPins = pendingPins.filter((pin) => pin._id !== data.pinId)
+                setPendingPins(updatedPins)
+
+                // Update cache
+                const cacheKey = getPendingPinsCacheKey(currentPage, itemsPerPage)
+                localStorage.setItem(cacheKey, JSON.stringify(updatedPins))
+
+                // Update counter
+                updatePendingCountInCaches(1)
+
+                // Tampilkan notifikasi
+                setSuccessMessage(`PIN telah diproses oleh ${data.processedBy?.username || "admin lain"}`)
+
+                // Jika halaman kosong, refresh atau pindah halaman
+                if (updatedPins.length === 0) {
+                  if (currentPage > 1) {
+                    handlePageChange(currentPage - 1)
+                  } else {
+                    fetchPendingPins(true)
+                  }
+                }
+              }
+            }
+          }
+
+          const handleBatchProcessed = (data) => {
+            console.log("Socket: Batch processed:", data)
+
+            // Jika ada pin yang diproses di halaman ini, refresh data
+            const processedCount = data.count || 0
+
+            if (processedCount > 0) {
+              if (isMounted.current) {
+                setSuccessMessage(
+                  `${processedCount} PIN telah diproses oleh ${data.processedBy?.username || "admin lain"}`,
+                )
+
+                // Refresh data untuk mendapatkan daftar terbaru
+                fetchPendingPins(true)
+
+                // Update counter
+                updatePendingCountInCaches(processedCount)
+              }
+            }
+          }
+
+          const handleSocketConnected = (data) => {
+            console.log("Socket connected:", data)
+            setSocketConnected(true)
+          }
+
+          const handleSocketDisconnected = (data) => {
+            console.log("Socket disconnected:", data)
+            setSocketConnected(false)
+          }
+
+          const handleSocketError = (data) => {
+            console.error("Socket error:", data)
+            setSocketConnected(false)
+
+            // Coba reconnect setelah error
+            setTimeout(() => {
+              if (isMounted.current && !socketClient.isConnected()) {
+                console.log("Attempting to reconnect Socket.io...")
+                socketClient.reconnect()
+              }
+            }, 5000)
+          }
+
+          // Daftarkan event listeners Socket.io
+          socketClient.on("pin-processed", handlePinProcessed)
+          socketClient.on("pins-batch-processed", handleBatchProcessed)
+          socketClient.on("connected", handleSocketConnected)
+          socketClient.on("disconnected", handleSocketDisconnected)
+          socketClient.on("error", handleSocketError)
+
+          // Definisikan fungsi cleanup
+          socketCleanup = () => {
+            console.log("Cleaning up Socket.io event listeners")
+            // Remove Socket.io event listeners
+            socketClient.off("pin-processed", handlePinProcessed)
+            socketClient.off("pins-batch-processed", handleBatchProcessed)
+            socketClient.off("connected", handleSocketConnected)
+            socketClient.off("disconnected", handleSocketDisconnected)
+            socketClient.off("error", handleSocketError)
+
+            // Disconnect socket
+            socketClient.disconnect()
+          }
+        } catch (error) {
+          console.error("Failed to initialize Socket.io:", error)
+          // Retry after delay
+          if (isMounted.current) {
+            const retryTimeout = setTimeout(() => {
+              if (isMounted.current) {
+                console.log("Retrying Socket.io initialization...")
+                initializeSocket()
+              }
+            }, 5000)
+
+            // Update cleanup function to clear timeout
+            socketCleanup = () => {
+              clearTimeout(retryTimeout)
+            }
+          }
+        }
+      }
+
+      // Start initialization
+      initializeSocket()
+
+      // Cleanup function
+      return () => {
+        isMounted.current = false
+        // Cancel any pending requests when component unmounts
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        // Clear any pending timeouts
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+        // Remove event listeners
+        window.removeEventListener("pin-data-updated", handleDataUpdate)
+        window.removeEventListener("cache-invalidated", handleDataUpdate)
+
+        // Execute socket cleanup
+        socketCleanup()
+      }
+    } else {
+      console.warn("Token belum tersedia atau tidak valid. Socket.io tidak dijalankan.")
+      // Cleanup function when no token
+      return () => {
+        isMounted.current = false
+        // Cancel any pending requests when component unmounts
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        // Clear any pending timeouts
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+        // Remove event listeners
+        window.removeEventListener("pin-data-updated", handleDataUpdate)
+        window.removeEventListener("cache-invalidated", handleDataUpdate)
       }
     }
   }, [])
+
+  // Effect untuk menangani perubahan pendingPins
+  useEffect(() => {
+    // Update selectAll state jika semua pin dipilih
+    if (pendingPins.length > 0 && selectedPins.length === pendingPins.length) {
+      setSelectAll(true)
+    } else {
+      setSelectAll(false)
+    }
+  }, [pendingPins, selectedPins])
 
   // Check authentication on component mount
   useEffect(() => {
@@ -98,52 +293,50 @@ function PendingPins() {
       abortControllerRef.current.abort()
     }
 
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
     // Create a new AbortController
     abortControllerRef.current = new AbortController()
 
     setIsRefreshing(true)
-    setLoading(true)
     setError("")
 
     try {
-      // Set a timeout for the request (10 seconds)
-      const timeoutId = setTimeout(() => {
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
+      // Cek cache terlebih dahulu jika tidak force refresh
+      if (!force) {
+        const cacheKey = getPendingPinsCacheKey(page, limit)
+        const cachedData = localStorage.getItem(cacheKey)
+        const lastFetchStr = localStorage.getItem(CACHE_KEYS.PENDING_PINS_LAST_FETCH)
+
+        if (cachedData && lastFetchStr) {
+          const cachedPins = JSON.parse(cachedData)
+          const lastFetch = Number.parseInt(lastFetchStr, 10)
+
+          // Jika cache masih valid (kurang dari interval minimum)
+          if (now - lastFetch < MIN_FETCH_INTERVAL) {
+            if (isMounted.current) {
+              setPendingPins(cachedPins)
+              setLoading(false)
+              setIsRefreshing(false)
+
+              // Tetap ambil data baru di background setelah delay singkat
+              setTimeout(() => {
+                if (isMounted.current) {
+                  fetchFreshData(token, page, limit, now)
+                }
+              }, 1000)
+
+              return
+            }
+          }
         }
-      }, 10000)
+      }
 
-      // Use the dedicated endpoint for pending pins with pagination
-      const response = await axios.get(`/api/admin/pending-pins?page=${page}&limit=${limit}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        signal: abortControllerRef.current.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      // Only update state if component is still mounted
-      if (!isMounted.current) return
-
-      // Update state with pins from the dedicated endpoint
-      setPendingPins(response.data.pins || [])
-      setTotalPages(response.data.totalPages || 1)
-      setTotalItems(response.data.total || 0)
-
-      // Update cache with the current page data
-      const cacheKey = `${CACHE_KEYS.PENDING_PINS}_page_${page}_limit_${limit}`
-      localStorage.setItem(cacheKey, JSON.stringify(response.data.pins || []))
-      localStorage.setItem(CACHE_KEYS.PENDING_PINS_LAST_FETCH, now.toString())
-      setLastFetchTime(now)
-      setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
-
-      // Clear any error messages
-      setError("")
-
-      // Reset selection state
-      setSelectedPins([])
-      setSelectAll(false)
+      // Jika tidak ada cache atau force refresh, langsung ambil data baru
+      await fetchFreshData(token, page, limit, now)
     } catch (error) {
       console.error("Error fetching pending pins:", error)
 
@@ -170,7 +363,61 @@ function PendingPins() {
       if (isMounted.current) {
         setLoading(false)
         setIsRefreshing(false)
+
+        // Clear timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
+        }
       }
+    }
+  }
+
+  // Helper function to fetch fresh data from API
+  const fetchFreshData = async (token, page, limit, now) => {
+    try {
+      // Set a timeout for the request (10 seconds)
+      timeoutRef.current = setTimeout(() => {
+        if (abortControllerRef.current && isMounted.current) {
+          abortControllerRef.current.abort()
+        }
+      }, 10000)
+
+      // Use the dedicated endpoint for pending pins with pagination
+      const response = await axios.get(`/api/admin/pending-pins?page=${page}&limit=${limit}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: abortControllerRef.current.signal,
+      })
+
+      // Only update state if component is still mounted
+      if (!isMounted.current) return
+
+      // Update state with pins from the dedicated endpoint
+      setPendingPins(response.data.pins || [])
+      setTotalPages(response.data.totalPages || 1)
+      setTotalItems(response.data.total || 0)
+
+      // Update cache with the current page data
+      const cacheKey = getPendingPinsCacheKey(page, limit)
+      localStorage.setItem(cacheKey, JSON.stringify(response.data.pins || []))
+      localStorage.setItem(CACHE_KEYS.PENDING_PINS_LAST_FETCH, now.toString())
+      setLastFetchTime(now)
+      setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
+
+      // Clear any error messages
+      setError("")
+
+      // Reset selection state
+      setSelectedPins([])
+      setSelectAll(false)
+
+      // Set loading to false explicitly
+      setLoading(false)
+    } catch (error) {
+      // Re-throw error to be handled by the parent function
+      throw error
     }
   }
 
@@ -228,7 +475,7 @@ function PendingPins() {
       setPendingPins(updatedPins)
 
       // Update the cache for the current page
-      const cacheKey = `${CACHE_KEYS.PENDING_PINS}_page_${currentPage}_limit_${itemsPerPage}`
+      const cacheKey = getPendingPinsCacheKey(currentPage, itemsPerPage)
       localStorage.setItem(cacheKey, JSON.stringify(updatedPins))
 
       // Update global stats cache to reflect the change
@@ -246,6 +493,13 @@ function PendingPins() {
         // If it was the last item on the first page, refresh to check if there are more items
         fetchPendingPins(true)
       }
+
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(
+        new CustomEvent("pin-data-updated", {
+          detail: { processedCount: 1 },
+        }),
+      )
     } catch (error) {
       console.error("Error marking pin as processed:", error)
 
@@ -306,7 +560,7 @@ function PendingPins() {
       setPendingPins(updatedPins)
 
       // Update the cache for the current page
-      const cacheKey = `${CACHE_KEYS.PENDING_PINS}_page_${currentPage}_limit_${itemsPerPage}`
+      const cacheKey = getPendingPinsCacheKey(currentPage, itemsPerPage)
       localStorage.setItem(cacheKey, JSON.stringify(updatedPins))
 
       // Update global stats cache to reflect the changes
@@ -325,6 +579,13 @@ function PendingPins() {
           fetchPendingPins(true)
         }
       }
+
+      // Broadcast event untuk memberi tahu komponen lain
+      window.dispatchEvent(
+        new CustomEvent("pin-data-updated", {
+          detail: { processedCount },
+        }),
+      )
     } catch (error) {
       console.error("Error batch processing pins:", error)
 
@@ -508,11 +769,16 @@ function PendingPins() {
             <Card.Body>
               <h3>{totalItems}</h3>
               <p className="mb-0">Total PIN Pending</p>
-              {lastFetchTime > 0 && (
-                <small className="d-block mt-2">
-                  Terakhir diperbarui: {new Date(lastFetchTime).toLocaleTimeString()}
+              <div className="d-flex justify-content-center align-items-center mt-2">
+                <small className="me-2">
+                  Terakhir diperbarui: {lastFetchTime > 0 ? new Date(lastFetchTime).toLocaleTimeString() : "-"}
                 </small>
-              )}
+                {socketConnected && (
+                  <span className="badge bg-success d-flex align-items-center">
+                    <FaWifi className="me-1" size={10} /> Live
+                  </span>
+                )}
+              </div>
             </Card.Body>
           </Card>
         </Col>

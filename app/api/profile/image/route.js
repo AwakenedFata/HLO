@@ -8,13 +8,15 @@ export async function GET(request) {
   try {
     await connectToDatabase()
 
-    // Authenticate user
     const authResult = await authenticateRequest(request)
+
+    // Tambahkan pengecekan error DI SINI
     if (authResult.error) {
       return NextResponse.json({ success: false, message: authResult.message }, { status: 401 })
     }
 
-    logger.info("GET /api/profile/image endpoint hit")
+    logger.info("GET /api/profile/image endpoint hit, user:", authResult.user._id)
+
     const admin = await Admin.findById(authResult.user._id)
 
     if (!admin) {

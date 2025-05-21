@@ -22,8 +22,18 @@ export async function POST(request) {
       return NextResponse.json({ error: "PIN ID is required" }, { status: 400 })
     }
 
+    const now = new Date()
+
     // Find and update the pin in a single operation
-    const updatedPin = await PinCode.findByIdAndUpdate(pinId, { processed: true }, { new: true })
+    const updatedPin = await PinCode.findByIdAndUpdate(
+      pinId, 
+      { 
+        processed: true,
+        processedAt: now,
+        processedBy: authResult.user._id
+      }, 
+      { new: true }
+    )
 
     if (!updatedPin) {
       return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
@@ -31,19 +41,32 @@ export async function POST(request) {
 
     logger.info(`PIN ${updatedPin.code} ditandai sebagai diproses oleh ${authResult.user.username}`)
 
-    // Emit event for pin update
+    // Emit event for pin update with more comprehensive data
     pinUpdateEmitter.emit("pin-processed", {
       pinId,
       code: updatedPin.code,
       processed: true,
+      processedAt: now,
+      processedBy: {
+        id: authResult.user._id,
+        username: authResult.user.username
+      }
     })
 
-    // Return minimal data to reduce response size
-    return NextResponse.json({
-      success: true,
-      message: "PIN berhasil diproses",
-      code: updatedPin.code,
-    })
+    // Return response with cache control headers
+    return NextResponse.json(
+      {
+        success: true,
+        message: "PIN berhasil diproses",
+        code: updatedPin.code,
+        processedAt: now
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
   } catch (error) {
     logger.error("Error processing pin:", error)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
