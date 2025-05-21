@@ -5,7 +5,6 @@ import { connectToDatabase } from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
 import { authorizeRequest } from "@/lib/utils/auth-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
-import { getCache, setCache } from "@/lib/redis"
 import logger from "@/lib/utils/logger-server"
 
 // PERBAIKAN: Tingkatkan rate limit
