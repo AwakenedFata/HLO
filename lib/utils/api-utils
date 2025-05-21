@@ -1,61 +1,96 @@
 /**
- * Utility functions for API calls
+ * Fungsi utilitas untuk API calls
  */
 
 import axios from "axios"
-import { getFromCache, saveToCache } from "./cache-utils"
 
 /**
- * Fetches data from API with caching
- * @param {string} url - API endpoint URL
- * @param {string} cacheKey - Key for storing data in localStorage
- * @param {string} lastFetchKey - Key for storing last fetch timestamp
- * @param {number} cacheExpiration - Cache expiration time in milliseconds
- * @param {boolean} force - Force fetch from API, ignoring cache
- * @param {Object} options - Additional options
- * @returns {Promise<Object>} - API response data
+ * Membuat timeout controller untuk request
+ * @param {number} timeoutMs - Timeout dalam milidetik
+ * @returns {Object} - { signal, clear }
  */
-export async function fetchWithCache(url, cacheKey, lastFetchKey, cacheExpiration, force = false, options = {}) {
-  const { headers = {}, signal = null } = options
+export function createTimeoutController(timeoutMs = 15000) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-  // Try to get from cache first if not forcing refresh
-  if (!force) {
-    const cachedData = getFromCache(cacheKey, lastFetchKey, cacheExpiration)
-    if (cachedData) {
-      return cachedData
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timeoutId),
+  }
+}
+
+/**
+ * Fungsi untuk mengambil data dengan caching
+ * @param {string} url - URL endpoint API
+ * @param {string} cacheKey - Key untuk menyimpan data di localStorage
+ * @param {Object} options - Opsi tambahan
+ * @returns {Promise<Object>} - Data respons API
+ */
+export async function fetchWithCache(url, cacheKey, options = {}) {
+  const { headers = {}, signal = null, forceRefresh = false } = options
+
+  // Coba ambil dari cache terlebih dahulu jika tidak memaksa refresh
+  if (!forceRefresh && typeof window !== "undefined") {
+    const cachedData = localStorage.getItem(cacheKey)
+    const cacheTime = localStorage.getItem(`${cacheKey}_time`)
+
+    if (cachedData && cacheTime) {
+      // Cache valid selama 5 menit (300000 ms)
+      const now = Date.now()
+      const cacheAge = now - Number(cacheTime)
+
+      if (cacheAge < 300000) {
+        console.log(`Menggunakan data cache untuk ${url}`)
+        return JSON.parse(cachedData)
+      }
     }
   }
 
-  // Fetch from API
+  // Tampilkan indikator loading
+  if (typeof window !== "undefined" && window.NProgress) {
+    window.NProgress.start()
+  }
+
   try {
+    console.log(`Mengambil data dari ${url}`)
+    const startTime = Date.now()
+
+    // Tambahkan timeout yang lebih lama untuk request
     const response = await axios.get(url, {
       headers,
       signal,
+      timeout: 30000, // 30 detik timeout
     })
 
-    // Check for rate limit headers
-    const rateLimitRemaining = response.headers["x-ratelimit-remaining"]
-    const rateLimitReset = response.headers["x-ratelimit-reset"]
+    const endTime = Date.now()
+    console.log(`Fetch selesai dalam ${endTime - startTime}ms untuk ${url}`)
 
-    // If we're close to rate limit, extend cache expiration
-    if (rateLimitRemaining && Number.parseInt(rateLimitRemaining) < 3) {
-      const extendedExpiration = rateLimitReset ? Number.parseInt(rateLimitReset) * 1000 + 5000 : cacheExpiration * 2
-      saveToCache(cacheKey, lastFetchKey, response.data, extendedExpiration)
-    } else {
-      // Save to cache with normal expiration
-      saveToCache(cacheKey, lastFetchKey, response.data)
+    // Simpan ke cache
+    if (typeof window !== "undefined") {
+      localStorage.setItem(cacheKey, JSON.stringify(response.data))
+      localStorage.setItem(`${cacheKey}_time`, Date.now().toString())
+    }
+
+    // Sembunyikan indikator loading
+    if (typeof window !== "undefined" && window.NProgress) {
+      window.NProgress.done()
     }
 
     return response.data
   } catch (error) {
-    console.error(`Error fetching from ${url}:`, error.message)
+    console.error(`Error mengambil data dari ${url}:`, error.message)
 
-    // If error is due to abort, just rethrow
+    // Sembunyikan indikator loading
+    if (typeof window !== "undefined" && window.NProgress) {
+      window.NProgress.done()
+    }
+
+    // Jika error karena abort, lempar kembali
     if (error.name === "AbortError" || error.name === "CanceledError") {
       throw error
     }
 
-    // For 401 errors, clear token and throw
+    // Untuk error 401, hapus token dan lempar
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("adminToken")
@@ -63,29 +98,13 @@ export async function fetchWithCache(url, cacheKey, lastFetchKey, cacheExpiratio
       throw error
     }
 
-    // For 429 rate limit errors, use cached data and extend expiration
-    if (error.response?.status === 429) {
-      const cachedData = getFromCache(cacheKey, lastFetchKey, Number.POSITIVE_INFINITY) // Ignore expiration
+    // Untuk error lain, coba kembalikan dari cache sebagai fallback
+    if (typeof window !== "undefined") {
+      const cachedData = localStorage.getItem(cacheKey)
       if (cachedData) {
-        // Get reset time from headers or default to 60 seconds
-        const resetTime = error.response.headers["retry-after"]
-          ? Number.parseInt(error.response.headers["retry-after"]) * 1000
-          : 60000
-
-        // Extend cache expiration
-        if (typeof window !== "undefined") {
-          localStorage.setItem(lastFetchKey, (Date.now() + resetTime).toString())
-        }
-
-        return cachedData
+        console.warn("Menggunakan data cache sebagai fallback karena error API:", error.message)
+        return JSON.parse(cachedData)
       }
-    }
-
-    // For other errors, try to return from cache as fallback
-    const cachedData = getFromCache(cacheKey, lastFetchKey, Number.POSITIVE_INFINITY) // Ignore expiration for fallback
-    if (cachedData) {
-      console.warn("Using cached data as fallback due to API error:", error.message)
-      return cachedData
     }
 
     throw error
@@ -93,25 +112,25 @@ export async function fetchWithCache(url, cacheKey, lastFetchKey, cacheExpiratio
 }
 
 /**
- * Handles API calls with token refresh
- * @param {Function} apiCallFn - Function that makes the API call
- * @returns {Promise<any>} - API response
+ * Fungsi untuk menangani API calls dengan refresh token
+ * @param {Function} apiCallFn - Fungsi yang membuat API call
+ * @returns {Promise<any>} - Respons API
  */
 export async function handleApiCall(apiCallFn) {
   try {
     const token = sessionStorage.getItem("adminToken")
     if (!token) {
-      throw new Error("No authentication token found")
+      throw new Error("Token autentikasi tidak ditemukan")
     }
 
     return await apiCallFn(token)
   } catch (error) {
     if (error.response?.status === 401) {
       try {
-        // Try to refresh the token
+        // Coba refresh token
         const refreshToken = sessionStorage.getItem("refreshToken")
         if (!refreshToken) {
-          throw new Error("No refresh token available")
+          throw new Error("Refresh token tidak tersedia")
         }
 
         const refreshResponse = await axios.post(
@@ -125,39 +144,23 @@ export async function handleApiCall(apiCallFn) {
         )
 
         if (refreshResponse.data.token) {
-          // Store the new token
+          // Simpan token baru
           sessionStorage.setItem("adminToken", refreshResponse.data.token)
           if (refreshResponse.data.refreshToken) {
             sessionStorage.setItem("refreshToken", refreshResponse.data.refreshToken)
           }
 
-          // Retry the original request with the new token
+          // Coba ulang request asli dengan token baru
           return await apiCallFn(refreshResponse.data.token)
         }
       } catch (refreshError) {
-        console.error("Token refresh error:", refreshError)
+        console.error("Error refresh token:", refreshError)
         sessionStorage.removeItem("adminToken")
         sessionStorage.removeItem("refreshToken")
-        throw new Error("Authentication failed")
+        throw new Error("Autentikasi gagal")
       }
     }
 
     throw error
-  }
-}
-
-/**
- * Creates an AbortController with timeout
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Object} - { controller, signal, clear }
- */
-export function createTimeoutController(timeoutMs = 15000) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-  return {
-    controller,
-    signal: controller.signal,
-    clear: () => clearTimeout(timeoutId),
   }
 }
