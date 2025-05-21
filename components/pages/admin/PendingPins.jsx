@@ -7,7 +7,7 @@ import { FaSync, FaCheck, FaExclamationTriangle, FaCheckDouble, FaWifi } from "r
 import { useRouter } from "next/navigation"
 import "@/styles/adminstyles.css"
 import { CACHE_KEYS, updatePendingCountInCaches, getPendingPinsCacheKey } from "@/lib/utils/cache-utils"
-import getAdminSocketClient from "@/lib/utils/socket-client"
+import getAdminSSEClient from "@/lib/utils/sse-client"
 
 function PendingPins() {
   // Pagination state
@@ -33,7 +33,8 @@ function PendingPins() {
   const [showBatchProcessModal, setShowBatchProcessModal] = useState(false)
   const [authError, setAuthError] = useState(false)
   const [totalItems, setTotalItems] = useState(0)
-  const [socketConnected, setSocketConnected] = useState(false)
+  const [sseConnected, setSSEConnected] = useState(false)
+  const [sseError, setSSEError] = useState(null)
 
   // Minimum time between fetches (5 minutes in milliseconds)
   const MIN_FETCH_INTERVAL = 5 * 60 * 1000
@@ -61,29 +62,22 @@ function PendingPins() {
     window.addEventListener("pin-data-updated", handleDataUpdate)
     window.addEventListener("cache-invalidated", handleDataUpdate)
 
-    // Inisialisasi Socket.io hanya jika token tersedia
+    // Inisialisasi SSE hanya jika token tersedia
     const token = sessionStorage.getItem("adminToken")
 
     if (token && token.length > 10) {
       // Variabel untuk menyimpan fungsi cleanup
-      let socketCleanup = () => {}
+      let sseCleanup = () => {}
 
-      // Fungsi untuk inisialisasi Socket.io
-      const initializeSocket = async () => {
+      // Fungsi untuk inisialisasi SSE
+      const initializeSSE = async () => {
         try {
-          // Ping API route terlebih dahulu untuk memastikan server siap
-          const response = await fetch("/api/socket")
-          if (!response.ok) {
-            throw new Error(`Failed to initialize Socket.io: ${response.status}`)
-          }
+          // Inisialisasi SSE client
+          const sseClient = getAdminSSEClient()
 
-          // Inisialisasi Socket.io client
-          const socketClient = getAdminSocketClient()
-          socketClient.connect()
-
-          // Handler untuk event Socket.io
+          // Handler untuk event SSE
           const handlePinProcessed = (data) => {
-            console.log("Socket: Pin processed:", data)
+            console.log("SSE: Pin processed:", data)
 
             // Jika pin yang diproses ada di halaman ini, hapus dari daftar
             if (pendingPins.some((pin) => pin._id === data.pinId)) {
@@ -115,7 +109,7 @@ function PendingPins() {
           }
 
           const handleBatchProcessed = (data) => {
-            console.log("Socket: Batch processed:", data)
+            console.log("SSE: Batch processed:", data)
 
             // Jika ada pin yang diproses di halaman ini, refresh data
             const processedCount = data.count || 0
@@ -135,70 +129,54 @@ function PendingPins() {
             }
           }
 
-          const handleSocketConnected = (data) => {
-            console.log("Socket connected:", data)
-            setSocketConnected(true)
+          const handleSSEConnected = (data) => {
+            console.log("SSE connected:", data)
+            setSSEConnected(true)
+            setSSEError(null)
           }
 
-          const handleSocketDisconnected = (data) => {
-            console.log("Socket disconnected:", data)
-            setSocketConnected(false)
+          const handleSSEDisconnected = (data) => {
+            console.log("SSE disconnected:", data)
+            setSSEConnected(false)
           }
 
-          const handleSocketError = (data) => {
-            console.error("Socket error:", data)
-            setSocketConnected(false)
-
-            // Coba reconnect setelah error
-            setTimeout(() => {
-              if (isMounted.current && !socketClient.isConnected()) {
-                console.log("Attempting to reconnect Socket.io...")
-                socketClient.reconnect()
-              }
-            }, 5000)
+          const handleSSEError = (data) => {
+            console.error("SSE error:", data)
+            setSSEConnected(false)
+            setSSEError(data.message)
           }
 
-          // Daftarkan event listeners Socket.io
-          socketClient.on("pin-processed", handlePinProcessed)
-          socketClient.on("pins-batch-processed", handleBatchProcessed)
-          socketClient.on("connected", handleSocketConnected)
-          socketClient.on("disconnected", handleSocketDisconnected)
-          socketClient.on("error", handleSocketError)
+          // Daftarkan event listeners SSE
+          sseClient.on("pin-processed", handlePinProcessed)
+          sseClient.on("pins-batch-processed", handleBatchProcessed)
+          sseClient.on("connected", handleSSEConnected)
+          sseClient.on("disconnected", handleSSEDisconnected)
+          sseClient.on("error", handleSSEError)
+
+          // Connect ke SSE server
+          await sseClient.connect()
 
           // Definisikan fungsi cleanup
-          socketCleanup = () => {
-            console.log("Cleaning up Socket.io event listeners")
-            // Remove Socket.io event listeners
-            socketClient.off("pin-processed", handlePinProcessed)
-            socketClient.off("pins-batch-processed", handleBatchProcessed)
-            socketClient.off("connected", handleSocketConnected)
-            socketClient.off("disconnected", handleSocketDisconnected)
-            socketClient.off("error", handleSocketError)
+          sseCleanup = () => {
+            console.log("Cleaning up SSE event listeners")
+            // Remove SSE event listeners
+            sseClient.off("pin-processed", handlePinProcessed)
+            sseClient.off("pins-batch-processed", handleBatchProcessed)
+            sseClient.off("connected", handleSSEConnected)
+            sseClient.off("disconnected", handleSSEDisconnected)
+            sseClient.off("error", handleSSEError)
 
-            // Disconnect socket
-            socketClient.disconnect()
+            // Disconnect SSE
+            sseClient.disconnect()
           }
         } catch (error) {
-          console.error("Failed to initialize Socket.io:", error)
-          // Retry after delay
-          if (isMounted.current) {
-            const retryTimeout = setTimeout(() => {
-              if (isMounted.current) {
-                console.log("Retrying Socket.io initialization...")
-                initializeSocket()
-              }
-            }, 5000)
-
-            // Update cleanup function to clear timeout
-            socketCleanup = () => {
-              clearTimeout(retryTimeout)
-            }
-          }
+          console.error("Failed to initialize SSE:", error)
+          setSSEError(error.message)
         }
       }
 
       // Start initialization
-      initializeSocket()
+      initializeSSE()
 
       // Cleanup function
       return () => {
@@ -215,11 +193,11 @@ function PendingPins() {
         window.removeEventListener("pin-data-updated", handleDataUpdate)
         window.removeEventListener("cache-invalidated", handleDataUpdate)
 
-        // Execute socket cleanup
-        socketCleanup()
+        // Execute SSE cleanup
+        sseCleanup()
       }
     } else {
-      console.warn("Token belum tersedia atau tidak valid. Socket.io tidak dijalankan.")
+      console.warn("Token belum tersedia atau tidak valid. SSE tidak dijalankan.")
       // Cleanup function when no token
       return () => {
         isMounted.current = false
@@ -761,6 +739,7 @@ function PendingPins() {
       <h1 className="mb-4">PIN Pending</h1>
 
       {error && <Alert variant="danger">{error}</Alert>}
+      {sseError && <Alert variant="warning">Error koneksi: {sseError}. Mencoba menghubungkan kembali...</Alert>}
       {successMessage && <Alert variant="success">{successMessage}</Alert>}
 
       <Row className="mb-4">
@@ -773,7 +752,7 @@ function PendingPins() {
                 <small className="me-2">
                   Terakhir diperbarui: {lastFetchTime > 0 ? new Date(lastFetchTime).toLocaleTimeString() : "-"}
                 </small>
-                {socketConnected && (
+                {sseConnected && (
                   <span className="badge bg-success d-flex align-items-center">
                     <FaWifi className="me-1" size={10} /> Live
                   </span>
