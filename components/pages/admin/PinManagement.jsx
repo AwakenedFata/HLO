@@ -17,156 +17,17 @@ import {
   InputGroup,
   Dropdown,
   DropdownButton,
+  Pagination,
 } from "react-bootstrap"
-import { useRouter } from "next/navigation"
 import axios from "axios"
-import useSWR from "swr" // Import SWR
 import { FaFileUpload, FaFileDownload, FaPlus, FaSync, FaTrash, FaCheck, FaFilter, FaSearch } from "react-icons/fa"
 import Papa from "papaparse"
 import "@/styles/adminstyles.css"
-
-// Update the SWR fetcher to include pagination
-const fetcher = async (url) => {
-  if (typeof window === "undefined") return null
-
-  const token = sessionStorage.getItem("adminToken")
-  if (!token) {
-    return { error: "auth", message: "No authentication token found" }
-  }
-
-  try {
-    // Add pagination parameters to the URL
-    const paginatedUrl = url.includes("?") ? url : `${url}?limit=500&page=1`
-
-    const response = await axios.get(paginatedUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-    return response.data
-  } catch (error) {
-    // Handle 401 errors specifically
-    if (error.response?.status === 401) {
-      try {
-        // Try to refresh the token
-        const refreshToken = sessionStorage.getItem("refreshToken")
-        if (!refreshToken) {
-          throw new Error("No refresh token available")
-        }
-
-        const refreshResponse = await axios.post(
-          "/api/auth/refresh",
-          { refreshToken },
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            withCredentials: true,
-          },
-        )
-
-        if (refreshResponse.data.token) {
-          // Store the new token
-          sessionStorage.setItem("adminToken", refreshResponse.data.token)
-
-          // Retry the original request with the new token
-          const paginatedUrl = url.includes("?") ? url : `${url}?limit=500&page=1`
-          const retryResponse = await axios.get(paginatedUrl, {
-            headers: {
-              Authorization: `Bearer ${refreshResponse.data.token}`,
-            },
-          })
-
-          return retryResponse.data
-        } else {
-          // Clear the invalid token
-          sessionStorage.removeItem("adminToken")
-          sessionStorage.removeItem("refreshToken")
-          return { error: "auth", message: "Authentication failed" }
-        }
-      } catch (refreshError) {
-        // If token refresh fails, clear tokens and return auth error
-        sessionStorage.removeItem("adminToken")
-        sessionStorage.removeItem("refreshToken")
-        return { error: "auth", message: "Authentication failed" }
-      }
-    }
-
-    // For other errors, throw them to be caught by SWR's error handling
-    throw error
-  }
-}
+import useApiWithCache from "@/hooks/use-api-with-cache"
+import useAuth from "@/hooks/use-auth"
+import { CACHE_KEYS, CACHE_EXPIRATION, EVENT_TYPES, eventBus } from "@/lib/utils/cache-utils"
 
 function PinManagement() {
-  const router = useRouter()
-  const [isClient, setIsClient] = useState(false)
-  const [authError, setAuthError] = useState(false)
-
-  // Tandai bahwa kita sudah di client-side
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  // Check authentication on component mount
-  useEffect(() => {
-    if (!isClient) return
-
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      router.push("/admin/login")
-    }
-  }, [isClient, router])
-
-  // Menggunakan SWR untuk data fetching dengan kondisional berdasarkan isClient
-  const {
-    data,
-    error: swrError,
-    mutate,
-  } = useSWR(isClient ? "/api/admin/pins" : null, fetcher, {
-    refreshInterval: 60000, // Ubah dari 30 detik menjadi 60 detik
-    revalidateOnFocus: true,
-    dedupingInterval: 10000, // Ubah dari 5 detik menjadi 10 detik
-    onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
-      // Don't retry on auth errors
-      if (error?.response?.status === 401) return
-
-      // Jangan retry pada 404
-      if (error?.response?.status === 404) return
-
-      // Jika error 429 (rate limit), tunggu lebih lama sebelum retry
-      if (error?.response?.status === 429) {
-        // Tunggu 1 menit sebelum mencoba lagi jika rate limited
-        setTimeout(() => revalidate({ retryCount }), 60000)
-        return
-      }
-
-      // Retry hingga 3 kali
-      if (retryCount >= 3) return
-
-      // Exponential backoff
-      setTimeout(() => revalidate({ retryCount }), 5000 * 2 ** retryCount)
-    },
-  })
-
-  // Handle authentication errors from the fetcher
-  useEffect(() => {
-    if (data && data.error === "auth") {
-      setAuthError(true)
-      // Redirect to login after a short delay
-      const redirectTimer = setTimeout(() => {
-        router.push("/admin/login")
-      }, 2000)
-
-      return () => clearTimeout(redirectTimer)
-    }
-  }, [data, router])
-
-  // Rest of your component code remains the same...
-  // State dari data SWR
-  const [pins, setPins] = useState([])
-  const [filteredPins, setFilteredPins] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
   const [pinCount, setPinCount] = useState(10)
   const [pinPrefix, setPinPrefix] = useState("")
   const [generating, setGenerating] = useState(false)
@@ -177,6 +38,8 @@ function PinManagement() {
   const [importPreview, setImportPreview] = useState([])
   const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef(null)
+  const [isClient, setIsClient] = useState(false)
+  const [error, setError] = useState("")
 
   // Stats
   const [stats, setStats] = useState({
@@ -187,61 +50,91 @@ function PinManagement() {
     processed: 0,
   })
 
-  // Tambahkan fitur hapus multiple PIN
-  // Tambahkan state untuk checkbox dan selected pins
+  // Selection state
   const [selectedPins, setSelectedPins] = useState([])
   const [selectAll, setSelectAll] = useState(false)
+
+  // Modal state
   const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false)
   const [deletingMultiple, setDeletingMultiple] = useState(false)
-
-  // Tambahkan state untuk modal konfirmasi hapus
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [pinToDelete, setPinToDelete] = useState(null)
-
-  // Tambahkan state untuk modal mark as processed
   const [showProcessModal, setShowProcessModal] = useState(false)
   const [pinToProcess, setPinToProcess] = useState(null)
   const [processing, setProcessing] = useState(false)
 
-  // Tambahkan state untuk filter dan search
-  const [filterStatus, setFilterStatus] = useState("all") // all, available, pending, processed
+  // Filter state
+  const [filterStatus, setFilterStatus] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
+  const [filteredPins, setFilteredPins] = useState([])
 
-  // Add pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  // Use auth hook
+  const { isAuthenticated, isLoading: authLoading, authFetch } = useAuth()
 
-  // Update the useEffect that handles data from SWR
+  // Use API with cache hook for pins
+  const {
+    data: apiData,
+    loading,
+    error: apiError,
+    isRefreshing,
+    mutate,
+    page,
+    totalPages,
+    totalItems,
+    changePage,
+  } = useApiWithCache(
+    "/api/admin/pins",
+    CACHE_KEYS.PIN_MANAGEMENT,
+    CACHE_KEYS.PIN_MANAGEMENT_LAST_FETCH,
+    CACHE_EXPIRATION.PIN_MANAGEMENT,
+    [], // dependencies
+    [EVENT_TYPES.PIN_PROCESSED, EVENT_TYPES.PIN_CREATED, EVENT_TYPES.PIN_DELETED, EVENT_TYPES.PIN_IMPORTED], // invalidate on these events
+    {
+      initialData: { pins: [], total: 0, totalPages: 1 },
+      withPagination: true,
+      pageSize: 500,
+      transformResponse: (data) => data,
+    },
+  )
+
+  // Extract pins from API data
+  const pins = apiData?.pins || []
+
+  // Set client-side state
   useEffect(() => {
-    if (data && !data.error) {
-      setPins(data.pins || [])
-      setTotalPages(data.totalPages || 1)
+    setIsClient(true)
+  }, [])
 
-      // Calculate stats
-      const total = data.pins?.length || 0
-      const used = data.pins?.filter((pin) => pin.used).length || 0
-      const pending = data.pins?.filter((pin) => pin.used && !pin.processed).length || 0
-      const processed = data.pins?.filter((pin) => pin.used && pin.processed).length || 0
+  // Apply filters when filter status or search term changes
+  useEffect(() => {
+    if (pins.length > 0) {
+      applyFilters(pins, filterStatus, searchTerm)
+    }
+  }, [filterStatus, searchTerm, pins])
+
+  // Calculate stats from pins data
+  useEffect(() => {
+    if (pins.length > 0) {
+      const total = pins.length
+      const used = pins.filter((pin) => pin.used).length
+      const pending = pins.filter((pin) => pin.used && !pin.processed).length
+      const processed = pins.filter((pin) => pin.used && pin.processed).length
 
       setStats({
-        total: data.total || total,
+        total: apiData.total || total,
         used,
         available: total - used,
         pending,
         processed,
       })
-
-      setLoading(false)
-
-      // Apply filters
-      applyFilters(data.pins || [], filterStatus, searchTerm)
     }
-  }, [data, filterStatus, searchTerm])
+  }, [pins, apiData])
 
-  // Apply filters when filter status or search term changes
+  // Reset selection when pins change
   useEffect(() => {
-    applyFilters(pins, filterStatus, searchTerm)
-  }, [filterStatus, searchTerm, pins])
+    setSelectedPins([])
+    setSelectAll(false)
+  }, [pins])
 
   // Function to apply filters
   const applyFilters = (pinsData, status, search) => {
@@ -270,120 +163,6 @@ function PinManagement() {
     setFilteredPins(result)
   }
 
-  // Handle SWR error dengan penanganan khusus untuk error 429
-  useEffect(() => {
-    if (swrError) {
-      console.error("Error fetching pins:", swrError)
-
-      // Khusus untuk error 429
-      if (swrError.response?.status === 429) {
-        setError("Terlalu banyak permintaan ke server. Sistem akan mencoba kembali dalam 1 menit.")
-      } else if (swrError.response?.status === 401) {
-        if (isClient) {
-          sessionStorage.removeItem("adminToken")
-          router.push("/admin/login")
-        }
-      } else {
-        setError("Gagal mengambil data PIN. " + (swrError.response?.data?.error || ""))
-      }
-
-      setLoading(false)
-    }
-  }, [swrError, router, isClient])
-
-  // Fungsi untuk refresh data secara manual dengan debounce
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const refreshTimeoutRef = useRef(null)
-
-  const handleRefresh = () => {
-    if (!isClient || isRefreshing) return
-
-    setIsRefreshing(true)
-    setLoading(true)
-
-    // Clear any existing timeout
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current)
-    }
-
-    // Clear dashboard and stats cache to force refresh
-    localStorage.removeItem("dashboard_stats_cache")
-    localStorage.removeItem("pending_pins_cache")
-
-    // Set a timeout to prevent rapid refreshes
-    refreshTimeoutRef.current = setTimeout(() => {
-      mutate() // Trigger SWR revalidation
-      setIsRefreshing(false)
-    }, 1000)
-  }
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Add a helper function to check authentication before making API calls
-  const checkAuthAndGetToken = () => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      setAuthError(true)
-      router.push("/admin/login")
-      return null
-    }
-    return token
-  }
-
-  // Add a function to handle API calls with token refresh
-  const handleApiCall = async (apiCallFn) => {
-    try {
-      const token = checkAuthAndGetToken()
-      if (!token) return null
-
-      return await apiCallFn(token)
-    } catch (error) {
-      if (error.response?.status === 401) {
-        try {
-          // Try to refresh the token
-          const refreshToken = sessionStorage.getItem("refreshToken")
-          if (!refreshToken) {
-            throw new Error("No refresh token available")
-          }
-
-          const refreshResponse = await axios.post(
-            "/api/auth/refresh",
-            { refreshToken },
-            {
-              headers: {
-                "Content-Type": "application/json",
-              },
-              withCredentials: true,
-            },
-          )
-
-          if (refreshResponse.data.token) {
-            // Store the new token
-            sessionStorage.setItem("adminToken", refreshResponse.data.token)
-
-            // Retry the original request with the new token
-            return await apiCallFn(refreshResponse.data.token)
-          }
-        } catch (refreshError) {
-          console.error("Token refresh error:", refreshError)
-          sessionStorage.removeItem("adminToken")
-          sessionStorage.removeItem("refreshToken")
-          setAuthError(true)
-          router.push("/admin/login")
-          return null
-        }
-      }
-      throw error
-    }
-  }
-
   const handleGeneratePins = async (e) => {
     e.preventDefault()
     if (!isClient) return
@@ -398,13 +177,13 @@ function PinManagement() {
 
     setGenerating(true)
     try {
-      await handleApiCall(async (token) => {
+      await authFetch(async () => {
         const response = await axios.post(
           `/api/admin/pins`,
           { count: Number.parseInt(pinCount), prefix: pinPrefix },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
               "Content-Type": "application/json",
             },
           },
@@ -412,10 +191,11 @@ function PinManagement() {
 
         setSuccessMessage(`Berhasil generate ${response.data.count} PIN baru`)
 
-        // Clear dashboard and stats cache to force refresh
-        localStorage.removeItem("dashboard_stats_cache")
+        // Publish event for other components to react
+        eventBus.publish(EVENT_TYPES.PIN_CREATED, { count: response.data.count })
 
-        mutate() // Refresh data setelah generate
+        // Refresh data
+        mutate(true)
 
         return response
       })
@@ -431,9 +211,6 @@ function PinManagement() {
     }
   }
 
-  // Rest of your component methods...
-  // I'm not including all of them to keep the response concise, but you should
-  // update all methods that make API calls to use the handleApiCall helper
   const handleExportCSV = () => {
     if (!isClient) return
 
@@ -515,13 +292,13 @@ function PinManagement() {
     setImportSuccess("")
 
     try {
-      await handleApiCall(async (token) => {
+      await authFetch(async () => {
         const formData = new FormData()
         formData.append("file", fileInputRef.current.files[0])
 
         const response = await axios.post(`/api/admin/import-pins`, formData, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
             "Content-Type": "multipart/form-data",
           },
         })
@@ -530,41 +307,40 @@ function PinManagement() {
         fileInputRef.current.value = ""
         setImportPreview([])
 
-        // Clear dashboard and stats cache to force refresh
-        localStorage.removeItem("dashboard_stats_cache")
+        // Publish event for other components to react
+        eventBus.publish(EVENT_TYPES.PIN_IMPORTED, { count: response.data.imported })
 
-        mutate() // Refresh data setelah import
+        // Refresh data
+        mutate(true)
 
         return response
       })
     } catch (error) {
       console.error("Error importing pins:", error)
       if (error.response?.status === 429) {
-        setImportError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+        setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
       } else {
-        setImportError("Gagal import PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        setError("Gagal import PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
       }
     } finally {
       setIsImporting(false)
     }
   }
 
-  // Tambahkan fungsi untuk menangani klik tombol hapus
   const handleDeleteClick = (pin) => {
     if (!isClient) return
     setPinToDelete(pin)
     setShowDeleteModal(true)
   }
 
-  // Tambahkan fungsi untuk menghapus PIN
   const handleDeletePin = async () => {
     if (!isClient || !pinToDelete) return
 
     try {
-      await handleApiCall(async (token) => {
+      await authFetch(async () => {
         const response = await axios.delete(`/api/admin/pins/${pinToDelete._id}`, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
           },
         })
 
@@ -573,10 +349,11 @@ function PinManagement() {
         setPinToDelete(null)
         setSuccessMessage("PIN berhasil dihapus")
 
-        // Clear dashboard and stats cache to force refresh
-        localStorage.removeItem("dashboard_stats_cache")
+        // Publish event for other components to react
+        eventBus.publish(EVENT_TYPES.PIN_DELETED, { count: 1 })
 
-        mutate() // Refresh data setelah hapus
+        // Refresh data
+        mutate(true)
 
         return response
       })
@@ -591,7 +368,6 @@ function PinManagement() {
     }
   }
 
-  // Tambahkan fungsi untuk menangani select all
   const handleSelectAll = (e) => {
     if (!isClient) return
 
@@ -613,6 +389,7 @@ function PinManagement() {
       setSelectedPins((prev) => [...prev, pinId])
     } else {
       setSelectedPins((prev) => prev.filter((id) => id !== pinId))
+      setSelectAll(false)
     }
   }
 
@@ -624,13 +401,13 @@ function PinManagement() {
     setSuccessMessage("")
 
     try {
-      await handleApiCall(async (token) => {
+      await authFetch(async () => {
         const response = await axios.post(
           `/api/admin/delete-pins`,
           { pinIds: selectedPins },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
             },
           },
         )
@@ -641,10 +418,11 @@ function PinManagement() {
 
         setSuccessMessage(response.data.message || "PIN berhasil dihapus")
 
-        // Clear dashboard and stats cache to force refresh
-        localStorage.removeItem("dashboard_stats_cache")
+        // Publish event for other components to react
+        eventBus.publish(EVENT_TYPES.PIN_DELETED, { count: selectedPins.length })
 
-        mutate() // Refresh data setelah hapus multiple
+        // Refresh data
+        mutate(true)
 
         return response
       })
@@ -661,40 +439,24 @@ function PinManagement() {
     }
   }
 
-  // Add function to handle mark as processed
   const handleProcessClick = (pin) => {
     if (!isClient) return
     setPinToProcess(pin)
     setShowProcessModal(true)
   }
 
-  // Add function to mark PIN as processed
   const handleMarkAsProcessed = async () => {
     if (!isClient || !pinToProcess) return
 
     setProcessing(true)
     try {
-      // Optimistic UI update
-      const updatedPins = pins.map((p) => {
-        if (p._id === pinToProcess._id) {
-          return { ...p, processed: true }
-        }
-        return p
-      })
-      setPins(updatedPins)
-      applyFilters(updatedPins, filterStatus, searchTerm)
-
-      // Clear dashboard and stats cache to force refresh
-      localStorage.removeItem("dashboard_stats_cache")
-      localStorage.removeItem("pending_pins_cache")
-
-      await handleApiCall(async (token) => {
+      await authFetch(async () => {
         const response = await axios.patch(
           `/api/admin/pins/${pinToProcess._id}`,
           { processed: true },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
               "Content-Type": "application/json",
             },
           },
@@ -704,7 +466,12 @@ function PinManagement() {
         setShowProcessModal(false)
         setPinToProcess(null)
         setSuccessMessage("PIN berhasil ditandai sebagai diproses")
-        mutate() // Refresh data after update
+
+        // Publish event for other components to react
+        eventBus.publish(EVENT_TYPES.PIN_PROCESSED, { count: 1 })
+
+        // Refresh data
+        mutate(true)
 
         return response
       })
@@ -716,41 +483,103 @@ function PinManagement() {
         setError("Gagal memproses PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
       }
       setShowProcessModal(false)
-      mutate() // Refresh data to revert optimistic update
     } finally {
       setProcessing(false)
     }
   }
 
-  // Add a function to handle page changes
-  const handlePageChange = (page) => {
-    setCurrentPage(page)
-    mutate(`/api/admin/pins?limit=500&page=${page}`)
+  // Render pagination controls
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+
+    const items = []
+    const maxVisiblePages = 5
+
+    // Calculate range of pages to show
+    let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2))
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+
+    // Adjust if we're near the end
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+    }
+
+    // Previous button
+    items.push(<Pagination.Prev key="prev" disabled={page === 1} onClick={() => changePage(page - 1)} />)
+
+    // First page
+    if (startPage > 1) {
+      items.push(
+        <Pagination.Item key={1} onClick={() => changePage(1)}>
+          1
+        </Pagination.Item>,
+      )
+      if (startPage > 2) {
+        items.push(<Pagination.Ellipsis key="ellipsis1" />)
+      }
+    }
+
+    // Page numbers
+    for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
+      items.push(
+        <Pagination.Item key={pageNum} active={pageNum === page} onClick={() => changePage(pageNum)}>
+          {pageNum}
+        </Pagination.Item>,
+      )
+    }
+
+    // Last page
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<Pagination.Ellipsis key="ellipsis2" />)
+      }
+      items.push(
+        <Pagination.Item key={totalPages} onClick={() => changePage(totalPages)}>
+          {totalPages}
+        </Pagination.Item>,
+      )
+    }
+
+    // Next button
+    items.push(<Pagination.Next key="next" disabled={page === totalPages} onClick={() => changePage(page + 1)} />)
+
+    return (
+      <div className="d-flex justify-content-center mt-3">
+        <Pagination size="sm">{items}</Pagination>
+      </div>
+    )
   }
 
-  if (!isClient) {
+  // Show loading state during initial auth check
+  if (authLoading) {
     return (
       <div className="adminpanelmanajemenpinpage">
         <h1 className="mb-4">Manajemen PIN</h1>
         <div className="text-center my-5">
-          <div className="spinner-border" role="status">
+          <Spinner animation="border" role="status">
             <span className="visually-hidden">Loading...</span>
-          </div>
+          </Spinner>
+          <p className="mt-2">Verifying authentication...</p>
         </div>
       </div>
     )
   }
 
-  if (authError) {
+  // Show loading state if not client-side yet
+  if (!isClient) {
     return (
       <div className="adminpanelmanajemenpinpage">
         <h1 className="mb-4">Manajemen PIN</h1>
-        <Alert variant="danger">Sesi login Anda telah berakhir. Anda akan dialihkan ke halaman login...</Alert>
+        <div className="text-center my-5">
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </Spinner>
+          <p className="mt-2">Loading PIN management...</p>
+        </div>
       </div>
     )
   }
 
-  // Rest of your component render code...
   return (
     <div className="adminpanelmanajemenpinpage">
       <h1 className="mb-4">Manajemen PIN</h1>
@@ -924,11 +753,11 @@ function PinManagement() {
               variant="outline-primary"
               size="sm"
               className="me-2"
-              onClick={handleRefresh}
+              onClick={() => mutate(true)}
               disabled={loading || isRefreshing}
             >
-              <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
-              {loading ? "Memuat..." : "Refresh"}
+              <FaSync className={`me-1 ${isRefreshing ? "fa-spin" : ""}`} />
+              {isRefreshing ? "Memuat..." : "Refresh"}
             </Button>
             <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
               <FaFileDownload className="me-1" /> Export CSV
@@ -1069,54 +898,13 @@ function PinManagement() {
           <div className="mt-2 text-muted">
             Menampilkan {filteredPins.length} dari {pins.length} PIN
           </div>
-          <>
-            {totalPages > 1 && (
-              <div className="d-flex justify-content-center mt-3">
-                <ul className="pagination pagination-sm">
-                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      &laquo;
-                    </button>
-                  </li>
-                  {[...Array(Math.min(5, totalPages)).keys()].map((page) => {
-                    // Show current page and 2 pages before and after
-                    const pageNum =
-                      currentPage <= 3
-                        ? page + 1
-                        : currentPage >= totalPages - 2
-                          ? totalPages - 4 + page
-                          : currentPage - 2 + page
 
-                    if (pageNum <= 0 || pageNum > totalPages) return null
-
-                    return (
-                      <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
-                        <button className="page-link" onClick={() => handlePageChange(pageNum)}>
-                          {pageNum}
-                        </button>
-                      </li>
-                    )
-                  })}
-                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      &raquo;
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            )}
-          </>
+          {/* Pagination controls */}
+          {renderPagination()}
         </Card.Body>
       </Card>
 
+      {/* Modal Konfirmasi Hapus */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Konfirmasi Hapus</Modal.Title>

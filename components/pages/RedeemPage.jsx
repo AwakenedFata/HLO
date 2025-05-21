@@ -60,7 +60,8 @@ function RedeemPage() {
         nama,
       })
 
-      if (response.data.message === "Redeem berhasil") {
+      // Check for the correct success message from the API
+      if (response.data.message === "PIN code berhasil digunakan") {
         // Gunakan environment variable untuk nomor WhatsApp
         const phoneNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6285709346954"
         const formattedPhone = phoneNumber.replace(/-/g, "").replace(/\s/g, "")

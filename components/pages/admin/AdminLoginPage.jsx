@@ -49,6 +49,23 @@ function AdminLoginPage() {
     }
   }, [isClient])
 
+  // Fungsi untuk memformat pesan error dari API
+  const formatApiError = (error) => {
+    if (!error.response) {
+      return "Tidak dapat terhubung ke server. Periksa koneksi internet Anda."
+    }
+
+    if (error.response.status === 429) {
+      const retryAfter =
+        error.response.headers["retry-after"] || error.response.data.retryAfter || error.response.data.reset || 60
+      return `Terlalu banyak percobaan login. Silakan coba lagi dalam ${retryAfter} detik.`
+    }
+
+    return (
+      error.response.data?.message || error.response.data?.error || "Login gagal. Periksa username dan password Anda."
+    )
+  }
+
   // Fungsi untuk memulai cooldown
   const startCooldown = (seconds) => {
     setIsInCooldown(true)
@@ -129,11 +146,13 @@ function AdminLoginPage() {
 
       // Penanganan khusus untuk error 429
       if (error.response?.status === 429) {
-        // Ambil retry-after header jika ada
-        const retryAfter = error.response.headers["retry-after"] || error.response.data.retryAfter
-        const waitTime = retryAfter ? Number.parseInt(retryAfter, 10) : 60 // Default 60 detik
+        // Ambil retry-after header jika ada, atau dari response data
+        const retryAfter =
+          error.response.headers["retry-after"] || error.response.data.retryAfter || error.response.data.reset || 60 // Default 60 detik
 
-        setError(`Terlalu banyak percobaan login. Silakan coba lagi dalam ${waitTime} detik.`)
+        const waitTime = Number.parseInt(retryAfter, 10)
+
+        setError(formatApiError(error))
         startCooldown(waitTime)
 
         // Simpan waktu cooldown berakhir
@@ -141,11 +160,7 @@ function AdminLoginPage() {
         localStorage.setItem("loginCooldownEnd", cooldownEnd.toString())
       } else {
         // Untuk error lainnya
-        setError(
-          error.response?.data?.message ||
-            error.response?.data?.error ||
-            "Login gagal. Periksa username dan password Anda.",
-        )
+        setError(formatApiError(error))
       }
     } finally {
       setLoading(false)

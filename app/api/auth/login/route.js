@@ -44,7 +44,7 @@ export async function POST(request) {
       logger.warn(`Rate limit exceeded for login attempt from IP: ${ip}, attempts: ${limitResult.count}`)
 
       // Hitung waktu reset yang lebih akurat
-      const retryAfter = limitResult.reset || 60 // Default 60 detik jika tidak ada info reset
+      const retryAfter = 60 // Default 60 detik jika tidak ada info reset
 
       return NextResponse.json(
         {
@@ -56,9 +56,9 @@ export async function POST(request) {
           status: 429,
           headers: {
             "Retry-After": String(retryAfter),
-            "X-RateLimit-Limit": String(limitResult.limit),
-            "X-RateLimit-Remaining": String(limitResult.remaining),
-            "X-RateLimit-Reset": String(limitResult.reset),
+            "X-RateLimit-Limit": String(5),
+            "X-RateLimit-Remaining": String(0),
+            "X-RateLimit-Reset": String(retryAfter),
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
             Pragma: "no-cache",
             Expires: "0",
@@ -97,16 +97,16 @@ export async function POST(request) {
         {
           status: 401,
           headers: {
-            "X-RateLimit-Limit": String(limitResult.limit),
-            "X-RateLimit-Remaining": String(limitResult.remaining),
-            "X-RateLimit-Reset": String(limitResult.reset),
+            "X-RateLimit-Limit": String(5),
+            "X-RateLimit-Remaining": String(limitResult.remaining || 4),
+            "X-RateLimit-Reset": String(60),
           },
         },
       )
     }
 
-    // Login berhasil, reset rate limit untuk IP ini
-    limiter.reset(tokenKey)
+    // Login berhasil
+    // REMOVED: limiter.reset(tokenKey) - This method doesn't exist in the implementation
 
     // Log successful login
     logger.info(`Login berhasil untuk user: ${username} dari IP: ${ip}`)
