@@ -1,105 +1,59 @@
 import { NextResponse } from "next/server"
-import jwt from "jsonwebtoken"
-import connectToDatabase from "@/lib/db"
-import Admin from "@/lib/models/admin"
+import { authenticateRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
+import { validateRequest, verifyTokenSchema } from "@/lib/utils/validation"
 
 export async function GET(request) {
   try {
-    // Get token from Authorization header
-    const authHeader = request.headers.get("Authorization")
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ status: "error", message: "No token provided", valid: false }, { status: 401 })
+    // Authenticate user
+    const authResult = await authenticateRequest(request)
+    if (authResult.error) {
+      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
     }
 
-    const token = authHeader.split(" ")[1]
-
-    if (!token) {
-      return NextResponse.json({ status: "error", message: "Invalid token format", valid: false }, { status: 401 })
-    }
-
-    // Verify token
-    let decoded
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET)
-    } catch (error) {
-      logger.warn(`Invalid token: ${error.message}`)
-      return NextResponse.json({ status: "error", message: "Invalid token", valid: false }, { status: 401 })
-    }
-
-    // Connect to database
-    await connectToDatabase()
-
-    // Find user
-    const admin = await Admin.findById(decoded.id)
-    if (!admin) {
-      return NextResponse.json({ status: "error", message: "User not found", valid: false }, { status: 401 })
-    }
-
-    // Return success
+    // If middleware passes, token is valid
     return NextResponse.json({
       status: "success",
       valid: true,
       admin: {
-        id: admin._id,
-        username: admin.username,
-        role: admin.role,
-        profileImage: admin.profileImage,
+        id: authResult.user._id,
+        username: authResult.user.username,
+        role: authResult.user.role,
       },
     })
   } catch (error) {
     logger.error(`Token verification error: ${error.message}`)
-    return NextResponse.json({ status: "error", message: "Token verification failed", valid: false }, { status: 500 })
+    return NextResponse.json({ status: "error", message: "Token tidak valid", valid: false }, { status: 401 })
   }
 }
 
 export async function POST(request) {
   try {
-    // Get token from Authorization header
-    const authHeader = request.headers.get("Authorization")
+    const body = await request.json()
+    const validation = await validateRequest(verifyTokenSchema, body)
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ status: "error", message: "No token provided", valid: false }, { status: 401 })
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 })
     }
 
-    const token = authHeader.split(" ")[1]
-
-    if (!token) {
-      return NextResponse.json({ status: "error", message: "Invalid token format", valid: false }, { status: 401 })
+    // Authenticate user
+    const authResult = await authenticateRequest(request)
+    if (authResult.error) {
+      return NextResponse.json({ status: "error", message: authResult.message, valid: false }, { status: 401 })
     }
 
-    // Verify token
-    let decoded
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET)
-    } catch (error) {
-      logger.warn(`Invalid token: ${error.message}`)
-      return NextResponse.json({ status: "error", message: "Invalid token", valid: false }, { status: 401 })
-    }
-
-    // Connect to database
-    await connectToDatabase()
-
-    // Find user
-    const admin = await Admin.findById(decoded.id)
-    if (!admin) {
-      return NextResponse.json({ status: "error", message: "User not found", valid: false }, { status: 401 })
-    }
-
-    // Return success
+    // If middleware passes, token is valid
     return NextResponse.json({
       status: "success",
       valid: true,
       admin: {
-        id: admin._id,
-        username: admin.username,
-        role: admin.role,
-        profileImage: admin.profileImage,
+        id: authResult.user._id,
+        username: authResult.user.username,
+        role: authResult.user.role,
       },
     })
   } catch (error) {
     logger.error(`Token verification error: ${error.message}`)
-    return NextResponse.json({ status: "error", message: "Token verification failed", valid: false }, { status: 500 })
+    return NextResponse.json({ status: "error", message: "Token tidak valid", valid: false }, { status: 401 })
   }
 }

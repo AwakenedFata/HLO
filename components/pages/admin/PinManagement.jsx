@@ -19,15 +19,22 @@ import {
   DropdownButton,
   Pagination,
 } from "react-bootstrap"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import { FaFileUpload, FaFileDownload, FaPlus, FaSync, FaTrash, FaCheck, FaFilter, FaSearch } from "react-icons/fa"
 import Papa from "papaparse"
 import "@/styles/adminstyles.css"
-import useApiWithCache from "@/hooks/use-api-with-cache"
-import useAuth from "@/hooks/use-auth"
-import { CACHE_KEYS, CACHE_EXPIRATION, EVENT_TYPES, eventBus } from "@/lib/utils/cache-utils"
 
 function PinManagement() {
+  const router = useRouter()
+  const [isClient, setIsClient] = useState(false)
+  const [authError, setAuthError] = useState(false)
+
+  // State for pins data
+  const [pins, setPins] = useState([])
+  const [filteredPins, setFilteredPins] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [pinCount, setPinCount] = useState(10)
   const [pinPrefix, setPinPrefix] = useState("")
   const [generating, setGenerating] = useState(false)
@@ -38,8 +45,6 @@ function PinManagement() {
   const [importPreview, setImportPreview] = useState([])
   const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef(null)
-  const [isClient, setIsClient] = useState(false)
-  const [error, setError] = useState("")
 
   // Stats
   const [stats, setStats] = useState({
@@ -50,11 +55,9 @@ function PinManagement() {
     processed: 0,
   })
 
-  // Selection state
+  // State for selection and modals
   const [selectedPins, setSelectedPins] = useState([])
   const [selectAll, setSelectAll] = useState(false)
-
-  // Modal state
   const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false)
   const [deletingMultiple, setDeletingMultiple] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -63,78 +66,169 @@ function PinManagement() {
   const [pinToProcess, setPinToProcess] = useState(null)
   const [processing, setProcessing] = useState(false)
 
-  // Filter state
-  const [filterStatus, setFilterStatus] = useState("all")
+  // State for filtering and search
+  const [filterStatus, setFilterStatus] = useState("all") // all, available, pending, processed
   const [searchTerm, setSearchTerm] = useState("")
-  const [filteredPins, setFilteredPins] = useState([])
 
-  // Use auth hook
-  const { isAuthenticated, isLoading: authLoading, authFetch } = useAuth()
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(100)
+  const [totalItems, setTotalItems] = useState(0)
 
-  // Use API with cache hook for pins
-  const {
-    data: apiData,
-    loading,
-    error: apiError,
-    isRefreshing,
-    mutate,
-    page,
-    totalPages,
-    totalItems,
-    changePage,
-  } = useApiWithCache(
-    "/api/admin/pins",
-    CACHE_KEYS.PIN_MANAGEMENT,
-    CACHE_KEYS.PIN_MANAGEMENT_LAST_FETCH,
-    CACHE_EXPIRATION.PIN_MANAGEMENT,
-    [], // dependencies
-    [EVENT_TYPES.PIN_PROCESSED, EVENT_TYPES.PIN_CREATED, EVENT_TYPES.PIN_DELETED, EVENT_TYPES.PIN_IMPORTED], // invalidate on these events
-    {
-      initialData: { pins: [], total: 0, totalPages: 1 },
-      withPagination: true,
-      pageSize: 500,
-      transformResponse: (data) => data,
-    },
-  )
+  // State for refresh control
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const refreshTimeoutRef = useRef(null)
 
-  // Extract pins from API data
-  const pins = apiData?.pins || []
+  // AbortController for cancelling requests
+  const abortControllerRef = useRef(null)
 
-  // Set client-side state
+  // Reference to track if component is mounted
+  const isMounted = useRef(true)
+
+  // Tandai bahwa kita sudah di client-side
   useEffect(() => {
     setIsClient(true)
+    return () => {
+      isMounted.current = false
+      // Cancel any pending requests when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+    }
   }, [])
+
+  // Check authentication on component mount
+  useEffect(() => {
+    if (!isClient) return
+
+    const token = sessionStorage.getItem("adminToken")
+    if (!token) {
+      router.push("/admin/login")
+    } else {
+      // Fetch pins on initial load
+      fetchPins()
+    }
+  }, [isClient, router])
 
   // Apply filters when filter status or search term changes
   useEffect(() => {
-    if (pins.length > 0) {
-      applyFilters(pins, filterStatus, searchTerm)
-    }
+    applyFilters(pins, filterStatus, searchTerm)
   }, [filterStatus, searchTerm, pins])
 
-  // Calculate stats from pins data
-  useEffect(() => {
-    if (pins.length > 0) {
-      const total = pins.length
-      const used = pins.filter((pin) => pin.used).length
-      const pending = pins.filter((pin) => pin.used && !pin.processed).length
-      const processed = pins.filter((pin) => pin.used && pin.processed).length
-
-      setStats({
-        total: apiData.total || total,
-        used,
-        available: total - used,
-        pending,
-        processed,
-      })
+  // Add a helper function to check authentication before making API calls
+  const checkAuthAndGetToken = () => {
+    const token = sessionStorage.getItem("adminToken")
+    if (!token) {
+      setAuthError(true)
+      router.push("/admin/login")
+      return null
     }
-  }, [pins, apiData])
+    return token
+  }
 
-  // Reset selection when pins change
-  useEffect(() => {
-    setSelectedPins([])
-    setSelectAll(false)
-  }, [pins])
+  // Function to fetch pins with pagination
+  const fetchPins = async (page = currentPage, limit = itemsPerPage) => {
+    if (!isClient) return
+
+    const token = checkAuthAndGetToken()
+    if (!token) return
+
+    setLoading(true)
+    setError("")
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create a new AbortController
+    abortControllerRef.current = new AbortController()
+
+    try {
+      // Set a timeout for the request (15 seconds)
+      const timeoutId = setTimeout(() => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+      }, 15000)
+
+      // Build query parameters for filtering
+      let queryParams = `?page=${page}&limit=${limit}`
+      if (filterStatus === "available") {
+        queryParams += "&used=false"
+      } else if (filterStatus === "pending") {
+        queryParams += "&used=true&processed=false"
+      } else if (filterStatus === "processed") {
+        queryParams += "&used=true&processed=true"
+      }
+
+      if (searchTerm) {
+        queryParams += `&search=${encodeURIComponent(searchTerm)}`
+      }
+
+      const response = await axios.get(`/api/admin/pins${queryParams}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: abortControllerRef.current.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      // Only update state if component is still mounted
+      if (!isMounted.current) return
+
+      setPins(response.data.pins || [])
+      setTotalPages(response.data.totalPages || 1)
+      setTotalItems(response.data.total || 0)
+
+      // Update stats if available in response
+      if (response.data.stats) {
+        setStats(response.data.stats)
+      } else {
+        // Calculate stats from pins data
+        const total = response.data.total || response.data.pins?.length || 0
+        const used = response.data.pins?.filter((pin) => pin.used).length || 0
+        const pending = response.data.pins?.filter((pin) => pin.used && !pin.processed).length || 0
+        const processed = response.data.pins?.filter((pin) => pin.used && pin.processed).length || 0
+
+        setStats({
+          total,
+          used,
+          available: total - used,
+          pending,
+          processed,
+        })
+      }
+
+      // Apply filters to the fetched data
+      applyFilters(response.data.pins || [], filterStatus, searchTerm)
+
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching pins:", error)
+
+      if (!isMounted.current) return
+
+      if (error.name === "AbortError") {
+        setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
+      } else if (error.response?.status === 401) {
+        sessionStorage.removeItem("adminToken")
+        setAuthError(true)
+        router.push("/admin/login")
+      } else if (error.response?.status === 429) {
+        setError("Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit.")
+      } else {
+        setError("Gagal mengambil data PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+      }
+
+      setLoading(false)
+    }
+  }
 
   // Function to apply filters
   const applyFilters = (pinsData, status, search) => {
@@ -163,6 +257,44 @@ function PinManagement() {
     setFilteredPins(result)
   }
 
+  // Function to refresh data manually with debounce
+  const handleRefresh = () => {
+    if (!isClient || isRefreshing) return
+
+    setIsRefreshing(true)
+    setLoading(true)
+
+    // Clear any existing timeout
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current)
+    }
+
+    // Clear dashboard and stats cache to force refresh
+    localStorage.removeItem("dashboard_stats_cache")
+    localStorage.removeItem("pending_pins_cache")
+
+    // Set a timeout to prevent rapid refreshes
+    refreshTimeoutRef.current = setTimeout(() => {
+      fetchPins(currentPage, itemsPerPage)
+      setIsRefreshing(false)
+    }, 1000)
+  }
+
+  // Function to handle page changes
+  const handlePageChange = (page) => {
+    setCurrentPage(page)
+    fetchPins(page, itemsPerPage)
+  }
+
+  // Function to handle items per page changes
+  const handleItemsPerPageChange = (e) => {
+    const newItemsPerPage = Number.parseInt(e.target.value, 10)
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1) // Reset to first page
+    fetchPins(1, newItemsPerPage)
+  }
+
+  // Function to generate PINs
   const handleGeneratePins = async (e) => {
     e.preventDefault()
     if (!isClient) return
@@ -177,40 +309,143 @@ function PinManagement() {
 
     setGenerating(true)
     try {
-      await authFetch(async () => {
-        const response = await axios.post(
-          `/api/admin/pins`,
-          { count: Number.parseInt(pinCount), prefix: pinPrefix },
-          {
-            headers: {
-              Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
-              "Content-Type": "application/json",
-            },
+      const token = checkAuthAndGetToken()
+      if (!token) return
+
+      // Create a new AbortController for this request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout for PIN generation
+
+      const response = await axios.post(
+        `/api/admin/pins`,
+        { count: Number.parseInt(pinCount), prefix: pinPrefix },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-        )
+          signal: controller.signal,
+        },
+      )
 
-        setSuccessMessage(`Berhasil generate ${response.data.count} PIN baru`)
+      clearTimeout(timeoutId)
 
-        // Publish event for other components to react
-        eventBus.publish(EVENT_TYPES.PIN_CREATED, { count: response.data.count })
+      // Only update if component is still mounted
+      if (!isMounted.current) return
 
-        // Refresh data
-        mutate(true)
+      setSuccessMessage(`Berhasil generate ${response.data.count} PIN baru`)
 
-        return response
-      })
+      // Clear dashboard and stats cache to force refresh
+      localStorage.removeItem("dashboard_stats_cache")
+
+      // Refresh data after generate
+      fetchPins()
     } catch (error) {
       console.error("Error generating pins:", error)
-      if (error.response?.status === 429) {
+
+      if (!isMounted.current) return
+
+      if (error.name === "AbortError") {
+        setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
+      } else if (error.response?.status === 429) {
         setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
       } else {
         setError("Gagal generate PIN. " + (error.response?.data?.error || ""))
       }
     } finally {
-      setGenerating(false)
+      if (isMounted.current) {
+        setGenerating(false)
+      }
     }
   }
 
+  // Render pagination controls
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+
+    const items = []
+    const maxVisiblePages = 5
+
+    // Calculate range of pages to show
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+
+    // Adjust if we're near the end
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+    }
+
+    // Previous button
+    items.push(
+      <Pagination.Prev key="prev" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)} />,
+    )
+
+    // First page
+    if (startPage > 1) {
+      items.push(
+        <Pagination.Item key={1} onClick={() => handlePageChange(1)}>
+          1
+        </Pagination.Item>,
+      )
+      if (startPage > 2) {
+        items.push(<Pagination.Ellipsis key="ellipsis1" />)
+      }
+    }
+
+    // Page numbers
+    for (let page = startPage; page <= endPage; page++) {
+      items.push(
+        <Pagination.Item key={page} active={page === currentPage} onClick={() => handlePageChange(page)}>
+          {page}
+        </Pagination.Item>,
+      )
+    }
+
+    // Last page
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<Pagination.Ellipsis key="ellipsis2" />)
+      }
+      items.push(
+        <Pagination.Item key={totalPages} onClick={() => handlePageChange(totalPages)}>
+          {totalPages}
+        </Pagination.Item>,
+      )
+    }
+
+    // Next button
+    items.push(
+      <Pagination.Next
+        key="next"
+        disabled={currentPage === totalPages}
+        onClick={() => handlePageChange(currentPage + 1)}
+      />,
+    )
+
+    return (
+      <div className="d-flex justify-content-between align-items-center mt-3">
+        <div className="d-flex align-items-center">
+          <span className="me-2">Items per page:</span>
+          <Form.Select size="sm" value={itemsPerPage} onChange={handleItemsPerPageChange} style={{ width: "80px" }}>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </Form.Select>
+          <span className="ms-3">
+            Showing {filteredPins.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} -{" "}
+            {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
+          </span>
+        </div>
+        <Pagination size="sm" className="mb-0">
+          {items}
+        </Pagination>
+      </div>
+    )
+  }
+
+  // Rest of your component methods...
+  // I'm not including all of them to keep the response concise, but you should
+  // update all methods that make API calls to use the handleApiCall helper
   const handleExportCSV = () => {
     if (!isClient) return
 
@@ -292,71 +527,74 @@ function PinManagement() {
     setImportSuccess("")
 
     try {
-      await authFetch(async () => {
-        const formData = new FormData()
-        formData.append("file", fileInputRef.current.files[0])
+      const token = checkAuthAndGetToken()
+      if (!token) return
 
-        const response = await axios.post(`/api/admin/import-pins`, formData, {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
-            "Content-Type": "multipart/form-data",
-          },
-        })
+      const formData = new FormData()
+      formData.append("file", fileInputRef.current.files[0])
 
-        setImportSuccess(`Berhasil import ${response.data.imported} PIN`)
-        fileInputRef.current.value = ""
-        setImportPreview([])
-
-        // Publish event for other components to react
-        eventBus.publish(EVENT_TYPES.PIN_IMPORTED, { count: response.data.imported })
-
-        // Refresh data
-        mutate(true)
-
-        return response
+      const response = await axios.post(`/api/admin/import-pins`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
       })
+
+      setImportSuccess(`Berhasil import ${response.data.imported} PIN`)
+      fileInputRef.current.value = ""
+      setImportPreview([])
+
+      // Clear dashboard and stats cache to force refresh
+      localStorage.removeItem("dashboard_stats_cache")
+
+      // Refresh data after import
+      fetchPins()
+
+      return response
     } catch (error) {
       console.error("Error importing pins:", error)
       if (error.response?.status === 429) {
-        setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+        setImportError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
       } else {
-        setError("Gagal import PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        setImportError("Gagal import PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
       }
     } finally {
       setIsImporting(false)
     }
   }
 
+  // Tambahkan fungsi untuk menangani klik tombol hapus
   const handleDeleteClick = (pin) => {
     if (!isClient) return
     setPinToDelete(pin)
     setShowDeleteModal(true)
   }
 
+  // Tambahkan fungsi untuk menghapus PIN
   const handleDeletePin = async () => {
     if (!isClient || !pinToDelete) return
 
     try {
-      await authFetch(async () => {
-        const response = await axios.delete(`/api/admin/pins/${pinToDelete._id}`, {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
-          },
-        })
+      const token = checkAuthAndGetToken()
+      if (!token) return
 
-        // Tutup modal dan refresh data
-        setShowDeleteModal(false)
-        setPinToDelete(null)
-        setSuccessMessage("PIN berhasil dihapus")
-
-        // Publish event for other components to react
-        eventBus.publish(EVENT_TYPES.PIN_DELETED, { count: 1 })
-
-        // Refresh data
-        mutate(true)
-
-        return response
+      const response = await axios.delete(`/api/admin/pins/${pinToDelete._id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
+
+      // Tutup modal dan refresh data
+      setShowDeleteModal(false)
+      setPinToDelete(null)
+      setSuccessMessage("PIN berhasil dihapus")
+
+      // Clear dashboard and stats cache to force refresh
+      localStorage.removeItem("dashboard_stats_cache")
+
+      fetchPins() // Refresh data setelah hapus
+
+      return response
     } catch (error) {
       console.error("Error deleting pin:", error)
       if (error.response?.status === 429) {
@@ -368,6 +606,7 @@ function PinManagement() {
     }
   }
 
+  // Tambahkan fungsi untuk menangani select all
   const handleSelectAll = (e) => {
     if (!isClient) return
 
@@ -389,7 +628,6 @@ function PinManagement() {
       setSelectedPins((prev) => [...prev, pinId])
     } else {
       setSelectedPins((prev) => prev.filter((id) => id !== pinId))
-      setSelectAll(false)
     }
   }
 
@@ -401,31 +639,31 @@ function PinManagement() {
     setSuccessMessage("")
 
     try {
-      await authFetch(async () => {
-        const response = await axios.post(
-          `/api/admin/delete-pins`,
-          { pinIds: selectedPins },
-          {
-            headers: {
-              Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
-            },
+      const token = checkAuthAndGetToken()
+      if (!token) return
+
+      const response = await axios.post(
+        `/api/admin/delete-pins`,
+        { pinIds: selectedPins },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        )
+        },
+      )
 
-        setShowDeleteMultipleModal(false)
-        setSelectedPins([])
-        setSelectAll(false)
+      setShowDeleteMultipleModal(false)
+      setSelectedPins([])
+      setSelectAll(false)
 
-        setSuccessMessage(response.data.message || "PIN berhasil dihapus")
+      setSuccessMessage(response.data.message || "PIN berhasil dihapus")
 
-        // Publish event for other components to react
-        eventBus.publish(EVENT_TYPES.PIN_DELETED, { count: selectedPins.length })
+      // Clear dashboard and stats cache to force refresh
+      localStorage.removeItem("dashboard_stats_cache")
 
-        // Refresh data
-        mutate(true)
+      fetchPins() // Refresh data setelah hapus multiple
 
-        return response
-      })
+      return response
     } catch (error) {
       console.error("Error deleting multiple pins:", error)
       if (error.response?.status === 429) {
@@ -439,42 +677,54 @@ function PinManagement() {
     }
   }
 
+  // Add function to handle mark as processed
   const handleProcessClick = (pin) => {
     if (!isClient) return
     setPinToProcess(pin)
     setShowProcessModal(true)
   }
 
+  // Add function to mark PIN as processed
   const handleMarkAsProcessed = async () => {
     if (!isClient || !pinToProcess) return
 
     setProcessing(true)
     try {
-      await authFetch(async () => {
-        const response = await axios.patch(
-          `/api/admin/pins/${pinToProcess._id}`,
-          { processed: true },
-          {
-            headers: {
-              Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
-              "Content-Type": "application/json",
-            },
-          },
-        )
-
-        // Close modal and refresh data
-        setShowProcessModal(false)
-        setPinToProcess(null)
-        setSuccessMessage("PIN berhasil ditandai sebagai diproses")
-
-        // Publish event for other components to react
-        eventBus.publish(EVENT_TYPES.PIN_PROCESSED, { count: 1 })
-
-        // Refresh data
-        mutate(true)
-
-        return response
+      // Optimistic UI update
+      const updatedPins = pins.map((p) => {
+        if (p._id === pinToProcess._id) {
+          return { ...p, processed: true }
+        }
+        return p
       })
+      setPins(updatedPins)
+      applyFilters(updatedPins, filterStatus, searchTerm)
+
+      // Clear dashboard and stats cache to force refresh
+      localStorage.removeItem("dashboard_stats_cache")
+      localStorage.removeItem("pending_pins_cache")
+
+      const token = checkAuthAndGetToken()
+      if (!token) return
+
+      const response = await axios.patch(
+        `/api/admin/pins/${pinToProcess._id}`,
+        { processed: true },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      // Close modal and refresh data
+      setShowProcessModal(false)
+      setPinToProcess(null)
+      setSuccessMessage("PIN berhasil ditandai sebagai diproses")
+      fetchPins() // Refresh data after update
+
+      return response
     } catch (error) {
       console.error("Error marking pin as processed:", error)
       if (error.response?.status === 429) {
@@ -483,103 +733,35 @@ function PinManagement() {
         setError("Gagal memproses PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
       }
       setShowProcessModal(false)
+      fetchPins() // Refresh data to revert optimistic update
     } finally {
       setProcessing(false)
     }
   }
 
-  // Render pagination controls
-  const renderPagination = () => {
-    if (totalPages <= 1) return null
-
-    const items = []
-    const maxVisiblePages = 5
-
-    // Calculate range of pages to show
-    let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2))
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-    // Adjust if we're near the end
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1)
-    }
-
-    // Previous button
-    items.push(<Pagination.Prev key="prev" disabled={page === 1} onClick={() => changePage(page - 1)} />)
-
-    // First page
-    if (startPage > 1) {
-      items.push(
-        <Pagination.Item key={1} onClick={() => changePage(1)}>
-          1
-        </Pagination.Item>,
-      )
-      if (startPage > 2) {
-        items.push(<Pagination.Ellipsis key="ellipsis1" />)
-      }
-    }
-
-    // Page numbers
-    for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
-      items.push(
-        <Pagination.Item key={pageNum} active={pageNum === page} onClick={() => changePage(pageNum)}>
-          {pageNum}
-        </Pagination.Item>,
-      )
-    }
-
-    // Last page
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        items.push(<Pagination.Ellipsis key="ellipsis2" />)
-      }
-      items.push(
-        <Pagination.Item key={totalPages} onClick={() => changePage(totalPages)}>
-          {totalPages}
-        </Pagination.Item>,
-      )
-    }
-
-    // Next button
-    items.push(<Pagination.Next key="next" disabled={page === totalPages} onClick={() => changePage(page + 1)} />)
-
-    return (
-      <div className="d-flex justify-content-center mt-3">
-        <Pagination size="sm">{items}</Pagination>
-      </div>
-    )
-  }
-
-  // Show loading state during initial auth check
-  if (authLoading) {
-    return (
-      <div className="adminpanelmanajemenpinpage">
-        <h1 className="mb-4">Manajemen PIN</h1>
-        <div className="text-center my-5">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-          <p className="mt-2">Verifying authentication...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show loading state if not client-side yet
   if (!isClient) {
     return (
       <div className="adminpanelmanajemenpinpage">
         <h1 className="mb-4">Manajemen PIN</h1>
         <div className="text-center my-5">
-          <Spinner animation="border" role="status">
+          <div className="spinner-border" role="status">
             <span className="visually-hidden">Loading...</span>
-          </Spinner>
-          <p className="mt-2">Loading PIN management...</p>
+          </div>
         </div>
       </div>
     )
   }
 
+  if (authError) {
+    return (
+      <div className="adminpanelmanajemenpinpage">
+        <h1 className="mb-4">Manajemen PIN</h1>
+        <Alert variant="danger">Sesi login Anda telah berakhir. Anda akan dialihkan ke halaman login...</Alert>
+      </div>
+    )
+  }
+
+  // Rest of your component render code...
   return (
     <div className="adminpanelmanajemenpinpage">
       <h1 className="mb-4">Manajemen PIN</h1>
@@ -753,11 +935,11 @@ function PinManagement() {
               variant="outline-primary"
               size="sm"
               className="me-2"
-              onClick={() => mutate(true)}
+              onClick={handleRefresh}
               disabled={loading || isRefreshing}
             >
-              <FaSync className={`me-1 ${isRefreshing ? "fa-spin" : ""}`} />
-              {isRefreshing ? "Memuat..." : "Refresh"}
+              <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
+              {loading ? "Memuat..." : "Refresh"}
             </Button>
             <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
               <FaFileDownload className="me-1" /> Export CSV
@@ -896,7 +1078,7 @@ function PinManagement() {
           </div>
 
           <div className="mt-2 text-muted">
-            Menampilkan {filteredPins.length} dari {pins.length} PIN
+            Menampilkan {filteredPins.length} dari {totalItems} PIN
           </div>
 
           {/* Pagination controls */}

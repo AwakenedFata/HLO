@@ -1,89 +1,85 @@
+// File: /app/api/admin/dashboard/route.js
+
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
-import { authMiddleware } from "@/lib/middleware/authMiddleware"
+import { authorizeRequest } from "@/lib/utils/auth-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { getCache, setCache } from "@/lib/redis"
+import logger from "@/lib/utils/logger-server"
 
-// Create a rate limiter that allows 10 requests per minute
+// PERBAIKAN: Tingkatkan rate limit
 const limiter = rateLimit({
-  interval: 60 * 1000, // 60 seconds
-  uniqueTokenPerInterval: 100, // Max 100 users per interval
-  limit: 10, // 10 requests per interval
+  interval: 60 * 1000,
+  uniqueTokenPerInterval: 100,
+  limit: 20, // Tingkatkan dari 10 ke 20
 })
 
 export async function GET(request) {
   try {
     // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    await limiter.check(identifier, 10, "dashboard-stats")
+    const rateLimitResult = await limiter.check(identifier, 20, "dashboard-stats")
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: "Too many requests. Please try again later.",
+          reset: rateLimitResult.reset,
+        },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": rateLimitResult.reset.toString(),
+            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+          },
+        }
+      )
+    }
 
     // Authenticate the request
-    const authResult = await authMiddleware(request)
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
+    if (authResult.error) {
+      return NextResponse.json({ error: authResult.message }, { status: 401 })
+    }
+
+    // PERBAIKAN: Gunakan Redis cache
+    const cacheKey = `dashboard:stats`
+    const cachedData = await getCache(cacheKey)
+    
+    if (cachedData) {
+      logger.info(`Serving dashboard stats from cache for user ${authResult.user.username}`)
+      return NextResponse.json(cachedData, {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+          "X-Cache": "HIT",
+        },
+      })
     }
 
     await connectToDatabase()
 
-    // Use aggregation for better performance
-    const stats = await PinCode.aggregate([
-      {
-        $facet: {
-          // Count total pins
-          total: [{ $count: "count" }],
+    // PERBAIKAN: Gunakan method statis yang sudah dioptimasi
+    const stats = await PinCode.getDashboardStats();
 
-          // Count used pins
-          used: [{ $match: { used: true } }, { $count: "count" }],
+    logger.info(`Dashboard stats fetched by ${authResult.user.username}`)
 
-          // Count pending pins (used but not processed)
-          pending: [{ $match: { used: true, processed: false } }, { $count: "count" }],
-
-          // Group by batch for batch statistics
-          batches: [
-            {
-              $group: {
-                _id: "$batch",
-                count: { $sum: 1 },
-                name: { $first: "$batchName" },
-              },
-            },
-            { $sort: { _id: 1 } },
-            { $limit: 10 }, // Limit to 10 most recent batches
-          ],
-        },
-      },
-    ])
-
-    // Process the aggregation results
-    const result = stats[0]
-    const totalCount = result.total[0]?.count || 0
-    const usedCount = result.used[0]?.count || 0
-    const pendingCount = result.pending[0]?.count || 0
-
-    // Format batches
-    const batches = result.batches.map((batch) => ({
-      id: batch._id,
-      name: batch.name || `Batch ${batch._id}`,
-      count: batch.count,
-    }))
+    // PERBAIKAN: Simpan ke Redis cache
+    await setCache(cacheKey, stats, 300); // Cache selama 5 menit
 
     return NextResponse.json(
-      {
-        total: totalCount,
-        used: usedCount,
-        unused: totalCount - usedCount,
-        pending: pendingCount,
-        batches: batches,
-      },
+      stats,
       {
         headers: {
-          // Add cache control headers
           "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+          "X-Cache": "MISS",
         },
-      },
+      }
     )
   } catch (error) {
-    console.error("Error fetching dashboard stats:", error)
+    logger.error("Error fetching dashboard stats:", error)
 
     // Handle rate limit exceeded
     if (error.statusCode === 429) {
