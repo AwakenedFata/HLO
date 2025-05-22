@@ -1,49 +1,51 @@
-import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
-import PinCode from "@/lib/models/pinCode"
-import { authorizeRequest } from "@/lib/utils/auth-server"
-import { validateRequest, pinCreationSchema } from "@/lib/utils/validation"
-import { generateUniquePin } from "@/lib/utils/pinGenerator"
-import logger from "@/lib/utils/logger-server"
+import { NextResponse } from "next/server";
+import connectToDatabase from "@/lib/db";
+import PinCode from "@/lib/models/pinCode";
+import { authorizeRequest } from "@/lib/utils/auth-server";
+import { validateRequest, pinCreationSchema } from "@/lib/utils/validation";
+import { generateUniquePin } from "@/lib/utils/pinGenerator";
+import logger from "@/lib/utils/logger-server";
 
 // GET all pins with pagination and optimization
+// GET all pins with pagination and correct global stats
 export async function GET(request) {
   try {
-    await connectToDatabase()
+    await connectToDatabase();
 
-    // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
+    // Autentikasi dan otorisasi
+    const authResult = await authorizeRequest(["admin", "super-admin"])(
+      request
+    );
     if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+      return NextResponse.json(
+        { status: "error", message: authResult.message },
+        { status: 401 }
+      );
     }
 
-    // Get URL parameters for pagination
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "500", 10) // Default to 500 pins
-    const page = Number.parseInt(searchParams.get("page") || "1", 10)
-    const skip = (page - 1) * limit
+    const { searchParams } = new URL(request.url);
+    const limit = Number.parseInt(searchParams.get("limit") || "500", 10);
+    const page = Number.parseInt(searchParams.get("page") || "1", 10);
+    const skip = (page - 1) * limit;
 
-    // Get filter parameters if any
-    const filterUsed = searchParams.get("used")
-    const filterProcessed = searchParams.get("processed")
-    const searchTerm = searchParams.get("search")
+    const filterUsed = searchParams.get("used");
+    const filterProcessed = searchParams.get("processed");
+    const searchTerm = searchParams.get("search");
 
-    // Build query object
-    const query = {}
+    // Query filter untuk data yang ditampilkan
+    const query = {};
     if (filterUsed !== null) {
-      query.used = filterUsed === "true"
+      query.used = filterUsed === "true";
     }
     if (filterProcessed !== null) {
-      query.processed = filterProcessed === "true"
+      query.processed = filterProcessed === "true";
     }
     if (searchTerm) {
-      query.code = { $regex: searchTerm, $options: "i" }
+      query.code = { $regex: searchTerm, $options: "i" };
     }
 
-    // Get total count for pagination info (with applied filters)
-    const totalCount = await PinCode.countDocuments(query)
+    const totalFiltered = await PinCode.countDocuments(query);
 
-    // Get pins with pagination and projection to reduce data size
     const pins = await PinCode.find(query, {
       code: 1,
       used: 1,
@@ -55,98 +57,110 @@ export async function GET(request) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean() // Use lean() for better performance
+      .lean();
 
-    // Get counts for dashboard stats (do this in a separate query to avoid filtering issues)
-    const [usedCount, pendingCount] = await Promise.all([
+    // PERBAIKAN: Hitung statistik dari seluruh koleksi, bukan berdasarkan query
+    const [totalAll, usedAll, pendingAll, processedAll] = await Promise.all([
+      PinCode.countDocuments({}),
       PinCode.countDocuments({ used: true }),
       PinCode.countDocuments({ used: true, processed: false }),
-    ])
+      PinCode.countDocuments({ used: true, processed: true }),
+    ]);
 
     return NextResponse.json({
       pins,
-      total: totalCount,
+      total: totalFiltered,
       page,
-      totalPages: Math.ceil(totalCount / limit),
+      totalPages: Math.ceil(totalFiltered / limit),
       stats: {
-        total: totalCount,
-        used: usedCount,
-        unused: totalCount - usedCount,
-        pending: pendingCount,
-        processed: usedCount - pendingCount,
+        total: totalAll,
+        used: usedAll,
+        unused: totalAll - usedAll,
+        available: totalAll - usedAll,
+        pending: pendingAll,
+        processed: processedAll,
       },
-    })
+    });
   } catch (error) {
-    logger.error("Error fetching pins:", error)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    logger.error("Error fetching pins:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
 // POST generate new pins - optimized for batch operations
 export async function POST(request) {
   try {
-    await connectToDatabase()
+    await connectToDatabase();
 
     // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
+    const authResult = await authorizeRequest(["admin", "super-admin"])(
+      request
+    );
     if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+      return NextResponse.json(
+        { status: "error", message: authResult.message },
+        { status: 401 }
+      );
     }
 
-    const body = await request.json()
+    const body = await request.json();
 
     // Validate request
-    const validation = await validateRequest(pinCreationSchema, body)
+    const validation = await validateRequest(pinCreationSchema, body);
     if (!validation.success) {
-      return NextResponse.json(validation.error, { status: 400 })
+      return NextResponse.json(validation.error, { status: 400 });
     }
 
-    const { count = 10, prefix = "" } = body
+    const { count = 10, prefix = "" } = body;
 
     // Limit the maximum number of pins that can be generated at once
-    const maxPinsPerRequest = 1000
+    const maxPinsPerRequest = 1000;
     if (count > maxPinsPerRequest) {
       return NextResponse.json(
-        { error: `Maksimum ${maxPinsPerRequest} PIN dapat dibuat dalam satu permintaan` },
-        { status: 400 },
-      )
+        {
+          error: `Maksimum ${maxPinsPerRequest} PIN dapat dibuat dalam satu permintaan`,
+        },
+        { status: 400 }
+      );
     }
 
     // Generate PINs in batches for better performance
-    const batchSize = 100
-    const pins = []
-    const now = new Date()
-    const userId = authResult.user._id
+    const batchSize = 100;
+    const pins = [];
+    const now = new Date();
+    const userId = authResult.user._id;
 
     for (let i = 0; i < count; i += batchSize) {
-      const batchCount = Math.min(batchSize, count - i)
-      const batchPins = []
+      const batchCount = Math.min(batchSize, count - i);
+      const batchPins = [];
 
       for (let j = 0; j < batchCount; j++) {
-        const code = await generateUniquePin(prefix)
+        const code = await generateUniquePin(prefix);
         batchPins.push({
           code,
           used: false,
           processed: false,
           createdAt: now,
           createdBy: userId,
-        })
+        });
       }
 
       // Insert batch
-      const result = await PinCode.insertMany(batchPins, { ordered: true })
-      pins.push(...result)
+      const result = await PinCode.insertMany(batchPins, { ordered: true });
+      pins.push(...result);
     }
 
-    logger.info(`${pins.length} PIN baru dibuat oleh ${authResult.user.username}`)
+    logger.info(
+      `${pins.length} PIN baru dibuat oleh ${authResult.user.username}`
+    );
 
     return NextResponse.json({
       success: true,
       count: pins.length,
       message: `Berhasil generate ${pins.length} PIN baru`,
-    })
+    });
   } catch (error) {
-    logger.error("Error generating pins:", error)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    logger.error("Error generating pins:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
