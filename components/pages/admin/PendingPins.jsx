@@ -9,7 +9,23 @@ import "@/styles/adminstyles.css"
 import { CACHE_KEYS, updatePendingCountInCaches, getPendingPinsCacheKey } from "@/lib/utils/cache-utils"
 import getAdminSSEClient from "@/lib/utils/sse-client"
 
-function PendingPins() {
+const StyledTableCell = (props) => {
+  return (
+    <td {...props} className="MuiTableCell-root MuiTableCell-body">
+      {props.children}
+    </td>
+  )
+}
+
+const StyledTableRow = (props) => {
+  return (
+    <tr {...props} className="MuiTableRow-root">
+      {props.children}
+    </tr>
+  )
+}
+
+const PendingPins = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -35,6 +51,7 @@ function PendingPins() {
   const [totalItems, setTotalItems] = useState(0)
   const [sseConnected, setSSEConnected] = useState(false)
   const [sseError, setSSEError] = useState(null)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
   // Minimum time between fetches (5 minutes in milliseconds)
   const MIN_FETCH_INTERVAL = 5 * 60 * 1000
@@ -61,6 +78,8 @@ function PendingPins() {
 
     window.addEventListener("pin-data-updated", handleDataUpdate)
     window.addEventListener("cache-invalidated", handleDataUpdate)
+    window.addEventListener("sse-pin-processed", handleDataUpdate)
+    window.addEventListener("sse-pins-batch-processed", handleDataUpdate)
 
     // Inisialisasi SSE hanya jika token tersedia
     const token = sessionStorage.getItem("adminToken")
@@ -104,6 +123,9 @@ function PendingPins() {
                     fetchPendingPins(true)
                   }
                 }
+
+                // Force refresh UI
+                router.refresh()
               }
             }
           }
@@ -125,6 +147,9 @@ function PendingPins() {
 
                 // Update counter
                 updatePendingCountInCaches(processedCount)
+
+                // Force refresh UI
+                router.refresh()
               }
             }
           }
@@ -133,6 +158,11 @@ function PendingPins() {
             console.log("SSE connected:", data)
             setSSEConnected(true)
             setSSEError(null)
+
+            // Force refresh data when SSE connects
+            if (initialLoadDone) {
+              fetchPendingPins(true)
+            }
           }
 
           const handleSSEDisconnected = (data) => {
@@ -192,6 +222,8 @@ function PendingPins() {
         // Remove event listeners
         window.removeEventListener("pin-data-updated", handleDataUpdate)
         window.removeEventListener("cache-invalidated", handleDataUpdate)
+        window.removeEventListener("sse-pin-processed", handleDataUpdate)
+        window.removeEventListener("sse-pins-batch-processed", handleDataUpdate)
 
         // Execute SSE cleanup
         sseCleanup()
@@ -212,9 +244,11 @@ function PendingPins() {
         // Remove event listeners
         window.removeEventListener("pin-data-updated", handleDataUpdate)
         window.removeEventListener("cache-invalidated", handleDataUpdate)
+        window.removeEventListener("sse-pin-processed", handleDataUpdate)
+        window.removeEventListener("sse-pins-batch-processed", handleDataUpdate)
       }
     }
-  }, [])
+  }, [router, pendingPins, currentPage, itemsPerPage, initialLoadDone])
 
   // Effect untuk menangani perubahan pendingPins
   useEffect(() => {
@@ -234,8 +268,8 @@ function PendingPins() {
     if (!token) {
       router.push("/admin/login")
     } else {
-      // Load data on initial render
-      fetchPendingPins()
+      // Always force a fresh load on initial render
+      fetchPendingPins(true)
     }
   }, [isClient, router])
 
@@ -283,6 +317,11 @@ function PendingPins() {
     setError("")
 
     try {
+      // Always fetch fresh data on first load
+      if (!initialLoadDone) {
+        force = true
+      }
+
       // Cek cache terlebih dahulu jika tidak force refresh
       if (!force) {
         const cacheKey = getPendingPinsCacheKey(page, limit)
@@ -299,6 +338,7 @@ function PendingPins() {
               setPendingPins(cachedPins)
               setLoading(false)
               setIsRefreshing(false)
+              setInitialLoadDone(true)
 
               // Tetap ambil data baru di background setelah delay singkat
               setTimeout(() => {
@@ -315,6 +355,7 @@ function PendingPins() {
 
       // Jika tidak ada cache atau force refresh, langsung ambil data baru
       await fetchFreshData(token, page, limit, now)
+      setInitialLoadDone(true)
     } catch (error) {
       console.error("Error fetching pending pins:", error)
 
@@ -478,6 +519,9 @@ function PendingPins() {
           detail: { processedCount: 1 },
         }),
       )
+
+      // Force refresh UI
+      router.refresh()
     } catch (error) {
       console.error("Error marking pin as processed:", error)
 
@@ -531,7 +575,7 @@ function PendingPins() {
       if (!isMounted.current) return
 
       const processedCount = response.data.processed || 0
-      setSuccessMessage(`${processedCount} PIN berhasil ditandai sebagai diproses`)
+      setSuccessMessage(`${processedCount} PIN berhasil ditandai sebagai sudah diproses`)
 
       // Remove the processed pins from the list
       const updatedPins = pendingPins.filter((p) => !selectedPins.includes(p._id))
@@ -564,6 +608,9 @@ function PendingPins() {
           detail: { processedCount },
         }),
       )
+
+      // Force refresh UI
+      router.refresh()
     } catch (error) {
       console.error("Error batch processing pins:", error)
 
