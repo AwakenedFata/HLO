@@ -529,6 +529,15 @@ function usePendingPins() {
     setShowBatchProcessModal,
     setSSEConnected,
     setSSEError,
+    setIsRefreshing,
+    setLoading,
+    setTotalItems,
+    setTotalPages,
+    setLastFetchTime,
+    setNextAllowedFetchTime,
+    setInitialLoadDone,
+    setSelectedPins,
+    setSelectAll,
 
     // Methods
     fetchPendingPins,
@@ -874,6 +883,20 @@ const PendingPins = () => {
     setShowRateLimitModal,
     setShowForceRefreshModal,
     setShowBatchProcessModal,
+    setSSEConnected,
+    setSSEError,
+    setIsRefreshing,
+    setLoading,
+    setError,
+    setPendingPins,
+    setTotalPages,
+    setTotalItems,
+    setLastFetchTime,
+    setNextAllowedFetchTime,
+    setInitialLoadDone,
+    setSelectedPins,
+    setSelectAll,
+    setSuccessMessage,
 
     fetchPendingPins,
     handlePageChange,
@@ -886,27 +909,246 @@ const PendingPins = () => {
     handleSelectPin,
 
     timeRemainingFormatted,
+    isMounted,
+    MIN_FETCH_INTERVAL,
   } = pendingPinsState
 
   // Use SSE connection hook
-  useSSEConnection(pendingPinsState)
+  //useSSEConnection(pendingPinsState)
 
   // Use event listeners hook
   useEventListeners(pendingPinsState)
 
   // Set isClient on mount
+  // useEffect(() => {
+  //   setIsClient(true)
+
+  //   // Check authentication on component mount
+  //   const token = sessionStorage.getItem("adminToken")
+  //   if (!token) {
+  //     window.location.href = "/admin/login"
+  //   } else {
+  //     // Always force a fresh load on initial render
+  //     fetchPendingPins(true)
+  //   }
+  // }, [fetchPendingPins])
+
+  // Perbaiki useEffect untuk initial fetch dan SSE connection
   useEffect(() => {
+    console.log("PendingPins: Initial useEffect triggered")
     setIsClient(true)
 
-    // Check authentication on component mount
+    // Pastikan kita hanya di client-side
+    if (typeof window === "undefined") return
+
+    // Cek token
     const token = sessionStorage.getItem("adminToken")
     if (!token) {
+      console.log("No token found, redirecting to login")
       window.location.href = "/admin/login"
-    } else {
-      // Always force a fresh load on initial render
-      fetchPendingPins(true)
+      return
     }
-  }, [fetchPendingPins])
+
+    // Buat AbortController baru untuk initial fetch
+    const controller = new AbortController()
+
+    // Fungsi untuk fetch data
+    const fetchInitialData = async () => {
+      try {
+        console.log("PendingPins: Executing initial data fetch")
+
+        setIsRefreshing(true)
+        setLoading(true)
+        setError("")
+
+        // Use the dedicated endpoint for pending pins with pagination
+        const response = await axios.get(`/api/admin/pending-pins?page=1&limit=50`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+          timeout: 30000, // 30 second timeout
+        })
+
+        console.log("PendingPins: Initial API response received")
+
+        // Only update state if component is still mounted
+        if (!isMounted.current) {
+          console.log("Component unmounted, skipping state update")
+          return
+        }
+
+        // Update state with pins from the dedicated endpoint
+        setPendingPins(response.data.pins || [])
+        setTotalPages(response.data.totalPages || 1)
+        setTotalItems(response.data.total || 0)
+
+        // Update cache with the current page data
+        const cacheKey = getPendingPinsCacheKey(1, 50)
+        setCacheItem(cacheKey, response.data.pins || [])
+
+        const now = Date.now()
+        setCacheItem(CACHE_KEYS.PENDING_PINS_LAST_FETCH, now)
+        setLastFetchTime(now)
+        setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
+        setInitialLoadDone(true)
+
+        // Clear any error messages
+        setError("")
+
+        // Reset selection state
+        setSelectedPins([])
+        setSelectAll(false)
+
+        // Set loading to false explicitly
+        setLoading(false)
+        setIsRefreshing(false)
+
+        console.log("PendingPins: Initial data fetch completed successfully")
+
+        // Initialize SSE connection after successful data fetch
+        initializeSSEConnection()
+      } catch (error) {
+        console.error("PendingPins: Error in initial fetch:", error)
+
+        if (!isMounted.current) return
+
+        // Don't set error state for intentionally canceled requests
+        if (error.name === "CanceledError" || error.name === "AbortError") {
+          console.log("Initial request was canceled", error.message)
+          setLoading(false)
+          setIsRefreshing(false)
+          return
+        }
+
+        if (error.response?.status === 401) {
+          console.log("Unauthorized, redirecting to login")
+          sessionStorage.removeItem("adminToken")
+          window.location.href = "/admin/login"
+        } else {
+          setError("Gagal mengambil data PIN pending: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        }
+
+        setLoading(false)
+        setIsRefreshing(false)
+      }
+    }
+
+    // Fungsi untuk inisialisasi SSE connection
+    const initializeSSEConnection = () => {
+      try {
+        console.log("PendingPins: Initializing SSE connection")
+
+        // Inisialisasi SSE client
+        const sseClient = getAdminSSEClient()
+
+        // Handler untuk event SSE
+        const handlePinProcessed = (data) => {
+          console.log("SSE: Pin processed:", data)
+
+          // Jika pin yang diproses ada di halaman ini, hapus dari daftar
+          if (pendingPins.some((pin) => pin._id === data.pinId)) {
+            if (isMounted.current) {
+              // Update daftar pin
+              const updatedPins = pendingPins.filter((pin) => pin._id !== data.pinId)
+              setPendingPins(updatedPins)
+
+              // Update cache
+              const cacheKey = getPendingPinsCacheKey(currentPage, itemsPerPage)
+              setCacheItem(cacheKey, updatedPins)
+
+              // Update counter
+              updatePendingCountInCaches(1)
+
+              // Tampilkan notifikasi
+              setSuccessMessage(`PIN telah diproses oleh ${data.processedBy?.username || "admin lain"}`)
+            }
+          }
+        }
+
+        const handleBatchProcessed = (data) => {
+          console.log("SSE: Batch processed:", data)
+
+          // Jika ada pin yang diproses di halaman ini, refresh data
+          const processedCount = data.count || 0
+
+          if (processedCount > 0) {
+            if (isMounted.current) {
+              setSuccessMessage(
+                `${processedCount} PIN telah diproses oleh ${data.processedBy?.username || "admin lain"}`,
+              )
+
+              // Refresh data untuk mendapatkan daftar terbaru
+              fetchPendingPins(true)
+
+              // Update counter
+              updatePendingCountInCaches(processedCount)
+            }
+          }
+        }
+
+        const handleSSEConnected = (data) => {
+          console.log("SSE connected:", data)
+          setSSEConnected(true)
+          setSSEError(null)
+        }
+
+        const handleSSEDisconnected = (data) => {
+          console.log("SSE disconnected:", data)
+          setSSEConnected(false)
+        }
+
+        const handleSSEError = (data) => {
+          console.error("SSE error:", data)
+          setSSEConnected(false)
+          setSSEError(data.message)
+        }
+
+        // Daftarkan event listeners SSE
+        sseClient.on("pin-processed", handlePinProcessed)
+        sseClient.on("pins-batch-processed", handleBatchProcessed)
+        sseClient.on("connected", handleSSEConnected)
+        sseClient.on("disconnected", handleSSEDisconnected)
+        sseClient.on("error", handleSSEError)
+
+        // Connect ke SSE server
+        sseClient.connect()
+
+        // Simpan referensi ke sseClient untuk cleanup
+        sseClientRef.current = sseClient
+
+        console.log("PendingPins: SSE connection initialized")
+      } catch (error) {
+        console.error("PendingPins: Failed to initialize SSE:", error)
+        setSSEError(error.message)
+      }
+    }
+
+    // Tambahkan referensi untuk SSE client
+    const sseClientRef = { current: null }
+
+    // Execute fetch with a small delay
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current) {
+        fetchInitialData()
+      }
+    }, 500)
+
+    // Cleanup function
+    return () => {
+      console.log("PendingPins: Cleaning up")
+      clearTimeout(timeoutId)
+      controller.abort()
+
+      // Cleanup SSE connection
+      if (sseClientRef.current) {
+        console.log("PendingPins: Disconnecting SSE")
+        sseClientRef.current.disconnect()
+      }
+
+      isMounted.current = false
+    }
+  }, []) // No dependencies to prevent re-runs
 
   if (!isClient) {
     return (

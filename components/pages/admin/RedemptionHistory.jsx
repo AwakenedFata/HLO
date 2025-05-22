@@ -374,18 +374,101 @@ function useRedemptionHistory() {
   useEffect(() => {
     console.log("Initial useEffect triggered, initialLoadDone:", initialLoadDone)
 
-    if (!initialLoadDone) {
-      // Add a small delay to ensure component is fully mounted
-      const timeoutId = setTimeout(() => {
-        if (isMounted.current) {
-          console.log("Triggering initial data fetch")
-          fetchRedemptions(1, 50, true, "", { startDate: "", endDate: "" }, "redeemedAt", "desc")
-        }
-      }, 100)
+    // Pastikan kita hanya di client-side
+    if (typeof window === "undefined") return
 
-      return () => clearTimeout(timeoutId)
+    // Cek token
+    const token = sessionStorage.getItem("adminToken")
+    if (!token) {
+      console.log("No token found, redirecting to login")
+      router.push("/admin/login")
+      return
     }
-  }, []) // Remove fetchRedemptions from dependencies to prevent infinite loop
+
+    // Buat AbortController baru untuk initial fetch
+    const controller = new AbortController()
+
+    // Fungsi untuk fetch data
+    const fetchInitialData = async () => {
+      try {
+        console.log("Executing initial data fetch")
+
+        // Build query parameters
+        const queryParams = `?page=1&limit=50&sort=redeemedAt&direction=desc`
+
+        const response = await axios.get(`/api/admin/redemptions${queryParams}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+          timeout: 30000, // 30 second timeout
+        })
+
+        console.log("Initial API response received:", response.data)
+
+        // Only update state if component is still mounted
+        if (!isMounted.current) {
+          console.log("Component unmounted, skipping state update")
+          return
+        }
+
+        const now = Date.now()
+        setRedemptions(response.data.redemptions || [])
+        setFilteredRedemptions(response.data.redemptions || [])
+        setTotalPages(response.data.totalPages || 1)
+        setTotalItems(response.data.total || 0)
+        setLastFetchTime(now)
+        setLoading(false)
+        setIsRefreshing(false)
+        setInitialLoadDone(true)
+
+        // Cache the results
+        const cacheKey = `${CACHE_KEYS.REDEMPTION_HISTORY}_page_1_limit_50_sort_redeemedAt_direction_desc`
+        setCacheItem(cacheKey, {
+          redemptions: response.data.redemptions || [],
+          totalPages: response.data.totalPages || 1,
+          total: response.data.total || 0,
+        })
+        setCacheItem(`${cacheKey}_last_fetch`, now)
+
+        console.log("Initial data fetch completed successfully")
+      } catch (error) {
+        console.error("Error in initial fetch:", error)
+
+        if (!isMounted.current) return
+
+        // Don't set error state for intentionally canceled requests
+        if (error.name === "CanceledError" || error.name === "AbortError") {
+          console.log("Initial request was canceled", error.message)
+          setLoading(false)
+          return
+        }
+
+        if (error.response?.status === 401) {
+          console.log("Unauthorized, redirecting to login")
+          sessionStorage.removeItem("adminToken")
+          router.push("/admin/login")
+        } else {
+          setError("Gagal mengambil data riwayat redemption: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        }
+
+        setLoading(false)
+      }
+    }
+
+    // Execute fetch with a small delay
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current) {
+        fetchInitialData()
+      }
+    }, 500)
+
+    // Cleanup function
+    return () => {
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [router]) // Hanya bergantung pada router
 
   return {
     // State
