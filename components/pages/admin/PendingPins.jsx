@@ -288,6 +288,12 @@ const PendingPins = () => {
   const fetchPendingPins = async (force = false, page = currentPage, limit = itemsPerPage) => {
     if (!isClient) return
 
+    // Always force fetch on first load
+    if (!initialLoadDone) {
+      force = true
+      console.log("First load detected, forcing data fetch")
+    }
+
     const token = checkAuthAndGetToken()
     if (!token) return
 
@@ -317,11 +323,6 @@ const PendingPins = () => {
     setError("")
 
     try {
-      // Always fetch fresh data on first load
-      if (!initialLoadDone) {
-        force = true
-      }
-
       // Cek cache terlebih dahulu jika tidak force refresh
       if (!force) {
         const cacheKey = getPendingPinsCacheKey(page, limit)
@@ -355,7 +356,6 @@ const PendingPins = () => {
 
       // Jika tidak ada cache atau force refresh, langsung ambil data baru
       await fetchFreshData(token, page, limit, now)
-      setInitialLoadDone(true)
     } catch (error) {
       console.error("Error fetching pending pins:", error)
 

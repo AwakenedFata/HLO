@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import AdminLayout from "@/components/admin/AdminLayout"
 import SSEInitializer from "@/components/admin/SSEInitializer"
 import { useRouter } from "next/navigation"
@@ -9,8 +9,12 @@ import "@/styles/adminstyles.css"
 
 export default function AdminWrappedLayout({ children }) {
   const router = useRouter()
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
+    // Only run this once
+    if (isInitialized) return
+
     // Check authentication
     const token = sessionStorage.getItem("adminToken")
     if (!token) {
@@ -18,42 +22,67 @@ export default function AdminWrappedLayout({ children }) {
       return
     }
 
-    // Invalidate all caches on first load to ensure fresh data
-    invalidateAllCaches()
+    // Immediately mark as initialized to prevent multiple executions
+    setIsInitialized(true)
 
-    // Force an initial refresh when the layout mounts
-    // This ensures data is loaded on first visit
-    router.refresh()
+    // Clear all caches first
+    if (typeof window !== "undefined") {
+      try {
+        // Force clear all localStorage cache items
+        for (const key in localStorage) {
+          if (key.includes("_cache") || key.includes("last_fetch")) {
+            localStorage.removeItem(key)
+          }
+        }
 
-    // Set up event listeners for cache invalidation
-    const handleCacheInvalidated = () => {
+        // Then invalidate through our utility
+        invalidateAllCaches()
+
+        console.log("All caches cleared on initial load")
+      } catch (error) {
+        console.error("Error clearing caches:", error)
+      }
+    }
+
+    // Force immediate data refresh
+    setTimeout(() => {
+      router.refresh()
+      console.log("Initial router.refresh() called")
+
+      // Add a second refresh after a short delay to ensure data loads
+      setTimeout(() => {
+        router.refresh()
+        console.log("Follow-up router.refresh() called")
+      }, 1000)
+    }, 100)
+
+    // Set up event listeners for data updates
+    const handleDataUpdate = () => {
+      console.log("Data update event received, refreshing UI")
       router.refresh()
     }
 
-    const handleDataUpdated = () => {
-      router.refresh()
-    }
-
-    window.addEventListener("cache-invalidated", handleCacheInvalidated)
-    window.addEventListener("pin-data-updated", handleDataUpdated)
-    window.addEventListener("sse-pin-processed", handleDataUpdated)
-    window.addEventListener("sse-pins-batch-processed", handleDataUpdated)
-    window.addEventListener("sse-pin-updated", handleDataUpdated)
-    window.addEventListener("sse-pin-deleted", handleDataUpdated)
+    window.addEventListener("cache-invalidated", handleDataUpdate)
+    window.addEventListener("pin-data-updated", handleDataUpdate)
+    window.addEventListener("sse-pin-processed", handleDataUpdate)
+    window.addEventListener("sse-pins-batch-processed", handleDataUpdate)
+    window.addEventListener("sse-pin-updated", handleDataUpdate)
+    window.addEventListener("sse-pin-deleted", handleDataUpdate)
+    window.addEventListener("sse-connected", handleDataUpdate)
 
     return () => {
-      window.removeEventListener("cache-invalidated", handleCacheInvalidated)
-      window.removeEventListener("pin-data-updated", handleDataUpdated)
-      window.removeEventListener("sse-pin-processed", handleDataUpdated)
-      window.removeEventListener("sse-pins-batch-processed", handleDataUpdated)
-      window.removeEventListener("sse-pin-updated", handleDataUpdated)
-      window.removeEventListener("sse-pin-deleted", handleDataUpdated)
+      window.removeEventListener("cache-invalidated", handleDataUpdate)
+      window.removeEventListener("pin-data-updated", handleDataUpdate)
+      window.removeEventListener("sse-pin-processed", handleDataUpdate)
+      window.removeEventListener("sse-pins-batch-processed", handleDataUpdate)
+      window.removeEventListener("sse-pin-updated", handleDataUpdate)
+      window.removeEventListener("sse-pin-deleted", handleDataUpdate)
+      window.removeEventListener("sse-connected", handleDataUpdate)
     }
-  }, [router])
+  }, [router, isInitialized])
 
   return (
     <AdminLayout>
-      {/* Inisialisasi SSE di level layout */}
       <SSEInitializer />
       {children}
     </AdminLayout>

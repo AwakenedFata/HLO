@@ -23,7 +23,7 @@ import { useRouter } from "next/navigation"
 import axios from "axios"
 import { FaFileUpload, FaFileDownload, FaPlus, FaSync, FaTrash, FaCheck, FaFilter, FaSearch } from "react-icons/fa"
 import Papa from "papaparse"
-import { CACHE_KEYS, invalidateAllCaches, updatePendingCountInCaches, getPendingPinsCacheKey } from "@/lib/utils/cache-utils"
+import { CACHE_KEYS, invalidateAllCaches, updatePendingCountInCaches } from "@/lib/utils/cache-utils"
 import "@/styles/adminstyles.css"
 
 function PinManagement() {
@@ -46,6 +46,8 @@ function PinManagement() {
   const [importPreview, setImportPreview] = useState([])
   const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef(null)
+  const [dataFetchAttempted, setDataFetchAttempted] = useState(false) // New state to track fetch attempts
+  const [initialLoadDone, setInitialLoadDone] = useState(false) // New state to track initial load
 
   // Stats
   const [stats, setStats] = useState({
@@ -90,17 +92,17 @@ function PinManagement() {
   // Tandai bahwa kita sudah di client-side
   useEffect(() => {
     setIsClient(true)
-    
+
     // Tambahkan event listener untuk update data
     const handleDataUpdate = () => {
       if (isMounted.current) {
-        fetchPins();
+        fetchPins()
       }
-    };
-    
-    window.addEventListener('pin-data-updated', handleDataUpdate);
-    window.addEventListener('cache-invalidated', handleDataUpdate);
-    
+    }
+
+    window.addEventListener("pin-data-updated", handleDataUpdate)
+    window.addEventListener("cache-invalidated", handleDataUpdate)
+
     return () => {
       isMounted.current = false
       // Cancel any pending requests when component unmounts
@@ -111,8 +113,8 @@ function PinManagement() {
         clearTimeout(refreshTimeoutRef.current)
       }
       // Remove event listeners
-      window.removeEventListener('pin-data-updated', handleDataUpdate);
-      window.removeEventListener('cache-invalidated', handleDataUpdate);
+      window.removeEventListener("pin-data-updated", handleDataUpdate)
+      window.removeEventListener("cache-invalidated", handleDataUpdate)
     }
   }, [])
 
@@ -126,6 +128,19 @@ function PinManagement() {
     } else {
       // Fetch pins on initial load
       fetchPins()
+
+      // Set a timeout to ensure data is loaded even if there are issues
+      const dataLoadTimeout = setTimeout(() => {
+        if (!initialLoadDone && !dataFetchAttempted) {
+          console.log("Data loading taking too long, trying again")
+          fetchPins()
+          setDataFetchAttempted(true)
+        }
+      }, 3000) // 3 seconds timeout
+
+      return () => {
+        clearTimeout(dataLoadTimeout)
+      }
     }
   }, [isClient, router])
 
@@ -154,6 +169,7 @@ function PinManagement() {
 
     setLoading(true)
     setError("")
+    setDataFetchAttempted(true)
 
     // Cancel any existing request
     if (abortControllerRef.current) {
@@ -204,7 +220,7 @@ function PinManagement() {
       // Update stats if available in response
       if (response.data.stats) {
         setStats(response.data.stats)
-        
+
         // Cache the stats for other components to use
         localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data.stats))
         localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, Date.now().toString())
@@ -222,9 +238,9 @@ function PinManagement() {
           pending,
           processed,
         }
-        
+
         setStats(calculatedStats)
-        
+
         // Cache the calculated stats
         localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(calculatedStats))
         localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, Date.now().toString())
@@ -235,6 +251,7 @@ function PinManagement() {
 
       setLoading(false)
       setIsRefreshing(false)
+      setInitialLoadDone(true)
     } catch (error) {
       console.error("Error fetching pins:", error)
 
@@ -254,6 +271,7 @@ function PinManagement() {
 
       setLoading(false)
       setIsRefreshing(false)
+      setInitialLoadDone(true) // Mark as done even if there was an error
     }
   }
 
@@ -362,9 +380,9 @@ function PinManagement() {
 
       // Invalidate all caches to force refresh
       invalidateAllCaches()
-      
+
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent('cache-invalidated'));
+      window.dispatchEvent(new CustomEvent("cache-invalidated"))
 
       // Refresh data after generate
       fetchPins()
@@ -571,9 +589,9 @@ function PinManagement() {
 
       // Invalidate all caches to force refresh
       invalidateAllCaches()
-      
+
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent('cache-invalidated'));
+      window.dispatchEvent(new CustomEvent("cache-invalidated"))
 
       // Refresh data after import
       fetchPins()
@@ -619,9 +637,9 @@ function PinManagement() {
 
       // Invalidate all caches to force refresh
       invalidateAllCaches()
-      
+
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent('cache-invalidated'));
+      window.dispatchEvent(new CustomEvent("cache-invalidated"))
 
       fetchPins() // Refresh data setelah hapus
 
@@ -691,9 +709,9 @@ function PinManagement() {
 
       // Invalidate all caches to force refresh
       invalidateAllCaches()
-      
+
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent('cache-invalidated'));
+      window.dispatchEvent(new CustomEvent("cache-invalidated"))
 
       fetchPins() // Refresh data setelah hapus multiple
 
@@ -752,14 +770,16 @@ function PinManagement() {
       setShowProcessModal(false)
       setPinToProcess(null)
       setSuccessMessage("PIN berhasil ditandai sebagai diproses")
-      
+
       // Update global stats cache to reflect the change
       updatePendingCountInCaches(1)
-      
+
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent('pin-data-updated', { 
-        detail: { processedCount: 1 } 
-      }));
+      window.dispatchEvent(
+        new CustomEvent("pin-data-updated", {
+          detail: { processedCount: 1 },
+        }),
+      )
 
       // Refresh data after update
       fetchPins()

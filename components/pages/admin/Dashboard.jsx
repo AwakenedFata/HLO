@@ -134,6 +134,12 @@ const Dashboard = () => {
   const fetchStats = async (force = false) => {
     if (!isClient) return
 
+    // Always force fetch on first load
+    if (!initialLoadDone) {
+      force = true
+      console.log("First load detected, forcing data fetch")
+    }
+
     // Check if we're allowed to fetch based on time interval
     const now = Date.now()
 
@@ -199,7 +205,6 @@ const Dashboard = () => {
 
       // Update state with new data
       setStats(response.data)
-      setInitialLoadDone(true)
 
       // Update cache
       localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data))

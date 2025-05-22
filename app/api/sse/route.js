@@ -112,7 +112,7 @@ export async function GET(req) {
 
     logger.info(`SSE: Client connected: ${authResult.user.username} (${clientId})`)
 
-    // Kirim event koneksi berhasil
+    // Kirim event koneksi berhasil IMMEDIATELY
     await writer.write(
       encoder.encode(
         `event: connected\ndata: ${JSON.stringify({
@@ -123,9 +123,13 @@ export async function GET(req) {
             role: authResult.user.role,
           },
           clientId,
+          timestamp: Date.now(),
         })}\n\n`,
       ),
     )
+
+    // Send an immediate heartbeat to confirm connection
+    await writer.write(encoder.encode(`event: heartbeat\ndata: ${Date.now()}\n\n`))
 
     // Kirim heartbeat setiap 30 detik untuk menjaga koneksi tetap hidup
     const heartbeatInterval = setInterval(async () => {
