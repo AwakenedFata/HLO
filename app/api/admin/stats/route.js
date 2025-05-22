@@ -4,16 +4,46 @@ import PinCode from "@/lib/models/pinCode"
 import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import crypto from "crypto"
+import { rateLimit } from "@/lib/utils/rate-limit"
+
+// Rate limiter for stats endpoint
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 100,
+  limit: 20, // 20 requests per minute
+})
 
 export async function GET(request) {
   try {
-    await connectToDatabase()
+    // Apply rate limiting
+    const identifier = request.headers.get("x-forwarded-for") || "anonymous"
+    const rateLimitResult = await limiter.check(identifier, 20, "dashboard-stats")
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: "Too many requests. Please try again later.",
+          reset: rateLimitResult.reset,
+        },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": rateLimitResult.reset.toString(),
+            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+          },
+        }
+      )
+    }
 
     // Authenticate and authorize user
     const authResult = await authorizeRequest(["admin", "super-admin"])(request)
     if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+      return NextResponse.json({ error: authResult.message }, { status: 401 })
     }
+
+    await connectToDatabase()
 
     // Use aggregation pipeline for more efficient statistics calculation
     const statsAggregation = await PinCode.aggregate([
@@ -159,6 +189,6 @@ export async function GET(request) {
     )
   } catch (error) {
     logger.error("Error fetching stats:", error)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }

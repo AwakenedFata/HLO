@@ -14,6 +14,7 @@ function broadcastEvent(event, data) {
   for (const [clientId, client] of clients.entries()) {
     try {
       client.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+      client.lastActivity = Date.now() // Update last activity timestamp
       activeClients++
     } catch (error) {
       logger.error(`SSE: Error broadcasting to client ${clientId}:`, error)
@@ -75,6 +76,28 @@ try {
   logger.error("SSE: Error setting up event listeners:", error)
 }
 
+// Cleanup inactive clients periodically
+const INACTIVE_TIMEOUT = 10 * 60 * 1000 // 10 minutes
+let cleanupInterval
+
+if (typeof setInterval !== 'undefined') {
+  cleanupInterval = setInterval(() => {
+    const now = Date.now()
+    let removedCount = 0
+    
+    for (const [clientId, client] of clients.entries()) {
+      if (now - client.lastActivity > INACTIVE_TIMEOUT) {
+        clients.delete(clientId)
+        removedCount++
+      }
+    }
+    
+    if (removedCount > 0) {
+      logger.info(`SSE: Cleaned up ${removedCount} inactive clients. Remaining: ${clients.size}`)
+    }
+  }, 60 * 1000) // Check every minute
+}
+
 export async function GET(req) {
   try {
     logger.info("SSE: New connection request")
@@ -113,6 +136,7 @@ export async function GET(req) {
         }
       },
       user: authResult.user,
+      lastActivity: Date.now() // Track last activity
     })
 
     logger.info(`SSE: Client connected: ${authResult.user.username} (${clientId})`)
@@ -146,6 +170,7 @@ export async function GET(req) {
     const heartbeatInterval = setInterval(async () => {
       try {
         await writer.write(encoder.encode(`event: heartbeat\ndata: ${Date.now()}\n\n`))
+        clients.get(clientId).lastActivity = Date.now() // Update last activity on heartbeat
       } catch (error) {
         logger.error(`SSE: Heartbeat failed for client ${clientId}:`, error)
         clearInterval(heartbeatInterval)
@@ -180,6 +205,10 @@ process.on("beforeExit", () => {
   if (cleanupEventListeners) {
     cleanupEventListeners()
     logger.info("SSE: Event listeners cleaned up before exit")
+  }
+  
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval)
   }
 })
 

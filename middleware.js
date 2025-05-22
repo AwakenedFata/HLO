@@ -1,6 +1,3 @@
-// Perbaikan pada middleware.js untuk menangani token refresh
-// Tambahkan pengecekan token untuk rute admin
-
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 import logger from "@/lib/utils/logger-edge" // Gunakan logger-edge yang kompatibel dengan Edge Runtime
@@ -45,14 +42,49 @@ const sseLimiter = rateLimit({
   identifier: "api-sse",
 })
 
+// Helper function to get client identifier
+function getClientIdentifier(request) {
+  const ip = request.headers.get("x-forwarded-for") || 
+             request.headers.get("x-real-ip") || 
+             "unknown"
+  const userAgent = request.headers.get("user-agent") || "unknown"
+  
+  // Kombinasikan IP dan user-agent untuk rate limiting yang lebih akurat
+  return `${ip}:${userAgent.substring(0, 50)}`
+}
+
+// Helper function to handle rate limit responses
+function createRateLimitResponse(limitResult) {
+  const retryAfter = limitResult.reset || 60 // Default 60 detik jika tidak ada info reset
+
+  return NextResponse.json(
+    {
+      error: `Too many requests, please try again in ${retryAfter} seconds`,
+      retryAfter,
+    },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfter),
+        "X-RateLimit-Limit": String(limitResult.limit),
+        "X-RateLimit-Remaining": String(limitResult.remaining),
+        "X-RateLimit-Reset": String(limitResult.reset),
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    },
+  )
+}
+
 export async function middleware(request) {
   // Get the pathname of the request
   const path = request.nextUrl.pathname
   const ip = request.headers.get("x-forwarded-for") || "unknown"
   const userAgent = request.headers.get("user-agent") || "unknown"
 
-  // Kombinasikan IP dan user-agent untuk rate limiting yang lebih akurat
-  const tokenKey = `${ip}:${userAgent.substring(0, 50)}`
+  // Get client identifier for rate limiting
+  const tokenKey = getClientIdentifier(request)
 
   // Cek apakah request ke halaman admin (kecuali login)
   if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
@@ -85,28 +117,7 @@ export async function middleware(request) {
 
     if (!limitResult.success) {
       logger.warn(`Rate limit exceeded for ${path} from IP: ${ip}, attempts: ${limitResult.count}`)
-
-      // Hitung waktu reset yang lebih akurat
-      const retryAfter = limitResult.reset || 60 // Default 60 detik jika tidak ada info reset
-
-      return NextResponse.json(
-        {
-          error: `Too many requests from this IP, please try again in ${retryAfter} seconds`,
-          retryAfter,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(retryAfter),
-            "X-RateLimit-Limit": String(limitResult.limit),
-            "X-RateLimit-Remaining": String(limitResult.remaining),
-            "X-RateLimit-Reset": String(limitResult.reset),
-            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-            Pragma: "no-cache",
-            Expires: "0",
-          },
-        },
-      )
+      return createRateLimitResponse(limitResult)
     }
   }
 
@@ -143,6 +154,15 @@ export async function middleware(request) {
     response.headers.set("X-Content-Type-Options", "nosniff")
     response.headers.set("X-Frame-Options", "DENY")
     response.headers.set("X-XSS-Protection", "1; mode=block")
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+    
+    // Add Content Security Policy in production
+    if (process.env.NODE_ENV === "production") {
+      response.headers.set(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
+      )
+    }
 
     // Handle preflight requests
     if (request.method === "OPTIONS") {

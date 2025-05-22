@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Card, Row, Col, Alert, Spinner, Button, Modal } from "react-bootstrap"
 import axios from "axios"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js"
@@ -13,7 +14,17 @@ import { CACHE_KEYS, isCacheStale } from "@/lib/utils/cache-utils"
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
-const Dashboard = () => {
+// Memoized chart components to prevent unnecessary re-renders
+const PieChartComponent = React.memo(({ data, options }) => {
+  return <Pie data={data} options={options} />
+})
+
+const BarChartComponent = React.memo(({ data, options }) => {
+  return <Bar data={data} options={options} />
+})
+
+// Custom hook for stats data
+function useStatsData() {
   const [stats, setStats] = useState({
     total: 0,
     used: 0,
@@ -24,66 +35,145 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const router = useRouter()
-  const [isClient, setIsClient] = useState(false)
   const [lastFetchTime, setLastFetchTime] = useState(0)
   const [nextAllowedFetchTime, setNextAllowedFetchTime] = useState(0)
-  const [showRateLimitModal, setShowRateLimitModal] = useState(false)
-  const [showForceRefreshModal, setShowForceRefreshModal] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-
+  
+  // Refs for cleanup
+  const isMounted = useRef(true)
+  const timeoutRef = useRef(null)
+  const abortControllerRef = useRef(null)
+  
   // Minimum time between fetches (15 minutes in milliseconds)
   const MIN_FETCH_INTERVAL = 15 * 60 * 1000
 
-  // Reference to track if component is mounted
-  const isMounted = useRef(true)
+  // Function to fetch stats
+  const fetchStats = useCallback(async (force = false) => {
+    if (!isMounted.current) return
 
-  // Timeout reference for cleanup
-  const timeoutRef = useRef(null)
+    // Always force fetch on first load
+    if (!initialLoadDone) {
+      force = true
+      console.log("First load detected, forcing data fetch")
+    }
 
-  // AbortController for cancelling requests
-  const abortControllerRef = useRef(null)
+    // Check if we're allowed to fetch based on time interval
+    const now = Date.now()
 
-  useEffect(() => {
-    setIsClient(true)
+    if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
+      const cachedStats = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
+      if (cachedStats) {
+        const parsed = JSON.parse(cachedStats)
+        if (parsed.total > 0) {
+          const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
+          setError(`Untuk menghindari rate limit, tunggu ${timeRemaining} detik sebelum refresh data.`)
+          return { showRateLimitModal: true }
+        }
+      }
+    }
 
-    // Tambahkan event listener untuk update data
-    const handleDataUpdate = () => {
+    setIsRefreshing(true)
+
+    // Jangan set loading ke true jika kita sudah memiliki data
+    if (!stats.total) {
+      setLoading(true)
+    }
+
+    setError("")
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
+    // Create a new AbortController
+    abortControllerRef.current = new AbortController()
+
+    try {
+      const token = sessionStorage.getItem("adminToken")
+
+      if (!token) {
+        return { authError: true }
+      }
+
+      // Add a timeout to abort the request if it takes too long
+      timeoutRef.current = setTimeout(() => {
+        if (abortControllerRef.current && isMounted.current) {
+          abortControllerRef.current.abort()
+        }
+      }, 15000) // 15 second timeout
+
+      const response = await axios.get(`/api/admin/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: abortControllerRef.current.signal,
+      })
+
+      // Only update state if component is still mounted
+      if (!isMounted.current) return {}
+
+      // Update state with new data
+      setStats(response.data)
+
+      // Update cache
+      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data))
+      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
+      setLastFetchTime(now)
+      setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
+      setInitialLoadDone(true)
+
+      // Clear any error messages
+      setError("")
+      
+      return { success: true }
+    } catch (error) {
+      console.error("Error fetching stats:", error)
+
+      if (!isMounted.current) return {}
+
+      if (error.name === "AbortError") {
+        setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
+      } else if (error.response?.status === 401) {
+        sessionStorage.removeItem("adminToken")
+        return { authError: true }
+      } else if (error.response?.status === 429) {
+        setError("Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit.")
+        
+        // Update last fetch time to prevent immediate retries
+        // Use a longer backoff period for 429 errors - 30 minutes
+        const backoffTime = now - MIN_FETCH_INTERVAL + 30 * 60 * 1000
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, backoffTime.toString())
+        setLastFetchTime(backoffTime)
+        setNextAllowedFetchTime(backoffTime + MIN_FETCH_INTERVAL)
+        
+        return { showRateLimitModal: true }
+      } else {
+        setError("Gagal mengambil data statistik: " + (error.response?.data?.error || "Terjadi kesalahan"))
+      }
+      
+      return { error: true }
+    } finally {
       if (isMounted.current) {
-        fetchStats(true)
+        setLoading(false)
+        setIsRefreshing(false)
+
+        // Clear timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
+        }
       }
     }
-
-    window.addEventListener("pin-data-updated", handleDataUpdate)
-    window.addEventListener("cache-invalidated", handleDataUpdate)
-    window.addEventListener("sse-pin-processed", handleDataUpdate)
-    window.addEventListener("sse-pins-batch-processed", handleDataUpdate)
-
-    return () => {
-      isMounted.current = false
-
-      // Clear any pending timeouts
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-
-      // Cancel any pending requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-
-      // Remove event listeners
-      window.removeEventListener("pin-data-updated", handleDataUpdate)
-      window.removeEventListener("cache-invalidated", handleDataUpdate)
-      window.removeEventListener("sse-pin-processed", handleDataUpdate)
-      window.removeEventListener("sse-pins-batch-processed", handleDataUpdate)
-    }
-  }, [])
+  }, [lastFetchTime, stats.total, initialLoadDone])
 
   // Load data from cache on initial render
   useEffect(() => {
-    if (!isClient) return
-
     // Try to load from cache first
     try {
       const cachedData = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
@@ -128,153 +218,107 @@ const Dashboard = () => {
       // Fetch data immediately on error
       fetchStats(true)
     }
-  }, [isClient])
 
-  // Optimize the fetchStats function to be more efficient
-  const fetchStats = async (force = false) => {
-    if (!isClient) return
-
-    // Always force fetch on first load
-    if (!initialLoadDone) {
-      force = true
-      console.log("First load detected, forcing data fetch")
-    }
-
-    // Check if we're allowed to fetch based on time interval
-    const now = Date.now()
-
-    if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
-      const cachedStats = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
-      if (cachedStats) {
-        const parsed = JSON.parse(cachedStats)
-        if (parsed.total > 0) {
-          const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
-          setError(`Untuk menghindari rate limit, tunggu ${timeRemaining} detik sebelum refresh data.`)
-          setShowRateLimitModal(true)
-          return
-        }
-      }
-    }
-
-    setIsRefreshing(true)
-
-    // Jangan set loading ke true jika kita sudah memiliki data
-    if (!stats.total) {
-      setLoading(true)
-    }
-
-    setError("")
-
-    // Cancel any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-
-    // Create a new AbortController
-    abortControllerRef.current = new AbortController()
-
-    try {
-      const token = sessionStorage.getItem("adminToken")
-
-      if (!token) {
-        router.push("/admin/login")
-        return
+    return () => {
+      isMounted.current = false
+      
+      // Clear any pending timeouts
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
       }
 
-      // Add a timeout to abort the request if it takes too long
-      timeoutRef.current = setTimeout(() => {
-        if (abortControllerRef.current && isMounted.current) {
-          abortControllerRef.current.abort()
-        }
-      }, 15000) // 15 second timeout
-
-      const response = await axios.get(`/api/admin/stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        signal: abortControllerRef.current.signal,
-      })
-
-      // Only update state if component is still mounted
-      if (!isMounted.current) return
-
-      // Update state with new data
-      setStats(response.data)
-
-      // Update cache
-      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data))
-      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
-      setLastFetchTime(now)
-      setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
-
-      // Clear any error messages
-      setError("")
-    } catch (error) {
-      console.error("Error fetching stats:", error)
-
-      if (!isMounted.current) return
-
-      if (error.name === "AbortError") {
-        setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
-      } else if (error.response?.status === 401) {
-        sessionStorage.removeItem("adminToken")
-        router.push("/admin/login")
-      } else if (error.response?.status === 429) {
-        setError("Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit.")
-        setShowRateLimitModal(true)
-
-        // Update last fetch time to prevent immediate retries
-        // Use a longer backoff period for 429 errors - 30 minutes
-        const backoffTime = now - MIN_FETCH_INTERVAL + 30 * 60 * 1000
-        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, backoffTime.toString())
-        setLastFetchTime(backoffTime)
-        setNextAllowedFetchTime(backoffTime + MIN_FETCH_INTERVAL)
-      } else {
-        setError("Gagal mengambil data statistik: " + (error.response?.data?.error || "Terjadi kesalahan"))
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false)
-        setIsRefreshing(false)
-
-        // Clear timeout
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-          timeoutRef.current = null
-        }
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
     }
-  }
+  }, [fetchStats])
 
-  const handleRefresh = () => {
-    const now = Date.now()
-    if (lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
-      setShowForceRefreshModal(true)
-    } else {
-      fetchStats(true)
-    }
-  }
-
-  const handleForceRefresh = () => {
-    setShowForceRefreshModal(false)
-    fetchStats(true)
-  }
-
-  const formatTimeRemaining = () => {
+  // Format time remaining
+  const formatTimeRemaining = useCallback(() => {
     const now = Date.now()
     const timeRemaining = Math.max(0, nextAllowedFetchTime - now)
     const minutes = Math.floor(timeRemaining / 60000)
     const seconds = Math.floor((timeRemaining % 60000) / 1000)
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }, [nextAllowedFetchTime])
+
+  return {
+    stats,
+    loading,
+    error,
+    isRefreshing,
+    lastFetchTime,
+    fetchStats,
+    formatTimeRemaining
+  }
+}
+
+const Dashboard = () => {
+  const router = useRouter()
+  const [isClient, setIsClient] = useState(false)
+  const [showRateLimitModal, setShowRateLimitModal] = useState(false)
+  const [showForceRefreshModal, setShowForceRefreshModal] = useState(false)
+  
+  // Use custom hook for stats data
+  const { 
+    stats, 
+    loading, 
+    error, 
+    isRefreshing, 
+    lastFetchTime,
+    fetchStats,
+    formatTimeRemaining
+  } = useStatsData()
+
+  useEffect(() => {
+    setIsClient(true)
+
+    // Tambahkan event listener untuk update data
+    const handleDataUpdate = () => {
+      fetchStats(true)
+    }
+
+    window.addEventListener("pin-data-updated", handleDataUpdate)
+    window.addEventListener("cache-invalidated", handleDataUpdate)
+    window.addEventListener("sse-pin-processed", handleDataUpdate)
+    window.addEventListener("sse-pins-batch-processed", handleDataUpdate)
+
+    return () => {
+      // Remove event listeners
+      window.removeEventListener("pin-data-updated", handleDataUpdate)
+      window.removeEventListener("cache-invalidated", handleDataUpdate)
+      window.removeEventListener("sse-pin-processed", handleDataUpdate)
+      window.removeEventListener("sse-pins-batch-processed", handleDataUpdate)
+    }
+  }, [fetchStats])
+
+  const handleRefresh = async () => {
+    const now = Date.now()
+    if (lastFetchTime && now - lastFetchTime < 15 * 60 * 1000) {
+      setShowForceRefreshModal(true)
+    } else {
+      const result = await fetchStats(true)
+      if (result?.showRateLimitModal) {
+        setShowRateLimitModal(true)
+      } else if (result?.authError) {
+        router.push("/admin/login")
+      }
+    }
+  }
+
+  const handleForceRefresh = async () => {
+    setShowForceRefreshModal(false)
+    const result = await fetchStats(true)
+    if (result?.showRateLimitModal) {
+      setShowRateLimitModal(true)
+    } else if (result?.authError) {
+      router.push("/admin/login")
+    }
   }
 
   // Custom chart colors - futuristic theme
-  const chartColors = {
+  const chartColors = useMemo(() => ({
     primary: ["#6c63ff", "#4facfe"],
     secondary: ["#00f5a0", "#00d9f5"],
     accent: ["#ff6b6b", "#ff8e53"],
@@ -282,10 +326,10 @@ const Dashboard = () => {
     background: "#16213e",
     text: "#ffffff",
     grid: "rgba(255, 255, 255, 0.43)",
-  }
+  }), [])
 
   // Common chart options
-  const commonOptions = {
+  const commonOptions = useMemo(() => ({
     plugins: {
       legend: {
         position: "top",
@@ -318,10 +362,10 @@ const Dashboard = () => {
         boxPadding: 5,
       },
     },
-  }
+  }), [chartColors])
 
   // Data untuk pie chart - updated to include pending
-  const pieData = {
+  const pieData = useMemo(() => ({
     labels: ["Digunakan & Diproses", "Pending", "Belum Digunakan"],
     datasets: [
       {
@@ -332,10 +376,10 @@ const Dashboard = () => {
         borderWidth: 2,
       },
     ],
-  }
+  }), [stats, chartColors])
 
   // Options for pie chart
-  const pieChartOptions = {
+  const pieChartOptions = useMemo(() => ({
     ...commonOptions,
     plugins: {
       ...commonOptions.plugins,
@@ -350,10 +394,10 @@ const Dashboard = () => {
       },
     },
     maintainAspectRatio: false,
-  }
+  }), [commonOptions, chartColors])
 
   // Data untuk bar chart
-  const barData = {
+  const barData = useMemo(() => ({
     labels: stats.batches?.map((batch) => batch.name || `Batch ${batch.id}`) || [],
     datasets: [
       {
@@ -372,10 +416,10 @@ const Dashboard = () => {
         hoverBackgroundColor: chartColors.primary[1],
       },
     ],
-  }
+  }), [stats.batches, chartColors])
 
   // Options for bar chart
-  const barOptions = {
+  const barOptions = useMemo(() => ({
     ...commonOptions,
     responsive: true,
     maintainAspectRatio: false,
@@ -437,7 +481,7 @@ const Dashboard = () => {
       duration: 2000,
       easing: "easeOutQuart",
     },
-  }
+  }), [commonOptions, chartColors])
 
   return (
     <div className="adminpaneldashboardpage">
@@ -509,7 +553,7 @@ const Dashboard = () => {
                     <Card.Title>Status Penggunaan PIN</Card.Title>
                     <div style={{ height: "300px" }} className="d-flex justify-content-center align-items-center">
                       {stats.total > 0 ? (
-                        <Pie data={pieData} options={pieChartOptions} />
+                        <PieChartComponent data={pieData} options={pieChartOptions} />
                       ) : (
                         <p className="errortextdashboard">Belum ada data PIN</p>
                       )}
@@ -523,7 +567,7 @@ const Dashboard = () => {
                     <Card.Title>Distribusi PIN per Batch</Card.Title>
                     <div style={{ height: "300px" }} className="d-flex justify-content-center align-items-center">
                       {stats.batches?.length > 0 ? (
-                        <Bar data={barData} options={barOptions} />
+                        <BarChartComponent data={barData} options={barOptions} />
                       ) : (
                         <p className="errortextdashboard">Belum ada data batch</p>
                       )}

@@ -4,10 +4,40 @@ import PinCode from "@/lib/models/pinCode"
 import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import { pinUpdateEmitter } from "../pins/[id]/route"
+import { rateLimit } from "@/lib/utils/rate-limit"
+
+// Rate limiter for process pin endpoint
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 100,
+  limit: 30, // 30 requests per minute
+})
 
 // Endpoint for processing pins with optimized performance
 export async function POST(request) {
   try {
+    // Apply rate limiting
+    const identifier = request.headers.get("x-forwarded-for") || "anonymous"
+    const rateLimitResult = await limiter.check(identifier, 30, "process-pin")
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: "Too many requests. Please try again later.",
+          reset: rateLimitResult.reset,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": rateLimitResult.reset.toString(),
+            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+          },
+        },
+      )
+    }
+
     await connectToDatabase()
 
     // Authenticate and authorize user
@@ -25,32 +55,55 @@ export async function POST(request) {
     const now = new Date()
 
     // Find and update the pin in a single operation
-    const updatedPin = await PinCode.findByIdAndUpdate(
-      pinId, 
-      { 
-        processed: true,
-        processedAt: now,
-        processedBy: authResult.user._id
-      }, 
-      { new: true }
+    const updatedPin = await PinCode.findOneAndUpdate(
+      { _id: pinId, used: true, processed: false },
+      {
+        $set: {
+          processed: true,
+          processedAt: now,
+          processedBy: authResult.user._id,
+        },
+      },
+      { new: true, runValidators: true },
     )
 
     if (!updatedPin) {
-      return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
+      // Check if the pin exists but is already processed
+      const existingPin = await PinCode.findById(pinId).lean()
+
+      if (!existingPin) {
+        return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
+      }
+
+      if (existingPin.processed) {
+        return NextResponse.json(
+          {
+            error: "PIN sudah diproses sebelumnya",
+            processedAt: existingPin.processedAt,
+          },
+          { status: 400 },
+        )
+      }
+
+      if (!existingPin.used) {
+        return NextResponse.json({ error: "PIN belum digunakan" }, { status: 400 })
+      }
+
+      return NextResponse.json({ error: "PIN tidak dapat diproses" }, { status: 400 })
     }
 
     logger.info(`PIN ${updatedPin.code} ditandai sebagai diproses oleh ${authResult.user.username}`)
 
     // Emit event for pin update with more comprehensive data
     pinUpdateEmitter.emit("pin-processed", {
-      pinId,
+      pinId: updatedPin._id.toString(),
       code: updatedPin.code,
       processed: true,
       processedAt: now,
       processedBy: {
-        id: authResult.user._id,
-        username: authResult.user.username
-      }
+        id: authResult.user._id.toString(),
+        username: authResult.user.username,
+      },
     })
 
     // Return response with cache control headers
@@ -58,17 +111,29 @@ export async function POST(request) {
       {
         success: true,
         message: "PIN berhasil diproses",
-        code: updatedPin.code,
-        processedAt: now
+        pin: {
+          _id: updatedPin._id,
+          code: updatedPin.code,
+          processed: updatedPin.processed,
+          processedAt: updatedPin.processedAt,
+        },
       },
       {
         headers: {
-          'Cache-Control': 'no-store'
-        }
-      }
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
     )
   } catch (error) {
     logger.error("Error processing pin:", error)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Server error",
+        message: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

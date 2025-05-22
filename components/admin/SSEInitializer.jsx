@@ -9,6 +9,7 @@ export default function SSEInitializer() {
   const [connectionAttempts, setConnectionAttempts] = useState(0)
   const router = useRouter()
   const sseClientRef = useRef(null)
+  const eventHandlersRef = useRef({})
 
   useEffect(() => {
     console.log("SSEInitializer: Component mounted")
@@ -71,6 +72,16 @@ export default function SSEInitializer() {
       }
     }
 
+    // Store event handlers in ref for cleanup
+    eventHandlersRef.current = {
+      connected: handleConnected,
+      error: handleError,
+      "pin-processed": handleDataEvent,
+      "pins-batch-processed": handleDataEvent,
+      "pin-updated": handleDataEvent,
+      "pin-deleted": handleDataEvent
+    }
+
     // Register event listeners
     sseClient.on("connected", handleConnected)
     sseClient.on("error", handleError)
@@ -95,13 +106,15 @@ export default function SSEInitializer() {
     // Cleanup function
     return () => {
       console.log("SSEInitializer: Cleaning up")
-      sseClient.off("connected", handleConnected)
-      sseClient.off("error", handleError)
-      sseClient.off("pin-processed", handleDataEvent)
-      sseClient.off("pins-batch-processed", handleDataEvent)
-      sseClient.off("pin-updated", handleDataEvent)
-      sseClient.off("pin-deleted", handleDataEvent)
-      sseClient.disconnect()
+      
+      // Remove all event listeners
+      if (sseClientRef.current) {
+        Object.entries(eventHandlersRef.current).forEach(([event, handler]) => {
+          sseClientRef.current.off(event, handler)
+        })
+        
+        sseClientRef.current.disconnect()
+      }
     }
   }, [initialized, router, connectionAttempts])
 
@@ -122,6 +135,28 @@ export default function SSEInitializer() {
       window.removeEventListener("storage", handleStorageChange)
     }
   }, [])
+
+  // Periodically check connection status
+  useEffect(() => {
+    if (!initialized) return
+
+    const checkConnectionInterval = setInterval(() => {
+      if (sseClientRef.current) {
+        // If inactive for more than 5 minutes, reconnect
+        if (sseClientRef.current.getInactiveTime() > 5 * 60 * 1000) {
+          console.log("SSEInitializer: Connection inactive, reconnecting")
+          sseClientRef.current.disconnect()
+          setTimeout(() => {
+            sseClientRef.current.connect()
+          }, 1000)
+        }
+      }
+    }, 60 * 1000) // Check every minute
+
+    return () => {
+      clearInterval(checkConnectionInterval)
+    }
+  }, [initialized])
 
   return null
 }
