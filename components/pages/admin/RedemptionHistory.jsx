@@ -70,39 +70,74 @@ function useRedemptionHistory() {
 
   // Function to fetch redemptions with pagination and server-side filtering
   const fetchRedemptions = useCallback(
-    async (page = currentPage, limit = itemsPerPage, force = false) => {
+    async (
+      page = 1,
+      limit = 50,
+      force = false,
+      currentSearchTerm = "",
+      currentDateRange = {},
+      currentSortField = "redeemedAt",
+      currentSortDirection = "desc",
+    ) => {
       if (typeof window === "undefined") return
+
+      console.log("fetchRedemptions called with:", {
+        page,
+        limit,
+        force,
+        currentSearchTerm,
+        currentDateRange,
+        currentSortField,
+        currentSortDirection,
+      })
 
       const token = checkAuthAndGetToken()
       if (!token) {
+        console.log("No token found, redirecting to login")
         router.push("/admin/login")
         return
       }
 
-      // Check cache first if not forcing refresh
-      if (!force) {
-        const cacheKey = `${CACHE_KEYS.REDEMPTION_HISTORY}_page_${page}_limit_${limit}_sort_${sortField}_${sortDirection}`
+      // Always force fetch on first load
+      if (!initialLoadDone) {
+        force = true
+        console.log("First load detected, forcing data fetch")
+      }
+
+      // Check cache first if not forcing refresh and not first load
+      if (!force && initialLoadDone) {
+        const cacheKey = `${CACHE_KEYS.REDEMPTION_HISTORY}_page_${page}_limit_${limit}_sort_${currentSortField}_${currentSortDirection}`
         const cachedData = getCacheItem(cacheKey)
         const lastFetch = getCacheItem(`${cacheKey}_last_fetch`)
 
         if (cachedData && lastFetch && !isCacheStale(`${cacheKey}_last_fetch`, CACHE_EXPIRATION)) {
-          setRedemptions(cachedData.redemptions || [])
-          setFilteredRedemptions(cachedData.redemptions || [])
-          setTotalPages(cachedData.totalPages || 1)
-          setTotalItems(cachedData.total || 0)
-          setLoading(false)
-          setInitialLoadDone(true)
+          console.log("Using cached data")
+          if (isMounted.current) {
+            setRedemptions(cachedData.redemptions || [])
+            setFilteredRedemptions(cachedData.redemptions || [])
+            setTotalPages(cachedData.totalPages || 1)
+            setTotalItems(cachedData.total || 0)
+            setLoading(false)
+            setIsRefreshing(false)
+          }
           return
         }
       }
 
+      console.log("Fetching fresh data from API")
       setLoading(true)
       setError("")
-      setIsRefreshing(force)
+      if (force) setIsRefreshing(true)
 
       // Cancel any existing request
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+        try {
+          abortControllerRef.current.abort()
+          console.log("Aborted previous request")
+        } catch (abortError) {
+          console.error("Error aborting previous request:", abortError)
+        }
+        abortControllerRef.current = null
       }
 
       // Create a new AbortController
@@ -110,29 +145,37 @@ function useRedemptionHistory() {
 
       try {
         // Build query parameters
-        let queryParams = `?page=${page}&limit=${limit}&sort=${sortField}&direction=${sortDirection}`
+        let queryParams = `?page=${page}&limit=${limit}&sort=${currentSortField}&direction=${currentSortDirection}`
 
-        if (searchTerm) {
-          queryParams += `&search=${encodeURIComponent(searchTerm)}`
+        if (currentSearchTerm) {
+          queryParams += `&search=${encodeURIComponent(currentSearchTerm)}`
         }
 
-        if (dateRange.startDate) {
-          queryParams += `&startDate=${encodeURIComponent(dateRange.startDate)}`
+        if (currentDateRange.startDate) {
+          queryParams += `&startDate=${encodeURIComponent(currentDateRange.startDate)}`
         }
 
-        if (dateRange.endDate) {
-          queryParams += `&endDate=${encodeURIComponent(dateRange.endDate)}`
+        if (currentDateRange.endDate) {
+          queryParams += `&endDate=${encodeURIComponent(currentDateRange.endDate)}`
         }
+
+        console.log("Making API request to:", `/api/admin/redemptions${queryParams}`)
 
         const response = await axios.get(`/api/admin/redemptions${queryParams}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
           signal: abortControllerRef.current.signal,
+          timeout: 15000, // 15 second timeout
         })
 
+        console.log("API response received:", response.data)
+
         // Only update state if component is still mounted
-        if (!isMounted.current) return
+        if (!isMounted.current) {
+          console.log("Component unmounted, skipping state update")
+          return
+        }
 
         const now = Date.now()
         setRedemptions(response.data.redemptions || [])
@@ -145,13 +188,15 @@ function useRedemptionHistory() {
         setInitialLoadDone(true)
 
         // Cache the results
-        const cacheKey = `${CACHE_KEYS.REDEMPTION_HISTORY}_page_${page}_limit_${limit}_sort_${sortField}_${sortDirection}`
+        const cacheKey = `${CACHE_KEYS.REDEMPTION_HISTORY}_page_${page}_limit_${limit}_sort_${currentSortField}_${currentSortDirection}`
         setCacheItem(cacheKey, {
           redemptions: response.data.redemptions || [],
           totalPages: response.data.totalPages || 1,
           total: response.data.total || 0,
         })
         setCacheItem(`${cacheKey}_last_fetch`, now)
+
+        console.log("Data fetch completed successfully")
       } catch (error) {
         console.error("Error fetching redemptions:", error)
 
@@ -160,13 +205,13 @@ function useRedemptionHistory() {
         // Don't set error state for intentionally canceled requests
         if (error.name === "CanceledError" || error.name === "AbortError") {
           console.log("Request was canceled", error.message)
-          // Just set loading to false without showing an error message
           setLoading(false)
           setIsRefreshing(false)
           return
         }
 
         if (error.response?.status === 401) {
+          console.log("Unauthorized, redirecting to login")
           sessionStorage.removeItem("adminToken")
           router.push("/admin/login")
         } else if (error.response?.status === 429) {
@@ -179,7 +224,15 @@ function useRedemptionHistory() {
         setIsRefreshing(false)
       }
     },
-    [checkAuthAndGetToken, currentPage, dateRange, itemsPerPage, router, searchTerm, sortDirection, sortField],
+    [checkAuthAndGetToken, router, initialLoadDone],
+  )
+
+  // Simplified fetch function that uses current state
+  const fetchWithCurrentState = useCallback(
+    (page = currentPage, limit = itemsPerPage, force = false) => {
+      return fetchRedemptions(page, limit, force, searchTerm, dateRange, sortField, sortDirection)
+    },
+    [fetchRedemptions, currentPage, itemsPerPage, searchTerm, dateRange, sortField, sortDirection],
   )
 
   // Function to handle search with debounce
@@ -193,16 +246,17 @@ function useRedemptionHistory() {
 
       searchDebounceTimeout.current = setTimeout(() => {
         setCurrentPage(1) // Reset to first page when searching
-        fetchRedemptions(1, itemsPerPage, true)
+        fetchRedemptions(1, itemsPerPage, true, searchTerm, dateRange, sortField, sortDirection)
       }, 500)
     },
-    [fetchRedemptions, itemsPerPage],
+    [fetchRedemptions, itemsPerPage, searchTerm, dateRange, sortField, sortDirection],
   )
 
   // Function to handle date range change
   const handleDateRangeChange = useCallback(
     (field, value) => {
-      setDateRange((prev) => ({ ...prev, [field]: value }))
+      const newDateRange = { ...dateRange, [field]: value }
+      setDateRange(newDateRange)
 
       if (searchDebounceTimeout.current) {
         clearTimeout(searchDebounceTimeout.current)
@@ -210,24 +264,24 @@ function useRedemptionHistory() {
 
       searchDebounceTimeout.current = setTimeout(() => {
         setCurrentPage(1) // Reset to first page when changing date range
-        fetchRedemptions(1, itemsPerPage, true)
+        fetchRedemptions(1, itemsPerPage, true, searchTerm, newDateRange, sortField, sortDirection)
       }, 500)
     },
-    [fetchRedemptions, itemsPerPage],
+    [fetchRedemptions, itemsPerPage, searchTerm, dateRange, sortField, sortDirection],
   )
 
   // Function to handle refresh
   const handleRefresh = useCallback(() => {
-    fetchRedemptions(currentPage, itemsPerPage, true)
-  }, [currentPage, fetchRedemptions, itemsPerPage])
+    fetchWithCurrentState(currentPage, itemsPerPage, true)
+  }, [fetchWithCurrentState, currentPage, itemsPerPage])
 
   // Function to handle page change
   const handlePageChange = useCallback(
     (page) => {
       setCurrentPage(page)
-      fetchRedemptions(page, itemsPerPage)
+      fetchRedemptions(page, itemsPerPage, false, searchTerm, dateRange, sortField, sortDirection)
     },
-    [fetchRedemptions, itemsPerPage],
+    [fetchRedemptions, itemsPerPage, searchTerm, dateRange, sortField, sortDirection],
   )
 
   // Function to handle items per page change
@@ -236,27 +290,27 @@ function useRedemptionHistory() {
       const newItemsPerPage = Number.parseInt(e.target.value, 10)
       setItemsPerPage(newItemsPerPage)
       setCurrentPage(1) // Reset to first page
-      fetchRedemptions(1, newItemsPerPage, true)
+      fetchRedemptions(1, newItemsPerPage, true, searchTerm, dateRange, sortField, sortDirection)
     },
-    [fetchRedemptions],
+    [fetchRedemptions, searchTerm, dateRange, sortField, sortDirection],
   )
 
   // Function to handle sort change
   const handleSortChange = useCallback(
     (field) => {
+      let newDirection = "desc"
+      const newField = field
+
       // If clicking the same field, toggle direction
       if (field === sortField) {
-        const newDirection = sortDirection === "asc" ? "desc" : "asc"
-        setSortDirection(newDirection)
-        fetchRedemptions(currentPage, itemsPerPage, true)
-      } else {
-        // If clicking a new field, set it as the sort field with default desc direction
-        setSortField(field)
-        setSortDirection("desc")
-        fetchRedemptions(currentPage, itemsPerPage, true)
+        newDirection = sortDirection === "asc" ? "desc" : "asc"
       }
+
+      setSortField(newField)
+      setSortDirection(newDirection)
+      fetchRedemptions(currentPage, itemsPerPage, true, searchTerm, dateRange, newField, newDirection)
     },
-    [currentPage, fetchRedemptions, itemsPerPage, sortDirection, sortField],
+    [fetchRedemptions, currentPage, itemsPerPage, searchTerm, dateRange, sortField, sortDirection],
   )
 
   // Function to export data to CSV
@@ -293,7 +347,12 @@ function useRedemptionHistory() {
   const clearFilters = useCallback(() => {
     // Cancel any existing request first
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
+      try {
+        abortControllerRef.current.abort()
+        console.log("Aborted request for clear filters")
+      } catch (abortError) {
+        console.error("Error aborting request:", abortError)
+      }
       abortControllerRef.current = null
     }
 
@@ -306,10 +365,27 @@ function useRedemptionHistory() {
     // Small delay to ensure state updates before fetching
     setTimeout(() => {
       if (isMounted.current) {
-        fetchRedemptions(1, itemsPerPage, true)
+        fetchRedemptions(1, itemsPerPage, true, "", { startDate: "", endDate: "" }, "redeemedAt", "desc")
       }
-    }, 0)
+    }, 100)
   }, [fetchRedemptions, itemsPerPage])
+
+  // Initial data fetch
+  useEffect(() => {
+    console.log("Initial useEffect triggered, initialLoadDone:", initialLoadDone)
+
+    if (!initialLoadDone) {
+      // Add a small delay to ensure component is fully mounted
+      const timeoutId = setTimeout(() => {
+        if (isMounted.current) {
+          console.log("Triggering initial data fetch")
+          fetchRedemptions(1, 50, true, "", { startDate: "", endDate: "" }, "redeemedAt", "desc")
+        }
+      }, 100)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, []) // Remove fetchRedemptions from dependencies to prevent infinite loop
 
   return {
     // State
@@ -334,7 +410,7 @@ function useRedemptionHistory() {
     setError,
 
     // Actions
-    fetchRedemptions,
+    fetchRedemptions: fetchWithCurrentState,
     handleSearch,
     handleDateRangeChange,
     handleRefresh,
@@ -421,13 +497,17 @@ function RedemptionHistory() {
   useEffect(() => {
     if (!isClient) return
 
+    console.log("Main component useEffect triggered")
+
     const token = sessionStorage.getItem("adminToken")
     if (!token) {
+      console.log("No token found, redirecting to login")
       router.push("/admin/login")
     } else {
-      fetchRedemptions()
+      console.log("Token found, component ready for data fetching")
+      // The initial fetch will be handled by the custom hook
     }
-  }, [fetchRedemptions, isClient, router])
+  }, [isClient, router])
 
   // Render pagination controls
   const renderPagination = () => {

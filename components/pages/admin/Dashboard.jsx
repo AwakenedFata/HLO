@@ -38,139 +38,161 @@ function useStatsData() {
   const [lastFetchTime, setLastFetchTime] = useState(0)
   const [nextAllowedFetchTime, setNextAllowedFetchTime] = useState(0)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-  
+
   // Refs for cleanup
   const isMounted = useRef(true)
   const timeoutRef = useRef(null)
   const abortControllerRef = useRef(null)
-  
+
   // Minimum time between fetches (15 minutes in milliseconds)
   const MIN_FETCH_INTERVAL = 15 * 60 * 1000
 
   // Function to fetch stats
-  const fetchStats = useCallback(async (force = false) => {
-    if (!isMounted.current) return
-
-    // Always force fetch on first load
-    if (!initialLoadDone) {
-      force = true
-      console.log("First load detected, forcing data fetch")
-    }
-
-    // Check if we're allowed to fetch based on time interval
-    const now = Date.now()
-
-    if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
-      const cachedStats = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
-      if (cachedStats) {
-        const parsed = JSON.parse(cachedStats)
-        if (parsed.total > 0) {
-          const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
-          setError(`Untuk menghindari rate limit, tunggu ${timeRemaining} detik sebelum refresh data.`)
-          return { showRateLimitModal: true }
-        }
-      }
-    }
-
-    setIsRefreshing(true)
-
-    // Jangan set loading ke true jika kita sudah memiliki data
-    if (!stats.total) {
-      setLoading(true)
-    }
-
-    setError("")
-
-    // Cancel any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-
-    // Create a new AbortController
-    abortControllerRef.current = new AbortController()
-
-    try {
-      const token = sessionStorage.getItem("adminToken")
-
-      if (!token) {
-        return { authError: true }
-      }
-
-      // Add a timeout to abort the request if it takes too long
-      timeoutRef.current = setTimeout(() => {
-        if (abortControllerRef.current && isMounted.current) {
-          abortControllerRef.current.abort()
-        }
-      }, 15000) // 15 second timeout
-
-      const response = await axios.get(`/api/admin/stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        signal: abortControllerRef.current.signal,
-      })
-
-      // Only update state if component is still mounted
+  const fetchStats = useCallback(
+    async (force = false) => {
       if (!isMounted.current) return {}
 
-      // Update state with new data
-      setStats(response.data)
+      // Always force fetch on first load
+      if (!initialLoadDone) {
+        force = true
+        console.log("First load detected, forcing data fetch")
+      }
 
-      // Update cache
-      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data))
-      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
-      setLastFetchTime(now)
-      setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
-      setInitialLoadDone(true)
+      // Check if we're allowed to fetch based on time interval
+      const now = Date.now()
 
-      // Clear any error messages
+      if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
+        const cachedStats = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
+        if (cachedStats) {
+          const parsed = JSON.parse(cachedStats)
+          if (parsed.total > 0) {
+            const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
+            setError(`Untuk menghindari rate limit, tunggu ${timeRemaining} detik sebelum refresh data.`)
+            return { showRateLimitModal: true }
+          }
+        }
+      }
+
+      setIsRefreshing(true)
+
+      // Jangan set loading ke true jika kita sudah memiliki data
+      if (!stats.total) {
+        setLoading(true)
+      }
+
       setError("")
-      
-      return { success: true }
-    } catch (error) {
-      console.error("Error fetching stats:", error)
 
-      if (!isMounted.current) return {}
-
-      if (error.name === "AbortError") {
-        setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
-      } else if (error.response?.status === 401) {
-        sessionStorage.removeItem("adminToken")
-        return { authError: true }
-      } else if (error.response?.status === 429) {
-        setError("Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit.")
-        
-        // Update last fetch time to prevent immediate retries
-        // Use a longer backoff period for 429 errors - 30 minutes
-        const backoffTime = now - MIN_FETCH_INTERVAL + 30 * 60 * 1000
-        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, backoffTime.toString())
-        setLastFetchTime(backoffTime)
-        setNextAllowedFetchTime(backoffTime + MIN_FETCH_INTERVAL)
-        
-        return { showRateLimitModal: true }
-      } else {
-        setError("Gagal mengambil data statistik: " + (error.response?.data?.error || "Terjadi kesalahan"))
-      }
-      
-      return { error: true }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false)
-        setIsRefreshing(false)
-
-        // Clear timeout
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-          timeoutRef.current = null
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        try {
+          abortControllerRef.current.abort()
+          console.log("Aborted previous request")
+        } catch (abortError) {
+          console.error("Error aborting previous request:", abortError)
+        } finally {
+          abortControllerRef.current = null
         }
       }
-    }
-  }, [lastFetchTime, stats.total, initialLoadDone])
+
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+
+      // Create a new AbortController
+      abortControllerRef.current = new AbortController()
+
+      try {
+        const token = sessionStorage.getItem("adminToken")
+
+        if (!token) {
+          return { authError: true }
+        }
+
+        // Add a timeout to abort the request if it takes too long
+        timeoutRef.current = setTimeout(() => {
+          if (abortControllerRef.current && isMounted.current) {
+            try {
+              abortControllerRef.current.abort()
+              console.log("Request timed out, aborted")
+            } catch (timeoutError) {
+              console.error("Error aborting timed out request:", timeoutError)
+            } finally {
+              abortControllerRef.current = null
+            }
+          }
+        }, 15000) // 15 second timeout
+
+        const response = await axios.get(`/api/admin/stats`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: abortControllerRef.current?.signal,
+        })
+
+        // Only update state if component is still mounted
+        if (!isMounted.current) return {}
+
+        // Update state with new data
+        setStats(response.data)
+
+        // Update cache
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data))
+        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
+        setLastFetchTime(now)
+        setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
+        setInitialLoadDone(true)
+
+        // Clear any error messages
+        setError("")
+
+        return { success: true }
+      } catch (error) {
+        console.error("Error fetching stats:", error)
+
+        if (!isMounted.current) return {}
+
+        // Don't set error state for intentionally canceled requests
+        if (error.name === "CanceledError" || error.name === "AbortError") {
+          console.log("Request was canceled", error.message)
+          return { canceled: true }
+        }
+
+        if (error.response?.status === 401) {
+          sessionStorage.removeItem("adminToken")
+          return { authError: true }
+        } else if (error.response?.status === 429) {
+          setError("Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit.")
+
+          // Update last fetch time to prevent immediate retries
+          // Use a longer backoff period for 429 errors - 30 minutes
+          const backoffTime = now - MIN_FETCH_INTERVAL + 30 * 60 * 1000
+          localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, backoffTime.toString())
+          setLastFetchTime(backoffTime)
+          setNextAllowedFetchTime(backoffTime + MIN_FETCH_INTERVAL)
+
+          return { showRateLimitModal: true }
+        } else {
+          setError("Gagal mengambil data statistik: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        }
+
+        return { error: true }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false)
+          setIsRefreshing(false)
+
+          // Clear timeout
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
+          }
+        }
+      }
+    },
+    [lastFetchTime, stats.total, initialLoadDone],
+  )
 
   // Load data from cache on initial render
   useEffect(() => {
@@ -221,18 +243,26 @@ function useStatsData() {
 
     return () => {
       isMounted.current = false
-      
+
       // Clear any pending timeouts
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
       }
 
       // Cancel any pending requests
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+        try {
+          console.log("Cleaning up: aborting any pending requests")
+          abortControllerRef.current.abort()
+        } catch (cleanupError) {
+          console.error("Error during cleanup:", cleanupError)
+        } finally {
+          abortControllerRef.current = null
+        }
       }
     }
-  }, [fetchStats])
+  }, [fetchStats, initialLoadDone])
 
   // Format time remaining
   const formatTimeRemaining = useCallback(() => {
@@ -250,7 +280,7 @@ function useStatsData() {
     isRefreshing,
     lastFetchTime,
     fetchStats,
-    formatTimeRemaining
+    formatTimeRemaining,
   }
 }
 
@@ -259,17 +289,9 @@ const Dashboard = () => {
   const [isClient, setIsClient] = useState(false)
   const [showRateLimitModal, setShowRateLimitModal] = useState(false)
   const [showForceRefreshModal, setShowForceRefreshModal] = useState(false)
-  
+
   // Use custom hook for stats data
-  const { 
-    stats, 
-    loading, 
-    error, 
-    isRefreshing, 
-    lastFetchTime,
-    fetchStats,
-    formatTimeRemaining
-  } = useStatsData()
+  const { stats, loading, error, isRefreshing, lastFetchTime, fetchStats, formatTimeRemaining } = useStatsData()
 
   useEffect(() => {
     setIsClient(true)
@@ -318,170 +340,188 @@ const Dashboard = () => {
   }
 
   // Custom chart colors - futuristic theme
-  const chartColors = useMemo(() => ({
-    primary: ["#6c63ff", "#4facfe"],
-    secondary: ["#00f5a0", "#00d9f5"],
-    accent: ["#ff6b6b", "#ff8e53"],
-    warning: ["#ffb347", "#ffcc33"], // New color for pending
-    background: "#16213e",
-    text: "#ffffff",
-    grid: "rgba(255, 255, 255, 0.43)",
-  }), [])
+  const chartColors = useMemo(
+    () => ({
+      primary: ["#6c63ff", "#4facfe"],
+      secondary: ["#00f5a0", "#00d9f5"],
+      accent: ["#ff6b6b", "#ff8e53"],
+      warning: ["#ffb347", "#ffcc33"], // New color for pending
+      background: "#16213e",
+      text: "#ffffff",
+      grid: "rgba(255, 255, 255, 0.43)",
+    }),
+    [],
+  )
 
   // Common chart options
-  const commonOptions = useMemo(() => ({
-    plugins: {
-      legend: {
-        position: "top",
-        labels: {
-          color: chartColors.text,
-          font: {
-            family: "'Nasalization', 'Overpass', sans-serif",
-            size: 12,
+  const commonOptions = useMemo(
+    () => ({
+      plugins: {
+        legend: {
+          position: "top",
+          labels: {
+            color: chartColors.text,
+            font: {
+              family: "'Nasalization', 'Overpass', sans-serif",
+              size: 12,
+            },
+            usePointStyle: true,
+            pointStyle: "rectRounded",
+            padding: 20,
           },
-          usePointStyle: true,
-          pointStyle: "rectRounded",
-          padding: 20,
+        },
+        tooltip: {
+          backgroundColor: "rgba(22, 33, 62, 0.8)",
+          titleColor: chartColors.text,
+          bodyColor: chartColors.text,
+          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderWidth: 1,
+          padding: 12,
+          bodyFont: {
+            family: "'Nasalization', 'Overpass', sans-serif",
+          },
+          titleFont: {
+            family: "'Nasalization', 'Overpass', sans-serif",
+            weight: "bold",
+          },
+          displayColors: true,
+          boxPadding: 5,
         },
       },
-      tooltip: {
-        backgroundColor: "rgba(22, 33, 62, 0.8)",
-        titleColor: chartColors.text,
-        bodyColor: chartColors.text,
-        borderColor: "rgba(255, 255, 255, 0.1)",
-        borderWidth: 1,
-        padding: 12,
-        bodyFont: {
-          family: "'Nasalization', 'Overpass', sans-serif",
-        },
-        titleFont: {
-          family: "'Nasalization', 'Overpass', sans-serif",
-          weight: "bold",
-        },
-        displayColors: true,
-        boxPadding: 5,
-      },
-    },
-  }), [chartColors])
+    }),
+    [chartColors],
+  )
 
   // Data untuk pie chart - updated to include pending
-  const pieData = useMemo(() => ({
-    labels: ["Digunakan & Diproses", "Pending", "Belum Digunakan"],
-    datasets: [
-      {
-        data: [stats.used - stats.pending, stats.pending, stats.unused],
-        backgroundColor: [chartColors.accent[0], chartColors.warning[0], chartColors.primary[0]],
-        hoverBackgroundColor: [chartColors.accent[1], chartColors.warning[1], chartColors.primary[1]],
-        borderColor: chartColors.background,
-        borderWidth: 2,
-      },
-    ],
-  }), [stats, chartColors])
+  const pieData = useMemo(
+    () => ({
+      labels: ["Digunakan & Diproses", "Pending", "Belum Digunakan"],
+      datasets: [
+        {
+          data: [stats.used - stats.pending, stats.pending, stats.unused],
+          backgroundColor: [chartColors.accent[0], chartColors.warning[0], chartColors.primary[0]],
+          hoverBackgroundColor: [chartColors.accent[1], chartColors.warning[1], chartColors.primary[1]],
+          borderColor: chartColors.background,
+          borderWidth: 2,
+        },
+      ],
+    }),
+    [stats, chartColors],
+  )
 
   // Options for pie chart
-  const pieChartOptions = useMemo(() => ({
-    ...commonOptions,
-    plugins: {
-      ...commonOptions.plugins,
-      title: {
-        display: true,
-        color: chartColors.text,
-        font: {
-          family: "'Nasalization', 'Overpass', sans-serif",
-          size: 16,
-          weight: "bold",
+  const pieChartOptions = useMemo(
+    () => ({
+      ...commonOptions,
+      plugins: {
+        ...commonOptions.plugins,
+        title: {
+          display: true,
+          color: chartColors.text,
+          font: {
+            family: "'Nasalization', 'Overpass', sans-serif",
+            size: 16,
+            weight: "bold",
+          },
         },
       },
-    },
-    maintainAspectRatio: false,
-  }), [commonOptions, chartColors])
+      maintainAspectRatio: false,
+    }),
+    [commonOptions, chartColors],
+  )
 
   // Data untuk bar chart
-  const barData = useMemo(() => ({
-    labels: stats.batches?.map((batch) => batch.name || `Batch ${batch.id}`) || [],
-    datasets: [
-      {
-        label: "Jumlah PIN",
-        data: stats.batches?.map((batch) => batch.count) || [],
-        backgroundColor: (context) => {
-          const index = context.dataIndex
-          const value = context.dataset.data[index]
-          const maxValue = Math.max(...context.dataset.data, 1) // Prevent division by zero
-          const alpha = 0.7 + (value / maxValue) * 0.3
-          return `rgba(108, 99, 255, ${alpha})`
+  const barData = useMemo(
+    () => ({
+      labels: stats.batches?.map((batch) => batch.name || `Batch ${batch.id}`) || [],
+      datasets: [
+        {
+          label: "Jumlah PIN",
+          data: stats.batches?.map((batch) => batch.count) || [],
+          backgroundColor: (context) => {
+            const index = context.dataIndex
+            const value = context.dataset.data[index]
+            const maxValue = Math.max(...context.dataset.data, 1) // Prevent division by zero
+            const alpha = 0.7 + (value / maxValue) * 0.3
+            return `rgba(108, 99, 255, ${alpha})`
+          },
+          borderColor: chartColors.primary[1],
+          borderWidth: 1,
+          borderRadius: 6,
+          hoverBackgroundColor: chartColors.primary[1],
         },
-        borderColor: chartColors.primary[1],
-        borderWidth: 1,
-        borderRadius: 6,
-        hoverBackgroundColor: chartColors.primary[1],
-      },
-    ],
-  }), [stats.batches, chartColors])
+      ],
+    }),
+    [stats.batches, chartColors],
+  )
 
   // Options for bar chart
-  const barOptions = useMemo(() => ({
-    ...commonOptions,
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      ...commonOptions.plugins,
-      title: {
-        display: true,
-        color: chartColors.text,
-        font: {
-          family: "'Nasalization', 'Overpass', sans-serif",
-          size: 16,
-          weight: "bold",
-        },
-      },
-      legend: {
-        ...commonOptions.plugins.legend,
-        labels: {
-          ...commonOptions.plugins.legend.labels,
-          color: chartColors.secondary[0], // Custom color for "Jumlah PIN" label
-        },
-      },
-    },
-    scales: {
-      x: {
-        grid: {
-          color: chartColors.grid,
-          borderColor: chartColors.grid,
-          tickColor: chartColors.grid,
-        },
-        ticks: {
+  const barOptions = useMemo(
+    () => ({
+      ...commonOptions,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        ...commonOptions.plugins,
+        title: {
+          display: true,
           color: chartColors.text,
           font: {
             family: "'Nasalization', 'Overpass', sans-serif",
+            size: 16,
+            weight: "bold",
+          },
+        },
+        legend: {
+          ...commonOptions.plugins.legend,
+          labels: {
+            ...commonOptions.plugins.legend.labels,
+            color: chartColors.secondary[0], // Custom color for "Jumlah PIN" label
           },
         },
       },
-      y: {
-        grid: {
-          color: chartColors.grid,
-          borderColor: chartColors.grid,
-          tickColor: chartColors.grid,
-        },
-        ticks: {
-          color: chartColors.text,
-          font: {
-            family: "'Nasalization', 'Overpass', sans-serif",
+      scales: {
+        x: {
+          grid: {
+            color: chartColors.grid,
+            borderColor: chartColors.grid,
+            tickColor: chartColors.grid,
           },
-          callback: (value) => {
-            if (value % 1 === 0) {
-              return value
-            }
-            return null
+          ticks: {
+            color: chartColors.text,
+            font: {
+              family: "'Nasalization', 'Overpass', sans-serif",
+            },
           },
         },
-        beginAtZero: true,
+        y: {
+          grid: {
+            color: chartColors.grid,
+            borderColor: chartColors.grid,
+            tickColor: chartColors.grid,
+          },
+          ticks: {
+            color: chartColors.text,
+            font: {
+              family: "'Nasalization', 'Overpass', sans-serif",
+            },
+            callback: (value) => {
+              if (value % 1 === 0) {
+                return value
+              }
+              return null
+            },
+          },
+          beginAtZero: true,
+        },
       },
-    },
-    animation: {
-      duration: 2000,
-      easing: "easeOutQuart",
-    },
-  }), [commonOptions, chartColors])
+      animation: {
+        duration: 2000,
+        easing: "easeOutQuart",
+      },
+    }),
+    [commonOptions, chartColors],
+  )
 
   return (
     <div className="adminpaneldashboardpage">
