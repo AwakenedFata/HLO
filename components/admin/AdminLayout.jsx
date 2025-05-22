@@ -17,6 +17,8 @@ import axios from "axios"
 import Image from "next/image"
 import "@/styles/adminstyles.css"
 import { Alert } from "react-bootstrap"
+import { checkTokenValidity, setupTokenRefreshTimer } from "@/lib/utils/authUtils"
+import SSEInitializer from "@/components/admin/SSEInitializer"
 
 // Cache keys
 const CACHE_KEYS = {
@@ -72,6 +74,19 @@ function AdminLayout({ children }) {
       router.push("/admin/login")
       return null
     }
+
+    // Cek apakah token sudah kedaluwarsa
+    const tokenExpiry = sessionStorage.getItem("tokenExpiry")
+    if (tokenExpiry) {
+      const expiryTime = Number.parseInt(tokenExpiry, 10)
+      const now = Date.now()
+      if (expiryTime <= now) {
+        // Token sudah kedaluwarsa, coba refresh
+        refreshToken()
+        return null
+      }
+    }
+
     return token
   }
 
@@ -87,7 +102,7 @@ function AdminLayout({ children }) {
       }
 
       const response = await axios.post(
-        "/api/auth/refresh",
+        "/api/auth/refresh-token", // Pastikan endpoint sesuai dengan API Anda
         { refreshToken },
         {
           headers: {
@@ -98,7 +113,19 @@ function AdminLayout({ children }) {
       )
 
       if (response.data.token) {
+        // Simpan token baru dengan informasi expiry
+        const expiresIn = process.env.NEXT_PUBLIC_JWT_EXPIRES_IN
+          ? Number.parseInt(process.env.NEXT_PUBLIC_JWT_EXPIRES_IN)
+          : 3600
+
+        const expiryTime = Date.now() + expiresIn * 1000
+
         sessionStorage.setItem("adminToken", response.data.token)
+        sessionStorage.setItem("tokenExpiry", expiryTime.toString())
+
+        // Setup timer untuk refresh token berikutnya
+        setupTokenRefreshTimer()
+
         return response.data.token
       }
 
@@ -107,6 +134,7 @@ function AdminLayout({ children }) {
       console.error("Token refresh error:", error)
       sessionStorage.removeItem("adminToken")
       sessionStorage.removeItem("refreshToken")
+      sessionStorage.removeItem("tokenExpiry")
       setAuthError(true)
       router.push("/admin/login")
       return null
@@ -144,6 +172,25 @@ function AdminLayout({ children }) {
       router.push("/admin/login")
       return
     }
+
+    // Cek validitas token dan setup refresh timer
+    const initAuth = async () => {
+      const isValid = await checkTokenValidity()
+      if (!isValid) {
+        // Coba refresh token
+        const refreshed = await refreshToken()
+        if (!refreshed) {
+          // Jika refresh gagal, redirect ke login
+          router.push("/admin/login")
+          return
+        }
+      }
+
+      // Setup timer untuk refresh token
+      setupTokenRefreshTimer()
+    }
+
+    initAuth()
 
     // Set username and profile image from session storage
     const username = sessionStorage.getItem("adminUsername")
@@ -234,6 +281,28 @@ function AdminLayout({ children }) {
       }
     }, MIN_FETCH_INTERVAL)
 
+    // Setup interval untuk cek token secara berkala (setiap 5 menit)
+    const tokenCheckIntervalId = setInterval(
+      async () => {
+        const isValid = await checkTokenValidity()
+        if (!isValid && !isRefreshingToken) {
+          refreshToken()
+        }
+      },
+      5 * 60 * 1000,
+    )
+
+    // Setup event listener untuk SSE updates
+    const handleSSEUpdate = (event) => {
+      // Jika event adalah pin-processed atau pins-batch-processed, refresh pending count
+      if (event.detail && (event.detail.event === "pin-processed" || event.detail.event === "pins-batch-processed")) {
+        console.log("SSE update received, refreshing pending count")
+        fetchPendingCount()
+      }
+    }
+
+    window.addEventListener("pin-data-updated", handleSSEUpdate)
+
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setSidebarVisible(false)
@@ -247,9 +316,11 @@ function AdminLayout({ children }) {
 
     return () => {
       window.removeEventListener("resize", handleResize)
+      window.removeEventListener("pin-data-updated", handleSSEUpdate)
       clearInterval(intervalId)
+      clearInterval(tokenCheckIntervalId)
     }
-  }, [router])
+  }, [router, isRefreshingToken])
 
   // Fetch pending count with rate limiting
   const fetchPendingCount = async () => {
@@ -315,10 +386,19 @@ function AdminLayout({ children }) {
     }
 
     if (typeof window !== "undefined") {
+      // Hapus semua data session
       sessionStorage.removeItem("adminToken")
       sessionStorage.removeItem("refreshToken")
       sessionStorage.removeItem("adminUsername")
       sessionStorage.removeItem("adminProfileImage")
+      sessionStorage.removeItem("tokenExpiry")
+
+      // Hapus cache
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("pending_pins_") || key.startsWith("dashboard_") || key.includes("_cache")) {
+          localStorage.removeItem(key)
+        }
+      })
     }
     router.push("/admin/login")
   }
@@ -380,6 +460,9 @@ function AdminLayout({ children }) {
 
   return (
     <div className="admin-layout">
+      {/* Initialize SSE connection */}
+      <SSEInitializer />
+
       <div className={`sidebar ${sidebarVisible ? "show" : ""}`}>
         <div className="border-bottom">
           <Image src="/assets/logo footter.png" alt="Logo" width={100} height={32} />

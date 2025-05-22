@@ -1,3 +1,6 @@
+// Perbaikan pada middleware.js untuk menangani token refresh
+// Tambahkan pengecekan token untuk rute admin
+
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 import logger from "@/lib/utils/logger-edge" // Gunakan logger-edge yang kompatibel dengan Edge Runtime
@@ -34,6 +37,14 @@ const adminLimiter = rateLimit({
   identifier: "api-admin",
 })
 
+// Rate limiter untuk endpoint SSE
+const sseLimiter = rateLimit({
+  interval: 60 * 60 * 1000, // 1 jam
+  uniqueTokenPerInterval: 500,
+  limit: 10, // 10 requests per jam
+  identifier: "api-sse",
+})
+
 export async function middleware(request) {
   // Get the pathname of the request
   const path = request.nextUrl.pathname
@@ -42,6 +53,18 @@ export async function middleware(request) {
 
   // Kombinasikan IP dan user-agent untuk rate limiting yang lebih akurat
   const tokenKey = `${ip}:${userAgent.substring(0, 50)}`
+
+  // Cek apakah request ke halaman admin (kecuali login)
+  if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
+    // Cek apakah ada token di cookies
+    const token = request.cookies.get("jwt")?.value
+
+    // Jika tidak ada token, redirect ke login
+    if (!token) {
+      logger.warn(`Akses ke halaman admin tanpa token: ${path} dari IP: ${ip}`)
+      return NextResponse.redirect(new URL("/admin/login", request.url))
+    }
+  }
 
   // Apply rate limiting to API routes
   if (path.startsWith("/api/")) {
@@ -54,6 +77,8 @@ export async function middleware(request) {
       limitResult = await redeemLimiter.check(tokenKey)
     } else if (path.startsWith("/api/admin/")) {
       limitResult = await adminLimiter.check(tokenKey)
+    } else if (path.startsWith("/api/sse")) {
+      limitResult = await sseLimiter.check(tokenKey)
     } else {
       limitResult = await apiLimiter.check(tokenKey)
     }
@@ -141,6 +166,8 @@ export const config = {
   matcher: [
     // Apply to all API routes
     "/api/:path*",
+    // Apply to all admin routes
+    "/admin/:path*",
     // Exclude static files and images
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],

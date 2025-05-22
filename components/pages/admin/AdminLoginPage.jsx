@@ -19,7 +19,42 @@ function AdminLoginPage() {
 
   useEffect(() => {
     setIsClient(true)
+
+    // Cek apakah sudah login saat komponen dimuat
+    checkExistingSession()
   }, [])
+
+  // Fungsi untuk memeriksa sesi yang sudah ada
+  const checkExistingSession = async () => {
+    if (typeof window === "undefined") return
+
+    const token = sessionStorage.getItem("adminToken")
+    if (!token) return
+
+    try {
+      // Verifikasi token yang ada
+      const response = await axios.get("/api/auth/verify-token", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data.valid) {
+        // Token valid, redirect ke dashboard
+        router.push("/admin/dashboard")
+      }
+    } catch (error) {
+      // Token tidak valid, hapus dari sessionStorage
+      sessionStorage.removeItem("adminToken")
+      sessionStorage.removeItem("adminUsername")
+      sessionStorage.removeItem("adminProfileImage")
+      sessionStorage.removeItem("tokenExpiry")
+      sessionStorage.removeItem("refreshToken")
+
+      // Tidak perlu menampilkan error karena ini hanya pengecekan awal
+      console.log("Token tidak valid atau kedaluwarsa")
+    }
+  }
 
   // Cleanup timer saat komponen unmount
   useEffect(() => {
@@ -87,6 +122,76 @@ function AdminLoginPage() {
     }, 1000)
   }
 
+  // Fungsi untuk menyimpan token dengan aman
+  const securelyStoreTokens = (token, refreshToken, expiresIn = 3600) => {
+    if (typeof window === "undefined") return
+
+    // Simpan token dengan waktu kedaluwarsa
+    const expiryTime = Date.now() + expiresIn * 1000
+
+    // Simpan token di sessionStorage (akan hilang saat browser ditutup)
+    sessionStorage.setItem("adminToken", token)
+
+    // Simpan refresh token secara terpisah
+    if (refreshToken) {
+      sessionStorage.setItem("refreshToken", refreshToken)
+    }
+
+    // Simpan waktu kedaluwarsa token
+    sessionStorage.setItem("tokenExpiry", expiryTime.toString())
+
+    // Setup timer untuk refresh token otomatis
+    // Refresh 1 menit sebelum token kedaluwarsa
+    const timeToRefresh = expiresIn * 1000 - 60000
+    if (timeToRefresh > 0) {
+      setTimeout(() => {
+        refreshAuthToken()
+      }, timeToRefresh)
+    }
+  }
+
+  // Fungsi untuk refresh token
+  const refreshAuthToken = async () => {
+    if (typeof window === "undefined") return
+
+    const refreshToken = sessionStorage.getItem("refreshToken")
+    if (!refreshToken) return
+
+    try {
+      const response = await axios.post("/api/auth/refresh-token", {
+        refreshToken,
+      })
+
+      if (response.data.token) {
+        // Simpan token baru
+        securelyStoreTokens(
+          response.data.token,
+          refreshToken,
+          process.env.JWT_EXPIRES_IN ? Number.parseInt(process.env.JWT_EXPIRES_IN) : 3600,
+        )
+
+        console.log("Token berhasil diperbarui")
+        return true
+      }
+    } catch (error) {
+      console.error("Gagal memperbarui token:", error)
+
+      // Jika refresh token gagal, logout user
+      sessionStorage.removeItem("adminToken")
+      sessionStorage.removeItem("adminUsername")
+      sessionStorage.removeItem("adminProfileImage")
+      sessionStorage.removeItem("tokenExpiry")
+      sessionStorage.removeItem("refreshToken")
+
+      // Redirect ke halaman login jika user sedang di halaman admin
+      if (window.location.pathname.startsWith("/admin") && window.location.pathname !== "/admin/login") {
+        router.push("/admin/login")
+      }
+
+      return false
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
@@ -105,7 +210,6 @@ function AdminLoginPage() {
 
     setLoading(true)
     try {
-      console.log("Attempting login to:", `/api/auth/login`)
       const response = await axios.post(
         `/api/auth/login`,
         {
@@ -120,13 +224,17 @@ function AdminLoginPage() {
         },
       )
 
-      console.log("Login response:", response.data)
-
       // Reset cooldown pada login berhasil
       localStorage.removeItem("loginCooldownEnd")
 
       if (typeof window !== "undefined") {
-        sessionStorage.setItem("adminToken", response.data.token)
+        // Ekstrak informasi expiry dari token jika tersedia
+        const expiresIn = 3600 // Default 1 jam
+
+        // Simpan token dengan aman
+        securelyStoreTokens(response.data.token, response.data.refreshToken || null, expiresIn)
+
+        // Simpan informasi user
         sessionStorage.setItem("adminUsername", username)
 
         // Store profile image if available
@@ -139,6 +247,13 @@ function AdminLoginPage() {
       localStorage.removeItem("pending_pins_cache")
       localStorage.removeItem("dashboard_stats_cache")
       localStorage.removeItem("admin_pending_count_cache")
+
+      // Hapus cache lainnya yang terkait dengan CACHE_KEYS
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("pending_pins_") || key.startsWith("dashboard_") || key.includes("_cache")) {
+          localStorage.removeItem(key)
+        }
+      })
 
       router.push("/admin/dashboard")
     } catch (error) {

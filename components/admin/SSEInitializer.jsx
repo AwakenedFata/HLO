@@ -1,128 +1,127 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import getAdminSSEClient from "@/lib/utils/sse-client"
-import { isAuthenticated } from "@/lib/utils/auth-client"
 import { useRouter } from "next/navigation"
 
 export default function SSEInitializer() {
   const [initialized, setInitialized] = useState(false)
-  const [error, setError] = useState(null)
+  const [connectionAttempts, setConnectionAttempts] = useState(0)
   const router = useRouter()
+  const sseClientRef = useRef(null)
 
-  // Update the useEffect hook to ensure data loads properly on first render
   useEffect(() => {
-    // Hanya inisialisasi SSE jika user terautentikasi
-    if (!isAuthenticated()) {
-      console.warn("User tidak terautentikasi, SSE tidak diinisialisasi")
+    console.log("SSEInitializer: Component mounted")
+
+    // Check if user is authenticated
+    const token = typeof window !== "undefined" ? sessionStorage.getItem("adminToken") : null
+    if (!token) {
+      console.warn("SSEInitializer: User not authenticated, SSE not initialized")
       return
     }
 
-    if (initialized) {
+    if (initialized && sseClientRef.current?.isConnected()) {
+      console.log("SSEInitializer: Already initialized and connected")
       return
     }
 
-    // Inisialisasi SSE
-    const initializeSSE = async () => {
-      try {
-        const sseClient = getAdminSSEClient()
+    console.log("SSEInitializer: Initializing SSE")
 
-        // Tambahkan event listener untuk mendeteksi koneksi
-        const handleConnected = (data) => {
-          console.log("SSE berhasil terhubung:", data)
-          setInitialized(true)
-          setError(null)
+    // Initialize SSE
+    const sseClient = getAdminSSEClient()
+    sseClientRef.current = sseClient
 
-          // Dispatch a custom event that the layout can listen for
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("sse-connected", { detail: data }))
+    // Add event listeners
+    const handleConnected = (data) => {
+      console.log("SSEInitializer: SSE connected", data)
+      setInitialized(true)
+      setConnectionAttempts(0)
 
-            // Trigger an immediate data refresh when SSE connects
-            window.dispatchEvent(new CustomEvent("cache-invalidated"))
-          }
+      // Trigger data refresh
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cache-invalidated"))
+      }
 
-          // Force refresh UI when SSE connects
-          router.refresh()
-        }
+      // Force refresh UI
+      router.refresh()
+    }
 
-        const handleError = (data) => {
-          console.error("SSE error:", data)
-          setError(data.message)
+    const handleError = (data) => {
+      console.error("SSEInitializer: SSE error", data)
+      setConnectionAttempts((prev) => prev + 1)
 
-          // Even on error, we should still try to load initial data
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("cache-invalidated"))
-          }
-        }
-
-        // Add handlers for data events that will trigger UI refreshes
-        const handlePinProcessed = (data) => {
-          console.log("SSE: Pin processed event received:", data)
-          router.refresh() // Force refresh the UI when data changes
-        }
-
-        const handleBatchProcessed = (data) => {
-          console.log("SSE: Batch processed event received:", data)
-          router.refresh() // Force refresh the UI when data changes
-        }
-
-        const handlePinUpdated = (data) => {
-          console.log("SSE: Pin updated event received:", data)
-          router.refresh() // Force refresh the UI when data changes
-        }
-
-        const handlePinDeleted = (data) => {
-          console.log("SSE: Pin deleted event received:", data)
-          router.refresh() // Force refresh the UI when data changes
-        }
-
-        // Daftarkan event listeners
-        sseClient.on("connected", handleConnected)
-        sseClient.on("error", handleError)
-        sseClient.on("pin-processed", handlePinProcessed)
-        sseClient.on("pins-batch-processed", handleBatchProcessed)
-        sseClient.on("pin-updated", handlePinUpdated)
-        sseClient.on("pin-deleted", handlePinDeleted)
-
-        // Connect ke SSE server
-        await sseClient.connect()
-
-        // Cleanup function
-        return () => {
-          sseClient.off("connected", handleConnected)
-          sseClient.off("error", handleError)
-          sseClient.off("pin-processed", handlePinProcessed)
-          sseClient.off("pins-batch-processed", handleBatchProcessed)
-          sseClient.off("pin-updated", handlePinUpdated)
-          sseClient.off("pin-deleted", handlePinDeleted)
-          sseClient.disconnect()
-        }
-      } catch (error) {
-        console.error("Gagal menginisialisasi SSE:", error)
-        setError(error.message)
-
-        // Even on error, we should still try to load initial data
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("cache-invalidated"))
-        }
+      // Even on error, trigger data refresh
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cache-invalidated"))
       }
     }
 
-    // Initialize SSE and force a refresh immediately
-    initializeSSE()
+    const handleDataEvent = (data) => {
+      console.log("SSEInitializer: Data event received", data)
 
-    // Force an immediate refresh regardless of SSE connection
+      // Trigger refresh only if we're on a relevant page
+      const path = window.location.pathname
+      if (path.includes("/admin/pins") || path.includes("/admin/pending-pins") || path.includes("/admin/dashboard")) {
+        router.refresh()
+      }
+
+      // Trigger cache invalidation event
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cache-invalidated", { detail: data }))
+      }
+    }
+
+    // Register event listeners
+    sseClient.on("connected", handleConnected)
+    sseClient.on("error", handleError)
+    sseClient.on("pin-processed", handleDataEvent)
+    sseClient.on("pins-batch-processed", handleDataEvent)
+    sseClient.on("pin-updated", handleDataEvent)
+    sseClient.on("pin-deleted", handleDataEvent)
+
+    // Connect to SSE server
+    sseClient.connect()
+
+    // Force an immediate refresh
     router.refresh()
 
-    // Trigger data loading even if SSE fails
+    // Trigger data loading
     if (typeof window !== "undefined") {
-      // Use setTimeout to ensure this happens after component mount
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("cache-invalidated"))
       }, 100)
     }
-  }, [initialized, router])
 
-  // Komponen ini tidak merender apa pun
+    // Cleanup function
+    return () => {
+      console.log("SSEInitializer: Cleaning up")
+      sseClient.off("connected", handleConnected)
+      sseClient.off("error", handleError)
+      sseClient.off("pin-processed", handleDataEvent)
+      sseClient.off("pins-batch-processed", handleDataEvent)
+      sseClient.off("pin-updated", handleDataEvent)
+      sseClient.off("pin-deleted", handleDataEvent)
+      sseClient.disconnect()
+    }
+  }, [initialized, router, connectionAttempts])
+
+  // Reconnect if token changes
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "adminToken") {
+        console.log("SSEInitializer: Token changed, reinitializing")
+        setInitialized(false)
+        if (sseClientRef.current) {
+          sseClientRef.current.disconnect()
+        }
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+    }
+  }, [])
+
   return null
 }
