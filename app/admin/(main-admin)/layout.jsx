@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import AdminLayout from "@/components/admin/AdminLayout"
-import SSEInitializer from "@/components/admin/SSEInitializer"
 import { useRouter } from "next/navigation"
 import { invalidateAllCaches } from "@/lib/utils/cache-utils"
 import "@/styles/adminstyles.css"
@@ -64,27 +63,12 @@ export default function AdminWrappedLayout({ children }) {
 
     window.addEventListener("cache-invalidated", handleDataUpdate)
     window.addEventListener("pin-data-updated", handleDataUpdate)
-    window.addEventListener("sse-pin-processed", handleDataUpdate)
-    window.addEventListener("sse-pins-batch-processed", handleDataUpdate)
-    window.addEventListener("sse-pin-updated", handleDataUpdate)
-    window.addEventListener("sse-pin-deleted", handleDataUpdate)
-    window.addEventListener("sse-connected", handleDataUpdate)
 
     return () => {
       window.removeEventListener("cache-invalidated", handleDataUpdate)
       window.removeEventListener("pin-data-updated", handleDataUpdate)
-      window.removeEventListener("sse-pin-processed", handleDataUpdate)
-      window.removeEventListener("sse-pins-batch-processed", handleDataUpdate)
-      window.removeEventListener("sse-pin-updated", handleDataUpdate)
-      window.removeEventListener("sse-pin-deleted", handleDataUpdate)
-      window.removeEventListener("sse-connected", handleDataUpdate)
     }
   }, [router, isInitialized])
 
-  return (
-    <AdminLayout>
-      <SSEInitializer />
-      {children}
-    </AdminLayout>
-  )
+  return <AdminLayout>{children}</AdminLayout>
 }

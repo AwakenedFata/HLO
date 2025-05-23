@@ -5,35 +5,42 @@ import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
-// Rate limiter for pending pins count endpoint
+// More generous rate limiter for count endpoint
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute
+  limit: 60, // 60 requests per minute (every 1 second)
+  identifier: "pending-pins-count",
 })
 
 export async function GET(request) {
   try {
-    // Apply rate limiting
-    const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await limiter.check(identifier, 30, "pending-pins-count")
+    // Get identifier for rate limiting
+    const identifier = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "anonymous"
 
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+    // Apply rate limiting with error handling
+    try {
+      await limiter.check(identifier)
+    } catch (rateLimitError) {
+      if (rateLimitError.statusCode === 429) {
+        logger.warn(`Rate limit exceeded for pending-pins-count: ${identifier}`)
+        return NextResponse.json(
+          {
+            error: "Too many requests. Please try again later.",
+            reset: rateLimitError.rateLimitInfo?.reset || 60,
           },
-        },
-      )
+          {
+            status: 429,
+            headers: {
+              "Retry-After": (rateLimitError.rateLimitInfo?.reset || 60).toString(),
+              "X-RateLimit-Limit": (rateLimitError.rateLimitInfo?.limit || 60).toString(),
+              "X-RateLimit-Remaining": (rateLimitError.rateLimitInfo?.remaining || 0).toString(),
+              "X-RateLimit-Reset": (rateLimitError.rateLimitInfo?.reset || 60).toString(),
+            },
+          },
+        )
+      }
+      throw rateLimitError
     }
 
     await connectToDatabase()
@@ -49,8 +56,9 @@ export async function GET(request) {
 
     logger.info(`Pending pins count fetched by ${authResult.user.username}: ${count}`)
 
-    // Generate ETag based on count
-    const etag = `"count-${count}"`
+    // Generate ETag based on count and timestamp (rounded to 30 seconds for stability)
+    const roundedTime = Math.floor(Date.now() / 30000) * 30000
+    const etag = `"count-${count}-${roundedTime}"`
 
     // Check if client has a valid cached version
     const ifNoneMatch = request.headers.get("if-none-match")
@@ -59,7 +67,7 @@ export async function GET(request) {
         status: 304,
         headers: {
           ETag: etag,
-          "Cache-Control": "private, max-age=30",
+          "Cache-Control": "private, max-age=15, must-revalidate",
         },
       })
     }
@@ -73,18 +81,22 @@ export async function GET(request) {
       {
         headers: {
           ETag: etag,
-          "Cache-Control": "private, max-age=30",
+          "Cache-Control": "private, max-age=15, must-revalidate",
         },
       },
     )
   } catch (error) {
-    logger.error("Error fetching pending pins count:", error)
+    // Don't log rate limit errors as errors
+    if (error.statusCode !== 429) {
+      logger.error("Error fetching pending pins count:", error)
+    }
+
     return NextResponse.json(
       {
         error: "Server error",
         message: error.message,
       },
-      { status: 500 },
+      { status: error.statusCode || 500 },
     )
   }
 }

@@ -6,20 +6,43 @@ import logger from "@/lib/utils/logger-server"
 import crypto from "crypto"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
-// Rate limiter for pending pins endpoint
+// More generous rate limiter for pending pins endpoint
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 100,
-  limit: 60, // 60 requests per minute
-  identifier: "pending-pins", // Optional identifier key
+  limit: 30, // 30 requests per minute (every 2 seconds)
+  identifier: "pending-pins",
 })
 
 export async function GET(request) {
   try {
-    const identifier = request.headers.get("x-forwarded-for") || "anonymous"
+    // Get identifier for rate limiting
+    const identifier = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "anonymous"
 
-    // Apply rate limiting
-    const rateLimitResult = await limiter.check(identifier)
+    // Apply rate limiting with error handling
+    try {
+      await limiter.check(identifier)
+    } catch (rateLimitError) {
+      if (rateLimitError.statusCode === 429) {
+        logger.warn(`Rate limit exceeded for pending-pins: ${identifier}`)
+        return NextResponse.json(
+          {
+            error: "Too many requests. Please try again later.",
+            reset: rateLimitError.rateLimitInfo?.reset || 60,
+          },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": (rateLimitError.rateLimitInfo?.reset || 60).toString(),
+              "X-RateLimit-Limit": (rateLimitError.rateLimitInfo?.limit || 30).toString(),
+              "X-RateLimit-Remaining": (rateLimitError.rateLimitInfo?.remaining || 0).toString(),
+              "X-RateLimit-Reset": (rateLimitError.rateLimitInfo?.reset || 60).toString(),
+            },
+          },
+        )
+      }
+      throw rateLimitError
+    }
 
     await connectToDatabase()
 
@@ -29,8 +52,8 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
-    const page = Number.parseInt(searchParams.get("page") || "1", 10)
+    const limit = Math.min(Number.parseInt(searchParams.get("limit") || "50", 10), 100)
+    const page = Math.max(Number.parseInt(searchParams.get("page") || "1", 10), 1)
 
     if (isNaN(page) || page < 1) {
       return NextResponse.json({ error: "Invalid page parameter" }, { status: 400 })
@@ -61,7 +84,9 @@ export async function GET(request) {
       PinCode.countDocuments({ used: true, processed: false }),
     ])
 
-    logger.info(`Pending pins fetched by ${authResult.user.username}, page: ${page}, limit: ${limit}`)
+    logger.info(
+      `Pending pins fetched by ${authResult.user.username}, page: ${page}, limit: ${limit}, count: ${totalCount}`,
+    )
 
     const responseData = {
       pins: pendingPins,
@@ -72,7 +97,14 @@ export async function GET(request) {
       lastUpdated: new Date(),
     }
 
-    const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
+    // Create more stable ETag
+    const dataForHash = {
+      total: totalCount,
+      page,
+      limit,
+      pins: pendingPins.map((p) => ({ id: p._id, code: p.code, redeemedAt: p.redeemedBy?.redeemedAt })),
+    }
+    const dataHash = crypto.createHash("md5").update(JSON.stringify(dataForHash)).digest("hex")
     const etag = `"pins-${dataHash}"`
 
     const ifNoneMatch = request.headers.get("if-none-match")
@@ -81,7 +113,7 @@ export async function GET(request) {
         status: 304,
         headers: {
           ETag: etag,
-          "Cache-Control": "private, max-age=30",
+          "Cache-Control": "private, max-age=15, must-revalidate",
         },
       })
     }
@@ -89,19 +121,23 @@ export async function GET(request) {
     return NextResponse.json(responseData, {
       headers: {
         ETag: etag,
-        "Cache-Control": "private, max-age=30",
+        "Cache-Control": "private, max-age=15, must-revalidate",
         "X-Total-Count": totalCount.toString(),
         "X-Total-Pages": Math.ceil(totalCount / limit).toString(),
       },
     })
   } catch (error) {
-    logger.error("Error fetching pending pins:", error)
+    // Don't log rate limit errors as errors
+    if (error.statusCode !== 429) {
+      logger.error("Error fetching pending pins:", error)
+    }
+
     return NextResponse.json(
       {
         error: "Server error",
         message: error.message,
       },
-      { status: 500 },
+      { status: error.statusCode || 500 },
     )
   }
 }

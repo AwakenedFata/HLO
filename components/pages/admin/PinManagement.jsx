@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Row,
   Col,
@@ -20,9 +20,9 @@ import {
   Pagination,
   OverlayTrigger,
   Tooltip,
-} from "react-bootstrap"
-import { useRouter } from "next/navigation"
-import axios from "axios"
+} from "react-bootstrap";
+import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
   FaFileUpload,
   FaFileDownload,
@@ -33,29 +33,50 @@ import {
   FaFilter,
   FaSearch,
   FaExclamationTriangle,
-} from "react-icons/fa"
-import Papa from "papaparse"
-import { CACHE_KEYS, invalidateAllCaches, updatePendingCountInCaches } from "@/lib/utils/cache-utils"
-import "@/styles/adminstyles.css"
+} from "react-icons/fa";
+import Papa from "papaparse";
+import {
+  CACHE_KEYS,
+  invalidateAllCaches,
+  updatePendingCountInCaches,
+} from "@/lib/utils/cache-utils";
+import "@/styles/adminstyles.css";
+
+// Buat instance axios dengan konfigurasi default
+const api = axios.create({
+  timeout: 15000, // 15 seconds timeout
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Fungsi untuk membatalkan request dengan aman
+function safeAbort(controller) {
+  try {
+    if (controller) controller.abort();
+  } catch (e) {
+    console.warn("AbortController error:", e.message);
+  }
+}
 
 // Custom hook for managing PIN data
 function usePinManagement() {
   // State for pins data
-  const [pins, setPins] = useState([])
-  const [filteredPins, setFilteredPins] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [pinCount, setPinCount] = useState(10)
-  const [pinPrefix, setPinPrefix] = useState("")
-  const [generating, setGenerating] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("")
-  const [activeTab, setActiveTab] = useState("generate")
-  const [importError, setImportError] = useState("")
-  const [importSuccess, setImportSuccess] = useState("")
-  const [importPreview, setImportPreview] = useState([])
-  const [isImporting, setIsImporting] = useState(false)
-  const [dataFetchAttempted, setDataFetchAttempted] = useState(false)
-  const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [pins, setPins] = useState([]);
+  const [filteredPins, setFilteredPins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [pinCount, setPinCount] = useState(10);
+  const [pinPrefix, setPinPrefix] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("generate");
+  const [importError, setImportError] = useState("");
+  const [importSuccess, setImportSuccess] = useState("");
+  const [importPreview, setImportPreview] = useState([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({
@@ -64,174 +85,200 @@ function usePinManagement() {
     available: 0,
     pending: 0,
     processed: 0,
-  })
+  });
 
   // State for selection and modals
-  const [selectedPins, setSelectedPins] = useState([])
-  const [selectAll, setSelectAll] = useState(false)
-  const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false)
-  const [deletingMultiple, setDeletingMultiple] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [pinToDelete, setPinToDelete] = useState(null)
-  const [showProcessModal, setShowProcessModal] = useState(false)
-  const [pinToProcess, setPinToProcess] = useState(null)
-  const [processing, setProcessing] = useState(false)
+  const [selectedPins, setSelectedPins] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false);
+  const [deletingMultiple, setDeletingMultiple] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pinToDelete, setPinToDelete] = useState(null);
+  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [pinToProcess, setPinToProcess] = useState(null);
+  const [processing, setProcessing] = useState(false);
 
   // State for filtering and search
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null)
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDebounceTimeout, setSearchDebounceTimeout] = useState(null);
 
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(100)
-  const [totalItems, setTotalItems] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [totalItems, setTotalItems] = useState(0);
 
   // State for refresh control
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastRefreshTime, setLastRefreshTime] = useState(0)
-  const refreshTimeoutRef = useRef(null)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  const [rateLimitHit, setRateLimitHit] = useState(false);
 
-  // AbortController for cancelling requests
-  const abortControllerRef = useRef(null)
+  // Refs for request management
+  const abortControllerRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const refreshTimeoutRef = useRef(null);
+  const requestInProgressRef = useRef(false);
+  const isMounted = useRef(true);
 
-  // Reference to track if component is mounted
-  const isMounted = useRef(true)
+  // Constants
+  const MIN_REFRESH_INTERVAL = 5000; // 5 seconds minimum between refreshes
 
   // Router
-  const router = useRouter()
+  const router = useRouter();
+
+  // Cleanup function untuk semua timers dan controllers
+  const cleanupAllTimers = useCallback(() => {
+    // Clear timeouts
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    if (searchDebounceTimeout) {
+      clearTimeout(searchDebounceTimeout);
+    }
+
+    // Abort any in-flight requests
+    safeAbort(abortControllerRef.current);
+    abortControllerRef.current = null;
+  }, [searchDebounceTimeout]);
 
   // Check authentication and get token
   const checkAuthAndGetToken = useCallback(() => {
-    const token = typeof window !== "undefined" ? sessionStorage.getItem("adminToken") : null
+    const token =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("adminToken")
+        : null;
     if (!token) {
-      return null
+      return null;
     }
-    return token
-  }, [])
+    return token;
+  }, []);
 
-  // Function to apply filters with debounce
-  const applyFilters = useCallback(
-    (pinsData, status, search) => {
-      if (searchDebounceTimeout) {
-        clearTimeout(searchDebounceTimeout)
-      }
-
-      const timeout = setTimeout(() => {
-        let result = [...pinsData]
-
-        // Apply status filter
-        if (status === "available") {
-          result = result.filter((pin) => !pin.used)
-        } else if (status === "pending") {
-          result = result.filter((pin) => pin.used && !pin.processed)
-        } else if (status === "processed") {
-          result = result.filter((pin) => pin.used && pin.processed)
-        }
-
-        // Apply search filter
-        if (search) {
-          const searchLower = search.toLowerCase()
-          result = result.filter(
-            (pin) =>
-              pin.code.toLowerCase().includes(searchLower) ||
-              pin.redeemedBy?.nama?.toLowerCase().includes(searchLower) ||
-              pin.redeemedBy?.idGame?.toLowerCase().includes(searchLower),
-          )
-        }
-
-        setFilteredPins(result)
-      }, 300) // 300ms debounce
-
-      setSearchDebounceTimeout(timeout)
-    },
-    [searchDebounceTimeout],
-  )
+  const applyFilters = useCallback((pinsData) => {
+    console.log("Tampilkan semua PIN tanpa filter");
+    setFilteredPins(pinsData);
+  }, []);
 
   // Function to fetch pins with pagination
   const fetchPins = useCallback(
     async (page = currentPage, limit = itemsPerPage, force = false) => {
-      if (typeof window === "undefined") return
+      console.log("fetchPins dipanggil");
+      if (typeof window === "undefined") return;
 
-      const token = checkAuthAndGetToken()
+      const token = checkAuthAndGetToken();
       if (!token) {
-        router.push("/admin/login")
-        return
+        router.push("/admin/login");
+        return;
       }
 
       // Check if we should throttle requests
-      const now = Date.now()
-      if (!force && lastRefreshTime && now - lastRefreshTime < 5000) {
-        // Don't allow refreshes more than once every 5 seconds
-        console.log("Throttling refresh request")
-        return
+      const now = Date.now();
+      if (
+        !force &&
+        lastRefreshTime &&
+        now - lastRefreshTime < MIN_REFRESH_INTERVAL
+      ) {
+        console.log("Throttling refresh request");
+        return;
       }
 
-      setLoading(true)
-      setError("")
-      setDataFetchAttempted(true)
-      setLastRefreshTime(now)
+      // Prevent concurrent requests
+      if (requestInProgressRef.current) {
+        console.log("Request already in progress, skipping");
+        return;
+      }
+
+      requestInProgressRef.current = true;
+      setLoading(true);
+      setError("");
+      setDataFetchAttempted(true);
+      setLastRefreshTime(now);
 
       // Cancel any existing request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-
-      // Create a new AbortController
-      abortControllerRef.current = new AbortController()
+      safeAbort(abortControllerRef.current);
+      abortControllerRef.current = new AbortController();
 
       try {
         // Set a timeout for the request (15 seconds)
-        const timeoutId = setTimeout(() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
           if (abortControllerRef.current && isMounted.current) {
-            abortControllerRef.current.abort()
+            abortControllerRef.current.abort();
           }
-        }, 15000)
+        }, 15000);
 
         // Build query parameters for filtering
-        let queryParams = `?page=${page}&limit=${limit}`
+        let queryParams = `?page=${page}&limit=${limit}`;
         if (filterStatus === "available") {
-          queryParams += "&used=false"
+          queryParams += "&used=false";
         } else if (filterStatus === "pending") {
-          queryParams += "&used=true&processed=false"
+          queryParams += "&used=true&processed=false";
         } else if (filterStatus === "processed") {
-          queryParams += "&used=true&processed=true"
+          queryParams += "&used=true&processed=true";
         }
 
         if (searchTerm) {
-          queryParams += `&search=${encodeURIComponent(searchTerm)}`
+          queryParams += `&search=${encodeURIComponent(searchTerm)}`;
         }
 
-        const response = await axios.get(`/api/admin/pins${queryParams}`, {
+        const response = await api.get(`/api/admin/pins${queryParams}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
           signal: abortControllerRef.current.signal,
-        })
-
-        clearTimeout(timeoutId)
+        });
+        console.log("Data dari API:", response.data);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
 
         // Only update state if component is still mounted
-        if (!isMounted.current) return
+        if (!isMounted.current) return;
 
-        setPins(response.data.pins || [])
-        setTotalPages(response.data.totalPages || 1)
-        setTotalItems(response.data.total || 0)
+        // Reset error count on successful request
+        setConsecutiveErrors(0);
+        setRateLimitHit(false);
+
+        setPins(response.data.pins || []);
+        setTotalPages(response.data.totalPages || 1);
+        setTotalItems(response.data.total || 0);
 
         // Update stats if available in response
         if (response.data.stats) {
-          setStats(response.data.stats)
+          setStats(response.data.stats);
 
           // Cache the stats for other components to use
-          localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(response.data.stats))
-          localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, Date.now().toString())
+          localStorage.setItem(
+            CACHE_KEYS.DASHBOARD_STATS,
+            JSON.stringify(response.data.stats)
+          );
+          localStorage.setItem(
+            CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH,
+            Date.now().toString()
+          );
         } else {
           // Calculate stats from pins data
-          const total = response.data.total || response.data.pins?.length || 0
-          const used = response.data.pins?.filter((pin) => pin.used).length || 0
-          const pending = response.data.pins?.filter((pin) => pin.used && !pin.processed).length || 0
-          const processed = response.data.pins?.filter((pin) => pin.used && pin.processed).length || 0
+          const total = response.data.total || response.data.pins?.length || 0;
+          const used =
+            response.data.pins?.filter((pin) => pin.used).length || 0;
+          const pending =
+            response.data.pins?.filter((pin) => pin.used && !pin.processed)
+              .length || 0;
+          const processed =
+            response.data.pins?.filter((pin) => pin.used && pin.processed)
+              .length || 0;
 
           const calculatedStats = {
             total,
@@ -239,113 +286,173 @@ function usePinManagement() {
             available: total - used,
             pending,
             processed,
-          }
+          };
 
-          setStats(calculatedStats)
+          setStats(calculatedStats);
 
           // Cache the calculated stats
-          localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(calculatedStats))
-          localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, Date.now().toString())
+          localStorage.setItem(
+            CACHE_KEYS.DASHBOARD_STATS,
+            JSON.stringify(calculatedStats)
+          );
+          localStorage.setItem(
+            CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH,
+            Date.now().toString()
+          );
         }
 
         // Apply filters to the fetched data
-        applyFilters(response.data.pins || [], filterStatus, searchTerm)
+        applyFilters(response.data.pins || [], filterStatus, searchTerm);
 
-        setLoading(false)
-        setIsRefreshing(false)
-        setInitialLoadDone(true)
+        console.log("Fetch pins selesai, setting initialLoadDone = true");
+        setInitialLoadDone(true);
+        setLoading(false);
+        setIsRefreshing(false);
       } catch (error) {
-        console.error("Error fetching pins:", error)
+        if (!isMounted.current) return;
 
-        if (!isMounted.current) return
-
-        if (error.name === "AbortError") {
-          setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
-        } else if (error.response?.status === 401) {
-          sessionStorage.removeItem("adminToken")
-          router.push("/admin/login")
-        } else if (error.response?.status === 429) {
-          setError("Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit.")
+        if (
+          error.name === "AbortError" ||
+          error.message === "canceled" ||
+          error.name === "CanceledError"
+        ) {
+          console.log(
+            "Fetch dibatalkan karena timeout atau perubahan halaman."
+          );
         } else {
-          setError("Gagal mengambil data PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+          console.error("Error fetching pins:", error);
+
+          if (error.response?.status === 401) {
+            sessionStorage.removeItem("adminToken");
+            router.push("/admin/login");
+          } else if (error.response?.status === 429) {
+            setRateLimitHit(true);
+            setConsecutiveErrors((prev) => prev + 1);
+            setError(
+              "Terlalu banyak permintaan ke server. Coba lagi dalam beberapa menit."
+            );
+          } else {
+            setConsecutiveErrors((prev) => prev + 1);
+            setError(
+              "Gagal mengambil data PIN: " +
+                (error.response?.data?.error || "Terjadi kesalahan")
+            );
+          }
         }
 
-        setLoading(false)
-        setIsRefreshing(false)
-        setInitialLoadDone(true) // Mark as done even if there was an error
+        setLoading(false);
+        setIsRefreshing(false);
+        setInitialLoadDone(true); // Mark as done even if there was an error
+      } finally {
+        requestInProgressRef.current = false;
+
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
       }
     },
-    [applyFilters, checkAuthAndGetToken, currentPage, filterStatus, itemsPerPage, lastRefreshTime, router, searchTerm],
-  )
+    [
+      applyFilters,
+      checkAuthAndGetToken,
+      currentPage,
+      filterStatus,
+      itemsPerPage,
+      lastRefreshTime,
+      router,
+      searchTerm,
+    ]
+  );
 
   // Function to refresh data manually with debounce
   const handleRefresh = useCallback(() => {
-    if (typeof window === "undefined" || isRefreshing) return
+    if (
+      typeof window === "undefined" ||
+      isRefreshing ||
+      requestInProgressRef.current
+    )
+      return;
 
-    setIsRefreshing(true)
-    setLoading(true)
+    const now = Date.now();
+    if (lastRefreshTime && now - lastRefreshTime < MIN_REFRESH_INTERVAL) {
+      const timeRemaining = Math.ceil(
+        (lastRefreshTime + MIN_REFRESH_INTERVAL - now) / 1000
+      );
+      setError(
+        `Untuk menghindari rate limit, tunggu ${timeRemaining} detik sebelum refresh data.`
+      );
+      return;
+    }
+
+    setIsRefreshing(true);
+    setLoading(true);
 
     // Clear any existing timeout
     if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current)
+      clearTimeout(refreshTimeoutRef.current);
     }
 
     // Invalidate all caches to force refresh
-    invalidateAllCaches()
+    invalidateAllCaches();
 
     // Set a timeout to prevent rapid refreshes
     refreshTimeoutRef.current = setTimeout(() => {
-      fetchPins(currentPage, itemsPerPage, true)
-    }, 1000)
-  }, [currentPage, fetchPins, isRefreshing, itemsPerPage])
+      fetchPins(currentPage, itemsPerPage, true);
+    }, 1000);
+  }, [currentPage, fetchPins, isRefreshing, itemsPerPage, lastRefreshTime]);
 
   // Function to handle page changes
   const handlePageChange = useCallback(
     (page) => {
-      setCurrentPage(page)
-      fetchPins(page, itemsPerPage)
+      setCurrentPage(page);
+      fetchPins(page, itemsPerPage);
     },
-    [fetchPins, itemsPerPage],
-  )
+    [fetchPins, itemsPerPage]
+  );
 
   // Function to handle items per page changes
   const handleItemsPerPageChange = useCallback(
     (e) => {
-      const newItemsPerPage = Number.parseInt(e.target.value, 10)
-      setItemsPerPage(newItemsPerPage)
-      setCurrentPage(1) // Reset to first page
-      fetchPins(1, newItemsPerPage)
+      const newItemsPerPage = Number.parseInt(e.target.value, 10);
+      setItemsPerPage(newItemsPerPage);
+      setCurrentPage(1); // Reset to first page
+      fetchPins(1, newItemsPerPage);
     },
-    [fetchPins],
-  )
+    [fetchPins]
+  );
 
   // Function to generate PINs
   const handleGeneratePins = useCallback(
     async (e) => {
-      e.preventDefault()
-      if (typeof window === "undefined") return
+      e.preventDefault();
+      if (typeof window === "undefined") return;
 
-      setError("")
-      setSuccessMessage("")
+      setError("");
+      setSuccessMessage("");
 
-      if (pinCount === "" || isNaN(pinCount) || pinCount <= 0 || pinCount > 1000) {
-        setError("Jumlah PIN harus antara 1-1000")
-        return
+      if (
+        pinCount === "" ||
+        isNaN(pinCount) ||
+        pinCount <= 0 ||
+        pinCount > 1000
+      ) {
+        setError("Jumlah PIN harus antara 1-1000");
+        return;
       }
 
-      setGenerating(true)
+      setGenerating(true);
       try {
-        const token = checkAuthAndGetToken()
+        const token = checkAuthAndGetToken();
         if (!token) {
-          router.push("/admin/login")
-          return
+          router.push("/admin/login");
+          return;
         }
 
         // Create a new AbortController for this request
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout for PIN generation
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for PIN generation
 
-        const response = await axios.post(
+        const response = await api.post(
           `/api/admin/pins`,
           { count: Number.parseInt(pinCount), prefix: pinPrefix },
           {
@@ -354,58 +461,68 @@ function usePinManagement() {
               "Content-Type": "application/json",
             },
             signal: controller.signal,
-          },
-        )
+          }
+        );
 
-        clearTimeout(timeoutId)
+        clearTimeout(timeoutId);
 
         // Only update if component is still mounted
-        if (!isMounted.current) return
+        if (!isMounted.current) return;
 
-        setSuccessMessage(`Berhasil generate ${response.data.count} PIN baru`)
+        setSuccessMessage(`Berhasil generate ${response.data.count} PIN baru`);
 
         // Invalidate all caches to force refresh
-        invalidateAllCaches()
+        invalidateAllCaches();
 
         // Broadcast event untuk memberi tahu komponen lain
-        window.dispatchEvent(new CustomEvent("cache-invalidated"))
+        window.dispatchEvent(new CustomEvent("cache-invalidated"));
 
         // Refresh data after generate
-        fetchPins(1, itemsPerPage, true) // Reset to first page after generating new PINs
+        fetchPins(1, itemsPerPage, true); // Reset to first page after generating new PINs
       } catch (error) {
-        console.error("Error generating pins:", error)
+        console.error("Error generating pins:", error);
 
-        if (!isMounted.current) return
+        if (!isMounted.current) return;
 
-        if (error.name === "AbortError") {
-          setError("Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti.")
+        if (
+          error.name === "AbortError" ||
+          error.message === "canceled" ||
+          error.name === "CanceledError"
+        ) {
+          setError(
+            "Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti."
+          );
         } else if (error.response?.status === 429) {
-          setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+          setError(
+            "Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat."
+          );
         } else {
-          setError("Gagal generate PIN. " + (error.response?.data?.error || ""))
+          setError(
+            "Gagal generate PIN. " + (error.response?.data?.error || "")
+          );
         }
       } finally {
         if (isMounted.current) {
-          setGenerating(false)
+          setGenerating(false);
         }
       }
     },
-    [checkAuthAndGetToken, fetchPins, itemsPerPage, pinCount, pinPrefix, router],
-  )
+    [checkAuthAndGetToken, fetchPins, itemsPerPage, pinCount, pinPrefix, router]
+  );
 
   // Function to handle file select for import
   const handleFileSelect = useCallback((file) => {
-    if (typeof window === "undefined") return
+    if (typeof window === "undefined") return;
 
-    setImportError("")
-    setImportSuccess("")
-    setImportPreview([])
+    setImportError("");
+    setImportSuccess("");
+    setImportPreview([]);
 
-    if (!file) return
+    if (!file) return;
 
     if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-      setImportError("Hanya file CSV yang diperbolehkan")
-      return
+      setImportError("Hanya file CSV yang diperbolehkan");
+      return;
     }
 
     Papa.parse(file, {
@@ -413,244 +530,345 @@ function usePinManagement() {
       skipEmptyLines: true,
       complete: (results) => {
         if (results.errors.length > 0) {
-          setImportError("Error parsing CSV: " + results.errors[0].message)
-          return
+          setImportError("Error parsing CSV: " + results.errors[0].message);
+          return;
         }
 
         // Validasi format
-        const requiredColumn = "PIN Code"
+        const requiredColumn = "PIN Code";
         if (!results.meta.fields.includes(requiredColumn)) {
-          setImportError(`File CSV harus memiliki kolom '${requiredColumn}'`)
-          return
+          setImportError(`File CSV harus memiliki kolom '${requiredColumn}'`);
+          return;
         }
 
         // Preview data
-        setImportPreview(results.data.slice(0, 5))
+        setImportPreview(results.data.slice(0, 5));
       },
       error: (error) => {
-        setImportError("Error parsing CSV: " + error.message)
+        setImportError("Error parsing CSV: " + error.message);
       },
-    })
-  }, [])
+    });
+  }, []);
 
   // Function to import PINs from CSV
   const handleImportCSV = useCallback(
     async (file) => {
       if (typeof window === "undefined" || !file) {
-        setImportError("Pilih file CSV terlebih dahulu")
-        return
+        setImportError("Pilih file CSV terlebih dahulu");
+        return;
       }
 
-      setIsImporting(true)
-      setImportError("")
-      setImportSuccess("")
+      setIsImporting(true);
+      setImportError("");
+      setImportSuccess("");
 
       try {
-        const token = checkAuthAndGetToken()
+        const token = checkAuthAndGetToken();
         if (!token) {
-          router.push("/admin/login")
-          return
+          router.push("/admin/login");
+          return;
         }
 
-        const formData = new FormData()
-        formData.append("file", file)
+        // Create a new AbortController for this request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for import
 
-        const response = await axios.post(`/api/admin/import-pins`, formData, {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await api.post(`/api/admin/import-pins`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
-        })
+          signal: controller.signal,
+        });
 
-        setImportSuccess(`Berhasil import ${response.data.imported} PIN`)
-        setImportPreview([])
+        clearTimeout(timeoutId);
+
+        // Only update if component is still mounted
+        if (!isMounted.current) return;
+
+        setImportSuccess(`Berhasil import ${response.data.imported} PIN`);
+        setImportPreview([]);
 
         // Invalidate all caches to force refresh
-        invalidateAllCaches()
+        invalidateAllCaches();
 
         // Broadcast event untuk memberi tahu komponen lain
-        window.dispatchEvent(new CustomEvent("cache-invalidated"))
+        window.dispatchEvent(new CustomEvent("cache-invalidated"));
 
         // Refresh data after import
-        fetchPins(1, itemsPerPage, true) // Reset to first page after importing
+        fetchPins(1, itemsPerPage, true); // Reset to first page after importing
 
-        return response
+        return response;
       } catch (error) {
-        console.error("Error importing pins:", error)
-        if (error.response?.status === 429) {
-          setImportError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+        console.error("Error importing pins:", error);
+
+        if (!isMounted.current) return;
+
+        if (
+          error.name === "AbortError" ||
+          error.message === "canceled" ||
+          error.name === "CanceledError"
+        ) {
+          setImportError(
+            "Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti."
+          );
+        } else if (error.response?.status === 429) {
+          setImportError(
+            "Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat."
+          );
         } else {
-          setImportError("Gagal import PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+          setImportError(
+            "Gagal import PIN: " +
+              (error.response?.data?.error || "Terjadi kesalahan")
+          );
         }
       } finally {
-        setIsImporting(false)
+        if (isMounted.current) {
+          setIsImporting(false);
+        }
       }
     },
-    [checkAuthAndGetToken, fetchPins, itemsPerPage, router],
-  )
+    [checkAuthAndGetToken, fetchPins, itemsPerPage, router]
+  );
 
   // Function to handle delete PIN click
   const handleDeleteClick = useCallback((pin) => {
-    if (typeof window === "undefined") return
-    setPinToDelete(pin)
-    setShowDeleteModal(true)
-  }, [])
+    if (typeof window === "undefined") return;
+    setPinToDelete(pin);
+    setShowDeleteModal(true);
+  }, []);
 
   // Function to delete a PIN
   const handleDeletePin = useCallback(async () => {
-    if (typeof window === "undefined" || !pinToDelete) return
+    if (typeof window === "undefined" || !pinToDelete) return;
 
     try {
-      const token = checkAuthAndGetToken()
+      const token = checkAuthAndGetToken();
       if (!token) {
-        router.push("/admin/login")
-        return
+        router.push("/admin/login");
+        return;
       }
 
-      const response = await axios.delete(`/api/admin/pins/${pinToDelete._id}`, {
+      // Create a new AbortController for this request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await api.delete(`/api/admin/pins/${pinToDelete._id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Only update if component is still mounted
+      if (!isMounted.current) return;
 
       // Tutup modal dan refresh data
-      setShowDeleteModal(false)
-      setPinToDelete(null)
-      setSuccessMessage("PIN berhasil dihapus")
+      setShowDeleteModal(false);
+      setPinToDelete(null);
+      setSuccessMessage("PIN berhasil dihapus");
 
       // Invalidate all caches to force refresh
-      invalidateAllCaches()
+      invalidateAllCaches();
 
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent("cache-invalidated"))
+      window.dispatchEvent(new CustomEvent("cache-invalidated"));
 
-      fetchPins(currentPage, itemsPerPage, true) // Refresh data setelah hapus
+      fetchPins(currentPage, itemsPerPage, true); // Refresh data setelah hapus
 
-      return response
+      return response;
     } catch (error) {
-      console.error("Error deleting pin:", error)
-      if (error.response?.status === 429) {
-        setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+      console.error("Error deleting pin:", error);
+
+      if (!isMounted.current) return;
+
+      if (
+        error.name === "AbortError" ||
+        error.message === "canceled" ||
+        error.name === "CanceledError"
+      ) {
+        setError(
+          "Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti."
+        );
+      } else if (error.response?.status === 429) {
+        setError(
+          "Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat."
+        );
       } else {
-        setError("Gagal menghapus PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        setError(
+          "Gagal menghapus PIN: " +
+            (error.response?.data?.error || "Terjadi kesalahan")
+        );
       }
-      setShowDeleteModal(false)
+      setShowDeleteModal(false);
     }
-  }, [checkAuthAndGetToken, currentPage, fetchPins, itemsPerPage, pinToDelete, router])
+  }, [
+    checkAuthAndGetToken,
+    currentPage,
+    fetchPins,
+    itemsPerPage,
+    pinToDelete,
+    router,
+  ]);
 
   // Function to handle select all pins
   const handleSelectAll = useCallback(
     (e) => {
-      if (typeof window === "undefined") return
+      if (typeof window === "undefined") return;
 
-      const isChecked = e.target.checked
-      setSelectAll(isChecked)
+      const isChecked = e.target.checked;
+      setSelectAll(isChecked);
       if (isChecked) {
         // Pilih semua PIN yang belum digunakan dari filtered pins
-        const availablePinIds = filteredPins.filter((pin) => !pin.used).map((pin) => pin._id)
-        setSelectedPins(availablePinIds)
+        const availablePinIds = filteredPins
+          .filter((pin) => !pin.used)
+          .map((pin) => pin._id);
+        setSelectedPins(availablePinIds);
       } else {
-        setSelectedPins([])
+        setSelectedPins([]);
       }
     },
-    [filteredPins],
-  )
+    [filteredPins]
+  );
 
   // Function to handle select individual pin
   const handleSelectPin = useCallback((pinId, isChecked) => {
-    if (typeof window === "undefined") return
+    if (typeof window === "undefined") return;
 
     if (isChecked) {
-      setSelectedPins((prev) => [...prev, pinId])
+      setSelectedPins((prev) => [...prev, pinId]);
     } else {
-      setSelectedPins((prev) => prev.filter((id) => id !== pinId))
-      setSelectAll(false)
+      setSelectedPins((prev) => prev.filter((id) => id !== pinId));
+      setSelectAll(false);
     }
-  }, [])
+  }, []);
 
   // Function to delete multiple pins
   const handleDeleteMultiplePins = useCallback(async () => {
-    if (typeof window === "undefined" || selectedPins.length === 0) return
+    if (typeof window === "undefined" || selectedPins.length === 0) return;
 
-    setDeletingMultiple(true)
-    setError("")
-    setSuccessMessage("")
+    setDeletingMultiple(true);
+    setError("");
+    setSuccessMessage("");
 
     try {
-      const token = checkAuthAndGetToken()
+      const token = checkAuthAndGetToken();
       if (!token) {
-        router.push("/admin/login")
-        return
+        router.push("/admin/login");
+        return;
       }
 
-      const response = await axios.post(
+      // Create a new AbortController for this request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+
+      const response = await api.post(
         `/api/admin/delete-pins`,
         { pinIds: selectedPins },
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
-      )
+          signal: controller.signal,
+        }
+      );
 
-      setShowDeleteMultipleModal(false)
-      setSelectedPins([])
-      setSelectAll(false)
+      clearTimeout(timeoutId);
 
-      setSuccessMessage(response.data.message || "PIN berhasil dihapus")
+      // Only update if component is still mounted
+      if (!isMounted.current) return;
+
+      setShowDeleteMultipleModal(false);
+      setSelectedPins([]);
+      setSelectAll(false);
+
+      setSuccessMessage(response.data.message || "PIN berhasil dihapus");
 
       // Invalidate all caches to force refresh
-      invalidateAllCaches()
+      invalidateAllCaches();
 
       // Broadcast event untuk memberi tahu komponen lain
-      window.dispatchEvent(new CustomEvent("cache-invalidated"))
+      window.dispatchEvent(new CustomEvent("cache-invalidated"));
 
-      fetchPins(currentPage, itemsPerPage, true) // Refresh data setelah hapus multiple
+      fetchPins(currentPage, itemsPerPage, true); // Refresh data setelah hapus multiple
 
-      return response
+      return response;
     } catch (error) {
-      console.error("Error deleting multiple pins:", error)
-      if (error.response?.status === 429) {
-        setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+      console.error("Error deleting multiple pins:", error);
+
+      if (!isMounted.current) return;
+
+      if (
+        error.name === "AbortError" ||
+        error.message === "canceled" ||
+        error.name === "CanceledError"
+      ) {
+        setError(
+          "Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti."
+        );
+      } else if (error.response?.status === 429) {
+        setError(
+          "Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat."
+        );
       } else {
-        setError(error.response?.data?.error || "Terjadi kesalahan dalam penghapusan")
+        setError(
+          error.response?.data?.error || "Terjadi kesalahan dalam penghapusan"
+        );
       }
     } finally {
-      setDeletingMultiple(false)
-      setShowDeleteMultipleModal(false)
+      if (isMounted.current) {
+        setDeletingMultiple(false);
+        setShowDeleteMultipleModal(false);
+      }
     }
-  }, [checkAuthAndGetToken, currentPage, fetchPins, itemsPerPage, router, selectedPins])
+  }, [
+    checkAuthAndGetToken,
+    currentPage,
+    fetchPins,
+    itemsPerPage,
+    router,
+    selectedPins,
+  ]);
 
   // Function to handle mark as processed click
   const handleProcessClick = useCallback((pin) => {
-    if (typeof window === "undefined") return
-    setPinToProcess(pin)
-    setShowProcessModal(true)
-  }, [])
+    if (typeof window === "undefined") return;
+    setPinToProcess(pin);
+    setShowProcessModal(true);
+  }, []);
 
   // Function to mark PIN as processed
   const handleMarkAsProcessed = useCallback(async () => {
-    if (typeof window === "undefined" || !pinToProcess) return
+    if (typeof window === "undefined" || !pinToProcess) return;
 
-    setProcessing(true)
+    setProcessing(true);
     try {
       // Optimistic UI update
       const updatedPins = pins.map((p) => {
         if (p._id === pinToProcess._id) {
-          return { ...p, processed: true }
+          return { ...p, processed: true };
         }
-        return p
-      })
-      setPins(updatedPins)
-      applyFilters(updatedPins, filterStatus, searchTerm)
+        return p;
+      });
+      setPins(updatedPins);
+      applyFilters(updatedPins, filterStatus, searchTerm);
 
-      const token = checkAuthAndGetToken()
+      const token = checkAuthAndGetToken();
       if (!token) {
-        router.push("/admin/login")
-        return
+        router.push("/admin/login");
+        return;
       }
 
-      const response = await axios.patch(
+      // Create a new AbortController for this request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await api.patch(
         `/api/admin/pins/${pinToProcess._id}`,
         { processed: true },
         {
@@ -658,39 +876,63 @@ function usePinManagement() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        },
-      )
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      // Only update if component is still mounted
+      if (!isMounted.current) return;
 
       // Close modal and refresh data
-      setShowProcessModal(false)
-      setPinToProcess(null)
-      setSuccessMessage("PIN berhasil ditandai sebagai diproses")
+      setShowProcessModal(false);
+      setPinToProcess(null);
+      setSuccessMessage("PIN berhasil ditandai sebagai diproses");
 
       // Update global stats cache to reflect the change
-      updatePendingCountInCaches(1)
+      updatePendingCountInCaches(1);
 
       // Broadcast event untuk memberi tahu komponen lain
       window.dispatchEvent(
         new CustomEvent("pin-data-updated", {
           detail: { processedCount: 1 },
-        }),
-      )
+        })
+      );
 
       // Refresh data after update
-      fetchPins(currentPage, itemsPerPage, true)
+      fetchPins(currentPage, itemsPerPage, true);
 
-      return response
+      return response;
     } catch (error) {
-      console.error("Error marking pin as processed:", error)
-      if (error.response?.status === 429) {
-        setError("Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat.")
+      console.error("Error marking pin as processed:", error);
+
+      if (!isMounted.current) return;
+
+      if (
+        error.name === "AbortError" ||
+        error.message === "canceled" ||
+        error.name === "CanceledError"
+      ) {
+        setError(
+          "Permintaan timeout. Server mungkin sedang sibuk, coba lagi nanti."
+        );
+      } else if (error.response?.status === 429) {
+        setError(
+          "Terlalu banyak permintaan. Silakan coba lagi setelah beberapa saat."
+        );
       } else {
-        setError("Gagal memproses PIN: " + (error.response?.data?.error || "Terjadi kesalahan"))
+        setError(
+          "Gagal memproses PIN: " +
+            (error.response?.data?.error || "Terjadi kesalahan")
+        );
       }
-      setShowProcessModal(false)
-      fetchPins(currentPage, itemsPerPage, true) // Refresh data to revert optimistic update
+      setShowProcessModal(false);
+      fetchPins(currentPage, itemsPerPage, true); // Refresh data to revert optimistic update
     } finally {
-      setProcessing(false)
+      if (isMounted.current) {
+        setProcessing(false);
+      }
     }
   }, [
     applyFilters,
@@ -703,38 +945,55 @@ function usePinManagement() {
     pinToProcess,
     router,
     searchTerm,
-  ])
+  ]);
 
   // Function to export PINs to CSV
   const handleExportCSV = useCallback(() => {
-    if (typeof window === "undefined") return
+    if (typeof window === "undefined") return;
 
     // Buat CSV string
     const csvContent = [
-      ["PIN Code", "Status", "Redeemed By", "ID Game", "Redeemed At", "Processed"],
+      [
+        "PIN Code",
+        "Status",
+        "Redeemed By",
+        "ID Game",
+        "Redeemed At",
+        "Processed",
+      ],
       ...pins.map((pin) => [
         pin.code,
         pin.used ? (pin.processed ? "Processed" : "Pending") : "Available",
         pin.redeemedBy?.nama || "",
         pin.redeemedBy?.idGame || "",
-        pin.redeemedBy?.redeemedAt ? new Date(pin.redeemedBy.redeemedAt).toLocaleString() : "",
+        pin.redeemedBy?.redeemedAt
+          ? new Date(pin.redeemedBy.redeemedAt).toLocaleString()
+          : "",
         pin.processed ? "Yes" : pin.used ? "No" : "-",
       ]),
     ]
       .map((row) => row.join(","))
-      .join("\n")
+      .join("\n");
 
     // Buat file dan download
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `pin-codes-${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, [pins])
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pin-codes-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [pins]);
+
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      cleanupAllTimers();
+    };
+  }, [cleanupAllTimers]);
 
   return {
     // State
@@ -769,6 +1028,8 @@ function usePinManagement() {
     totalItems,
     isRefreshing,
     initialLoadDone,
+    rateLimitHit,
+    consecutiveErrors,
 
     // Setters
     setPinCount,
@@ -798,17 +1059,20 @@ function usePinManagement() {
     handleProcessClick,
     handleMarkAsProcessed,
     handleExportCSV,
-  }
+
+    // Refs
+    isMounted,
+  };
 }
 
 function PinManagement() {
-  const router = useRouter()
-  const [isClient, setIsClient] = useState(false)
-  const [authError, setAuthError] = useState(false)
-  const fileInputRef = useRef(null)
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+  const [authError, setAuthError] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Use custom hook for PIN management
-  const pinManagement = usePinManagement()
+  const pinManagement = usePinManagement();
 
   // Destructure state and methods from the hook
   const {
@@ -843,6 +1107,8 @@ function PinManagement() {
     totalItems,
     isRefreshing,
     initialLoadDone,
+    rateLimitHit,
+    consecutiveErrors,
 
     setPinCount,
     setPinPrefix,
@@ -870,128 +1136,168 @@ function PinManagement() {
     handleProcessClick,
     handleMarkAsProcessed,
     handleExportCSV,
-  } = pinManagement
-
-  // Reference to track if component is mounted
-  const isMounted = useRef(true)
+    isMounted,
+  } = pinManagement;
 
   // Tandai bahwa kita sudah di client-side
   useEffect(() => {
-    setIsClient(true)
+    setIsClient(true);
 
     // Tambahkan event listener untuk update data
     const handleDataUpdate = () => {
       if (isMounted.current) {
-        fetchPins()
+        fetchPins();
       }
-    }
+    };
 
-    window.addEventListener("pin-data-updated", handleDataUpdate)
-    window.addEventListener("cache-invalidated", handleDataUpdate)
+    window.addEventListener("pin-data-updated", handleDataUpdate);
+    window.addEventListener("cache-invalidated", handleDataUpdate);
 
     return () => {
-      isMounted.current = false
       // Remove event listeners
-      window.removeEventListener("pin-data-updated", handleDataUpdate)
-      window.removeEventListener("cache-invalidated", handleDataUpdate)
-    }
-  }, [fetchPins])
+      window.removeEventListener("pin-data-updated", handleDataUpdate);
+      window.removeEventListener("cache-invalidated", handleDataUpdate);
+    };
+  }, [fetchPins, isMounted]);
 
-  // Check authentication on component mount
+  // Letakkan ini setelah setIsClient(true)
   useEffect(() => {
-    if (!isClient) return
+    if (!isClient) return;
 
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      setAuthError(true)
-      router.push("/admin/login")
+    const token = sessionStorage.getItem("adminToken");
+    if (token) {
+      console.log("✅ Auto-fetchPins setelah client aktif & token ada");
+      fetchPins(1, itemsPerPage, true);
     } else {
-      // Fetch pins on initial load
-      fetchPins()
-
-      // Set a timeout to ensure data is loaded even if there are issues
-      const dataLoadTimeout = setTimeout(() => {
-        if (!initialLoadDone && isMounted.current) {
-          console.log("Data loading taking too long, trying again")
-          fetchPins(currentPage, itemsPerPage, true)
-        }
-      }, 3000) // 3 seconds timeout
-
-      return () => {
-        clearTimeout(dataLoadTimeout)
-      }
+      console.warn("⚠️ Token tidak ditemukan di sessionStorage");
     }
-  }, [isClient, router, fetchPins, currentPage, itemsPerPage, initialLoadDone])
+  }, [isClient, fetchPins, itemsPerPage]); // ✅ stabil dari awal render
+
+  useEffect(() => {
+    const token =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("adminToken")
+        : null;
+    if (!token) {
+      setAuthError(true);
+      router.push("/admin/login");
+      return;
+    }
+
+    const loadInitialData = () => {
+      console.log("Starting initial PIN data load...");
+      fetchPins(1, itemsPerPage, true).catch((error) => {
+        console.error("Initial PIN data load failed:", error);
+        setTimeout(() => {
+          if (isMounted.current) {
+            console.log("Retrying initial PIN data load...");
+            fetchPins(1, itemsPerPage, true);
+          }
+        }, 3000);
+      });
+    };
+
+    loadInitialData();
+
+    const dataLoadTimeout = setTimeout(() => {
+      if (!initialLoadDone && isMounted.current) {
+        console.log("PIN data loading taking too long, trying again");
+        fetchPins(currentPage, itemsPerPage, true);
+      }
+    }, 10000);
+
+    return () => {
+      clearTimeout(dataLoadTimeout);
+    };
+  }, [
+    router,
+    fetchPins,
+    currentPage,
+    itemsPerPage,
+    initialLoadDone,
+    isMounted,
+  ]);
 
   // Handle file input change
   const handleFileInputChange = (e) => {
-    const file = e.target.files[0]
-    handleFileSelect(file)
-  }
+    const file = e.target.files[0];
+    handleFileSelect(file);
+  };
 
   // Handle import button click
   const handleImportButtonClick = () => {
     if (fileInputRef.current?.files[0]) {
-      handleImportCSV(fileInputRef.current.files[0])
+      handleImportCSV(fileInputRef.current.files[0]);
     } else {
-      pinManagement.setImportError("Pilih file CSV terlebih dahulu")
+      pinManagement.setImportError("Pilih file CSV terlebih dahulu");
     }
-  }
+  };
 
   // Render pagination controls
   const renderPagination = () => {
-    if (totalPages <= 1) return null
+    if (totalPages <= 1) return null;
 
-    const items = []
-    const maxVisiblePages = 5
+    const items = [];
+    const maxVisiblePages = 5;
 
     // Calculate range of pages to show
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
     // Adjust if we're near the end
     if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
 
     // Previous button
     items.push(
-      <Pagination.Prev key="prev" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>
+      <Pagination.Prev
+        key="prev"
+        disabled={currentPage === 1}
+        onClick={() => handlePageChange(currentPage - 1)}
+      >
         <span className="sr-only">Previous</span>
-      </Pagination.Prev>,
-    )
+      </Pagination.Prev>
+    );
 
     // First page
     if (startPage > 1) {
       items.push(
         <Pagination.Item key={1} onClick={() => handlePageChange(1)}>
           1
-        </Pagination.Item>,
-      )
+        </Pagination.Item>
+      );
       if (startPage > 2) {
-        items.push(<Pagination.Ellipsis key="ellipsis1" />)
+        items.push(<Pagination.Ellipsis key="ellipsis1" />);
       }
     }
 
     // Page numbers
     for (let page = startPage; page <= endPage; page++) {
       items.push(
-        <Pagination.Item key={page} active={page === currentPage} onClick={() => handlePageChange(page)}>
+        <Pagination.Item
+          key={page}
+          active={page === currentPage}
+          onClick={() => handlePageChange(page)}
+        >
           {page}
-        </Pagination.Item>,
-      )
+        </Pagination.Item>
+      );
     }
 
     // Last page
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) {
-        items.push(<Pagination.Ellipsis key="ellipsis2" />)
+        items.push(<Pagination.Ellipsis key="ellipsis2" />);
       }
       items.push(
-        <Pagination.Item key={totalPages} onClick={() => handlePageChange(totalPages)}>
+        <Pagination.Item
+          key={totalPages}
+          onClick={() => handlePageChange(totalPages)}
+        >
           {totalPages}
-        </Pagination.Item>,
-      )
+        </Pagination.Item>
+      );
     }
 
     // Next button
@@ -1002,8 +1308,8 @@ function PinManagement() {
         onClick={() => handlePageChange(currentPage + 1)}
       >
         <span className="sr-only">Next</span>
-      </Pagination.Next>,
-    )
+      </Pagination.Next>
+    );
 
     return (
       <div className="d-flex justify-content-between align-items-center mt-3">
@@ -1021,18 +1327,19 @@ function PinManagement() {
             <option value="200">200</option>
           </Form.Select>
           <span className="ms-3">
-            Showing {filteredPins.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} -{" "}
-            {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
+            Showing{" "}
+            {filteredPins.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
+            - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
           </span>
         </div>
         <Pagination size="sm" className="mb-0" aria-label="Pagination">
           {items}
         </Pagination>
       </div>
-    )
-  }
+    );
+  };
 
-  if (!isClient) {
+  if (!initialLoadDone) {
     return (
       <div className="adminpanelmanajemenpinpage">
         <h1 className="mb-4">Manajemen PIN</h1>
@@ -1042,16 +1349,19 @@ function PinManagement() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (authError) {
     return (
       <div className="adminpanelmanajemenpinpage">
         <h1 className="mb-4">Manajemen PIN</h1>
-        <Alert variant="danger">Sesi login Anda telah berakhir. Anda akan dialihkan ke halaman login...</Alert>
+        <Alert variant="danger">
+          Sesi login Anda telah berakhir. Anda akan dialihkan ke halaman
+          login...
+        </Alert>
       </div>
-    )
+    );
   }
 
   return (
@@ -1065,9 +1375,25 @@ function PinManagement() {
         </Alert>
       )}
       {successMessage && (
-        <Alert variant="success" dismissible onClose={() => setSuccessMessage("")}>
+        <Alert
+          variant="success"
+          dismissible
+          onClose={() => setSuccessMessage("")}
+        >
           <FaCheck className="me-2" />
           {successMessage}
+        </Alert>
+      )}
+
+      {rateLimitHit && (
+        <Alert variant="warning" className="mb-3">
+          <strong>Rate Limit Tercapai!</strong> Beberapa operasi mungkin
+          dibatasi untuk mencegah spam request.
+          {consecutiveErrors > 0 && (
+            <div className="mt-1">
+              <small>Consecutive errors: {consecutiveErrors}</small>
+            </div>
+          )}
         </Alert>
       )}
 
@@ -1108,7 +1434,12 @@ function PinManagement() {
 
       <Card className="mb-4">
         <Card.Header>
-          <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3" fill>
+          <Tabs
+            activeKey={activeTab}
+            onSelect={(k) => setActiveTab(k)}
+            className="mb-3"
+            fill
+          >
             <Tab eventKey="generate" title="Generate PIN">
               <Card.Body>
                 <Form onSubmit={handleGeneratePins}>
@@ -1121,13 +1452,13 @@ function PinManagement() {
                           type="number"
                           value={pinCount === "" ? "" : pinCount}
                           onChange={(e) => {
-                            const val = e.target.value
+                            const val = e.target.value;
                             if (val === "") {
-                              setPinCount("")
+                              setPinCount("");
                             } else {
-                              const parsed = Number.parseInt(val)
+                              const parsed = Number.parseInt(val);
                               if (!Number.isNaN(parsed)) {
-                                setPinCount(parsed)
+                                setPinCount(parsed);
                               }
                             }
                           }}
@@ -1136,18 +1467,23 @@ function PinManagement() {
                           aria-describedby="pinCountHelp"
                         />
                         <Form.Text id="pinCountHelp" muted>
-                          Masukkan jumlah PIN yang ingin digenerate (maksimal 1000)
+                          Masukkan jumlah PIN yang ingin digenerate (maksimal
+                          1000)
                         </Form.Text>
                       </Form.Group>
                     </Col>
                     <Col md={5}>
                       <Form.Group className="mb-3">
-                        <Form.Label htmlFor="pinPrefix">Prefix (opsional)</Form.Label>
+                        <Form.Label htmlFor="pinPrefix">
+                          Prefix (opsional)
+                        </Form.Label>
                         <Form.Control
                           id="pinPrefix"
                           type="text"
                           value={pinPrefix}
-                          onChange={(e) => setPinPrefix(e.target.value.toUpperCase())}
+                          onChange={(e) =>
+                            setPinPrefix(e.target.value.toUpperCase())
+                          }
                           placeholder="Contoh: HLO"
                           maxLength={5}
                           aria-describedby="pinPrefixHelp"
@@ -1167,7 +1503,11 @@ function PinManagement() {
                       >
                         {generating ? (
                           <>
-                            <Spinner animation="border" size="sm" className="me-2" />
+                            <Spinner
+                              animation="border"
+                              size="sm"
+                              className="me-2"
+                            />
                             Generating...
                           </>
                         ) : (
@@ -1184,20 +1524,30 @@ function PinManagement() {
             <Tab eventKey="import" title="Import CSV">
               <Card.Body>
                 {importError && (
-                  <Alert variant="danger" dismissible onClose={() => pinManagement.setImportError("")}>
+                  <Alert
+                    variant="danger"
+                    dismissible
+                    onClose={() => pinManagement.setImportError("")}
+                  >
                     <FaExclamationTriangle className="me-2" />
                     {importError}
                   </Alert>
                 )}
                 {importSuccess && (
-                  <Alert variant="success" dismissible onClose={() => pinManagement.setSuccessMessage("")}>
+                  <Alert
+                    variant="success"
+                    dismissible
+                    onClose={() => pinManagement.setSuccessMessage("")}
+                  >
                     <FaCheck className="me-2" />
                     {importSuccess}
                   </Alert>
                 )}
 
                 <Form.Group className="mb-3">
-                  <Form.Label htmlFor="csvFileInput">Upload File CSV</Form.Label>
+                  <Form.Label htmlFor="csvFileInput">
+                    Upload File CSV
+                  </Form.Label>
                   <Form.Control
                     id="csvFileInput"
                     type="file"
@@ -1234,7 +1584,9 @@ function PinManagement() {
                         </tbody>
                       </Table>
                     </div>
-                    <p className="text-muted">Menampilkan {importPreview.length} dari total data</p>
+                    <p className="text-muted">
+                      Menampilkan {importPreview.length} dari total data
+                    </p>
                   </div>
                 )}
 
@@ -1296,7 +1648,12 @@ function PinManagement() {
               <FaSync className={`me-1 ${isRefreshing ? "fa-spin" : ""}`} />
               {loading ? "Memuat..." : "Refresh"}
             </Button>
-            <Button variant="outline-success" size="sm" onClick={handleExportCSV} aria-label="Export CSV">
+            <Button
+              variant="outline-success"
+              size="sm"
+              onClick={handleExportCSV}
+              aria-label="Export CSV"
+            >
               <FaFileDownload className="me-1" /> Export CSV
             </Button>
           </div>
@@ -1315,7 +1672,11 @@ function PinManagement() {
                   aria-label="Cari PIN"
                 />
                 {searchTerm && (
-                  <Button variant="outline-secondary" onClick={() => setSearchTerm("")} aria-label="Clear search">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => setSearchTerm("")}
+                    aria-label="Clear search"
+                  >
                     &times;
                   </Button>
                 )}
@@ -1336,23 +1697,38 @@ function PinManagement() {
                 variant="outline-secondary"
                 aria-label="Filter PIN"
               >
-                <Dropdown.Item active={filterStatus === "all"} onClick={() => setFilterStatus("all")}>
+                <Dropdown.Item
+                  active={filterStatus === "all"}
+                  onClick={() => setFilterStatus("all")}
+                >
                   Semua PIN
                 </Dropdown.Item>
-                <Dropdown.Item active={filterStatus === "available"} onClick={() => setFilterStatus("available")}>
+                <Dropdown.Item
+                  active={filterStatus === "available"}
+                  onClick={() => setFilterStatus("available")}
+                >
                   PIN Tersedia
                 </Dropdown.Item>
-                <Dropdown.Item active={filterStatus === "pending"} onClick={() => setFilterStatus("pending")}>
+                <Dropdown.Item
+                  active={filterStatus === "pending"}
+                  onClick={() => setFilterStatus("pending")}
+                >
                   PIN Pending
                 </Dropdown.Item>
-                <Dropdown.Item active={filterStatus === "processed"} onClick={() => setFilterStatus("processed")}>
+                <Dropdown.Item
+                  active={filterStatus === "processed"}
+                  onClick={() => setFilterStatus("processed")}
+                >
                   PIN Diproses
                 </Dropdown.Item>
               </DropdownButton>
             </Col>
           </Row>
 
-          <div className="table-responsive" style={{ maxHeight: "400px", overflowY: "auto" }}>
+          <div
+            className="table-responsive"
+            style={{ maxHeight: "400px", overflowY: "auto" }}
+          >
             <Table striped bordered hover responsive>
               <thead>
                 <tr>
@@ -1361,7 +1737,10 @@ function PinManagement() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={handleSelectAll}
-                      disabled={loading || filteredPins.filter((pin) => !pin.used).length === 0}
+                      disabled={
+                        loading ||
+                        filteredPins.filter((pin) => !pin.used).length === 0
+                      }
                       aria-label="Select all available PINs"
                     />
                   </th>
@@ -1374,7 +1753,7 @@ function PinManagement() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loading && filteredPins.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="text-center">
                       <Spinner animation="border" size="sm" className="me-2" />
@@ -1384,7 +1763,9 @@ function PinManagement() {
                 ) : filteredPins.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="text-center">
-                      {searchTerm ? "Tidak ada PIN yang sesuai dengan pencarian" : "Belum ada PIN yang dibuat"}
+                      {searchTerm
+                        ? "Tidak ada PIN yang sesuai dengan pencarian"
+                        : "Belum ada PIN yang dibuat"}
                     </td>
                   </tr>
                 ) : (
@@ -1395,7 +1776,9 @@ function PinManagement() {
                           <Form.Check
                             type="checkbox"
                             checked={selectedPins.includes(pin._id)}
-                            onChange={(e) => handleSelectPin(pin._id, e.target.checked)}
+                            onChange={(e) =>
+                              handleSelectPin(pin._id, e.target.checked)
+                            }
                             aria-label={`Select PIN ${pin.code}`}
                           />
                         )}
@@ -1416,10 +1799,17 @@ function PinManagement() {
                       </td>
                       <td>{pin.redeemedBy?.nama || "-"}</td>
                       <td>{pin.redeemedBy?.idGame || "-"}</td>
-                      <td>{pin.redeemedBy?.redeemedAt ? new Date(pin.redeemedBy.redeemedAt).toLocaleString() : "-"}</td>
+                      <td>
+                        {pin.redeemedBy?.redeemedAt
+                          ? new Date(pin.redeemedBy.redeemedAt).toLocaleString()
+                          : "-"}
+                      </td>
                       <td>
                         {!pin.used && (
-                          <OverlayTrigger placement="top" overlay={<Tooltip>Hapus PIN</Tooltip>}>
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Hapus PIN</Tooltip>}
+                          >
                             <Button
                               variant="danger"
                               size="sm"
@@ -1431,7 +1821,10 @@ function PinManagement() {
                           </OverlayTrigger>
                         )}
                         {pin.used && !pin.processed && (
-                          <OverlayTrigger placement="top" overlay={<Tooltip>Tandai sebagai diproses</Tooltip>}>
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Tandai sebagai diproses</Tooltip>}
+                          >
                             <Button
                               variant="success"
                               size="sm"
@@ -1468,7 +1861,8 @@ function PinManagement() {
         </Modal.Header>
         <Modal.Body>
           <p>
-            Apakah Anda yakin ingin menghapus PIN <strong>{pinToDelete?.code}</strong>?
+            Apakah Anda yakin ingin menghapus PIN{" "}
+            <strong>{pinToDelete?.code}</strong>?
           </p>
           <Alert variant="warning">
             <FaExclamationTriangle className="me-2" />
@@ -1486,15 +1880,20 @@ function PinManagement() {
       </Modal>
 
       {/* Modal Konfirmasi Hapus Multiple */}
-      <Modal show={showDeleteMultipleModal} onHide={() => !deletingMultiple && setShowDeleteMultipleModal(false)}>
+      <Modal
+        show={showDeleteMultipleModal}
+        onHide={() => !deletingMultiple && setShowDeleteMultipleModal(false)}
+      >
         <Modal.Header closeButton={!deletingMultiple}>
           <Modal.Title>
-            <FaTrash className="me-2 text-danger" /> Konfirmasi Hapus Multiple PIN
+            <FaTrash className="me-2 text-danger" /> Konfirmasi Hapus Multiple
+            PIN
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p>
-            Apakah Anda yakin ingin menghapus <strong>{selectedPins.length}</strong> PIN yang dipilih?
+            Apakah Anda yakin ingin menghapus{" "}
+            <strong>{selectedPins.length}</strong> PIN yang dipilih?
           </p>
           <Alert variant="warning">
             <FaExclamationTriangle className="me-2" />
@@ -1502,23 +1901,34 @@ function PinManagement() {
           </Alert>
           <div className="mt-3">
             <strong>PIN yang akan dihapus:</strong>
-            <div className="mt-2 border rounded p-2" style={{ maxHeight: "150px", overflowY: "auto" }}>
+            <div
+              className="mt-2 border rounded p-2"
+              style={{ maxHeight: "150px", overflowY: "auto" }}
+            >
               {selectedPins.map((pinId) => {
-                const pin = pins.find((p) => p._id === pinId)
+                const pin = pins.find((p) => p._id === pinId);
                 return pin ? (
                   <div key={pinId} className="mb-1">
                     <code>{pin.code}</code>
                   </div>
-                ) : null
+                ) : null;
               })}
             </div>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteMultipleModal(false)} disabled={deletingMultiple}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteMultipleModal(false)}
+            disabled={deletingMultiple}
+          >
             Batal
           </Button>
-          <Button variant="danger" onClick={handleDeleteMultiplePins} disabled={deletingMultiple}>
+          <Button
+            variant="danger"
+            onClick={handleDeleteMultiplePins}
+            disabled={deletingMultiple}
+          >
             {deletingMultiple ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
@@ -1532,7 +1942,10 @@ function PinManagement() {
       </Modal>
 
       {/* Modal Mark as Processed */}
-      <Modal show={showProcessModal} onHide={() => !processing && setShowProcessModal(false)}>
+      <Modal
+        show={showProcessModal}
+        onHide={() => !processing && setShowProcessModal(false)}
+      >
         <Modal.Header closeButton={!processing}>
           <Modal.Title>
             <FaCheck className="me-2 text-success" /> Konfirmasi Proses PIN
@@ -1540,7 +1953,8 @@ function PinManagement() {
         </Modal.Header>
         <Modal.Body>
           <p>
-            Apakah Anda yakin ingin menandai PIN <strong>{pinToProcess?.code}</strong> sebagai sudah diproses?
+            Apakah Anda yakin ingin menandai PIN{" "}
+            <strong>{pinToProcess?.code}</strong> sebagai sudah diproses?
           </p>
           {pinToProcess && (
             <div>
@@ -1552,12 +1966,15 @@ function PinManagement() {
                   <strong>Nama:</strong> {pinToProcess.redeemedBy?.nama || "-"}
                 </li>
                 <li className="list-group-item">
-                  <strong>ID Game:</strong> {pinToProcess.redeemedBy?.idGame || "-"}
+                  <strong>ID Game:</strong>{" "}
+                  {pinToProcess.redeemedBy?.idGame || "-"}
                 </li>
                 <li className="list-group-item">
                   <strong>Waktu Redeem:</strong>{" "}
                   {pinToProcess.redeemedBy?.redeemedAt
-                    ? new Date(pinToProcess.redeemedBy.redeemedAt).toLocaleString()
+                    ? new Date(
+                        pinToProcess.redeemedBy.redeemedAt
+                      ).toLocaleString()
                     : "-"}
                 </li>
               </ul>
@@ -1565,10 +1982,18 @@ function PinManagement() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowProcessModal(false)} disabled={processing}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowProcessModal(false)}
+            disabled={processing}
+          >
             Batal
           </Button>
-          <Button variant="success" onClick={handleMarkAsProcessed} disabled={processing}>
+          <Button
+            variant="success"
+            onClick={handleMarkAsProcessed}
+            disabled={processing}
+          >
             {processing ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
@@ -1581,7 +2006,7 @@ function PinManagement() {
         </Modal.Footer>
       </Modal>
     </div>
-  )
+  );
 }
 
-export default PinManagement
+export default PinManagement;

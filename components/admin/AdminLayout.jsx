@@ -18,7 +18,6 @@ import Image from "next/image"
 import "@/styles/adminstyles.css"
 import { Alert } from "react-bootstrap"
 import { checkTokenValidity, setupTokenRefreshTimer } from "@/lib/utils/authUtils"
-import SSEInitializer from "@/components/admin/SSEInitializer"
 
 // Cache keys
 const CACHE_KEYS = {
@@ -47,8 +46,8 @@ function AdminLayout({ children }) {
   // Tambahkan ref untuk melacak apakah komponen masih terpasang
   const isMounted = useRef(true)
 
-  // Minimum time between fetches (10 minutes in milliseconds)
-  const MIN_FETCH_INTERVAL = 10 * 60 * 1000
+  // Minimum time between fetches (5 minutes in milliseconds) - reduced for better UX
+  const MIN_FETCH_INTERVAL = 5 * 60 * 1000
 
   // Track last fetch time
   const lastPendingCountFetchTime = useRef(0)
@@ -273,7 +272,7 @@ function AdminLayout({ children }) {
       fetchPendingCount()
     }
 
-    // Set up interval to refresh pending count less frequently (every 10 minutes)
+    // Set up interval to refresh pending count (every 5 minutes)
     const intervalId = setInterval(() => {
       const now = Date.now()
       if (now - lastPendingCountFetchTime.current >= MIN_FETCH_INTERVAL) {
@@ -292,16 +291,17 @@ function AdminLayout({ children }) {
       5 * 60 * 1000,
     )
 
-    // Setup event listener untuk SSE updates
-    const handleSSEUpdate = (event) => {
+    // Setup event listener untuk data updates (polling-based)
+    const handleDataUpdate = (event) => {
       // Jika event adalah pin-processed atau pins-batch-processed, refresh pending count
-      if (event.detail && (event.detail.event === "pin-processed" || event.detail.event === "pins-batch-processed")) {
-        console.log("SSE update received, refreshing pending count")
+      if (event.detail && (event.detail.processedCount || event.type === "pin-data-updated")) {
+        console.log("Data update event received, refreshing pending count")
         fetchPendingCount()
       }
     }
 
-    window.addEventListener("pin-data-updated", handleSSEUpdate)
+    window.addEventListener("pin-data-updated", handleDataUpdate)
+    window.addEventListener("cache-invalidated", handleDataUpdate)
 
     const handleResize = () => {
       if (window.innerWidth < 768) {
@@ -316,7 +316,8 @@ function AdminLayout({ children }) {
 
     return () => {
       window.removeEventListener("resize", handleResize)
-      window.removeEventListener("pin-data-updated", handleSSEUpdate)
+      window.removeEventListener("pin-data-updated", handleDataUpdate)
+      window.removeEventListener("cache-invalidated", handleDataUpdate)
       clearInterval(intervalId)
       clearInterval(tokenCheckIntervalId)
     }
@@ -338,7 +339,7 @@ function AdminLayout({ children }) {
     try {
       await handleApiCall(async (token) => {
         // Use the dedicated endpoint for pending count
-        const response = await axios.get(`/api/admin/pending-pins/count`, {
+        const response = await axios.get(`/api/admin/pending-pins-count`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -460,9 +461,6 @@ function AdminLayout({ children }) {
 
   return (
     <div className="admin-layout">
-      {/* Initialize SSE connection */}
-      <SSEInitializer />
-
       <div className={`sidebar ${sidebarVisible ? "show" : ""}`}>
         <div className="border-bottom">
           <Image src="/assets/logo footter.png" alt="Logo" width={100} height={32} />
