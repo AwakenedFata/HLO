@@ -10,14 +10,14 @@ import { rateLimit } from "@/lib/utils/rate-limit"
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 100,
-  limit: 20, // 20 requests per minute
+  limit: 30, // Increased limit for dashboard
 })
 
 export async function GET(request) {
   try {
     // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await limiter.check(identifier, 20, "dashboard-stats")
+    const rateLimitResult = await limiter.check(identifier, 30, "dashboard-stats")
 
     if (!rateLimitResult.success) {
       return NextResponse.json(
@@ -25,7 +25,7 @@ export async function GET(request) {
           error: "Too many requests. Please try again later.",
           reset: rateLimitResult.reset,
         },
-        { 
+        {
           status: 429,
           headers: {
             "Retry-After": rateLimitResult.reset.toString(),
@@ -33,7 +33,7 @@ export async function GET(request) {
             "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
             "X-RateLimit-Reset": rateLimitResult.reset.toString(),
           },
-        }
+        },
       )
     }
 
@@ -44,6 +44,12 @@ export async function GET(request) {
     }
 
     await connectToDatabase()
+
+    const { searchParams } = new URL(request.url)
+
+    // Check for cache busting parameter
+    const cacheBuster = searchParams.get("_t")
+    const bypassCache = cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
 
     // Use aggregation pipeline for more efficient statistics calculation
     const statsAggregation = await PinCode.aggregate([
@@ -75,23 +81,15 @@ export async function GET(request) {
                 _id: "$prefix",
                 total: { $sum: 1 },
                 used: { $sum: { $cond: ["$used", 1, 0] } },
-                pending: { 
-                  $sum: { 
-                    $cond: [
-                      { $and: ["$used", { $eq: ["$processed", false] }] }, 
-                      1, 
-                      0
-                    ] 
-                  } 
+                pending: {
+                  $sum: {
+                    $cond: [{ $and: ["$used", { $eq: ["$processed", false] }] }, 1, 0],
+                  },
                 },
-                processed: { 
-                  $sum: { 
-                    $cond: [
-                      { $and: ["$used", "$processed"] }, 
-                      1, 
-                      0
-                    ] 
-                  } 
+                processed: {
+                  $sum: {
+                    $cond: [{ $and: ["$used", "$processed"] }, 1, 0],
+                  },
                 },
               },
             },
@@ -105,15 +103,15 @@ export async function GET(request) {
             { $match: { processed: true, processedAt: { $exists: true } } },
             { $sort: { processedAt: -1 } },
             { $limit: 10 },
-            { 
-              $project: { 
-                code: 1, 
+            {
+              $project: {
+                code: 1,
                 processedAt: 1,
                 "redeemedBy.nama": 1,
                 "redeemedBy.idGame": 1,
-              } 
-            }
-          ]
+              },
+            },
+          ],
         },
       },
     ]).exec()
@@ -135,13 +133,15 @@ export async function GET(request) {
     }))
 
     // Format recent activity
-    const recentActivity = statsAggregation[0].recentActivity.map(item => ({
+    const recentActivity = statsAggregation[0].recentActivity.map((item) => ({
       code: item.code,
       processedAt: item.processedAt,
-      redeemedBy: item.redeemedBy ? {
-        nama: item.redeemedBy.nama,
-        idGame: item.redeemedBy.idGame
-      } : null
+      redeemedBy: item.redeemedBy
+        ? {
+            nama: item.redeemedBy.nama,
+            idGame: item.redeemedBy.idGame,
+          }
+        : null,
     }))
 
     // Create response data
@@ -149,46 +149,50 @@ export async function GET(request) {
       total: totalCount,
       used: usedCount,
       unused: totalCount - usedCount,
+      available: totalCount - usedCount, // Alias for unused
       pending: pendingCount,
       processed: processedCount,
       batches,
       recentActivity,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     }
 
-    // Generate ETag based on response data
-    const dataHash = crypto
-      .createHash('md5')
-      .update(JSON.stringify(responseData))
-      .digest('hex')
-    const etag = `"stats-${dataHash}"`
-    
-    // Check if client has a valid cached version
-    const ifNoneMatch = request.headers.get('if-none-match')
-    if (ifNoneMatch === etag) {
-      return new NextResponse(null, { 
-        status: 304, 
-        headers: {
-          'ETag': etag,
-          'Cache-Control': 'private, max-age=30',
-        }
-      })
+    // Prepare response headers
+    const responseHeaders = {
+      "X-Total-Count": totalCount.toString(),
+      "X-Last-Updated": new Date().toISOString(),
     }
 
-    logger.info(`Statistik diakses oleh ${authResult.user.username}`)
+    // Handle caching based on bypass cache flag
+    if (bypassCache) {
+      responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate"
+      responseHeaders["Pragma"] = "no-cache"
+      responseHeaders["Expires"] = "0"
+    } else {
+      responseHeaders["Cache-Control"] = "private, max-age=30"
+
+      // Generate ETag based on response data
+      const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
+      responseHeaders["ETag"] = `"stats-${dataHash}"`
+
+      // Check if client has a valid cached version
+      const ifNoneMatch = request.headers.get("if-none-match")
+      if (ifNoneMatch === responseHeaders["ETag"]) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: responseHeaders,
+        })
+      }
+    }
+
+    logger.info(`Dashboard stats accessed by ${authResult.user.username}`)
 
     // Return optimized response with caching headers
-    return NextResponse.json(
-      responseData,
-      { 
-        headers: {
-          'ETag': etag,
-          'Cache-Control': 'private, max-age=30',
-        }
-      }
-    )
+    return NextResponse.json(responseData, {
+      headers: responseHeaders,
+    })
   } catch (error) {
-    logger.error("Error fetching stats:", error)
+    logger.error("Error fetching dashboard stats:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }

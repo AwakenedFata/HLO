@@ -3,21 +3,21 @@ import connectToDatabase from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
 import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
-import { rateLimit } from "@/lib/utils/rate-limit"
 import crypto from "crypto"
+import { rateLimit } from "@/lib/utils/rate-limit"
 
 // Rate limiter for redemptions endpoint
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute
+  limit: 40, // 40 requests per minute
 })
 
 export async function GET(request) {
   try {
     // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await limiter.check(identifier, 30, "redemptions")
+    const rateLimitResult = await limiter.check(identifier, 40, "redemptions")
 
     if (!rateLimitResult.success) {
       return NextResponse.json(
@@ -42,18 +42,21 @@ export async function GET(request) {
     // Authenticate and authorize user
     const authResult = await authorizeRequest(["admin", "super-admin"])(request)
     if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+      return NextResponse.json({ error: authResult.message }, { status: 401 })
     }
 
-    // Get URL parameters for pagination and filtering
     const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
-    const page = Number.parseInt(searchParams.get("page") || "1", 10)
+    const limit = Math.min(Number.parseInt(searchParams.get("limit") || "50", 10), 100)
+    const page = Math.max(Number.parseInt(searchParams.get("page") || "1", 10), 1)
     const sortField = searchParams.get("sort") || "redeemedAt"
     const sortDirection = searchParams.get("direction") || "desc"
     const searchTerm = searchParams.get("search")
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
+
+    // Check for cache busting parameter
+    const cacheBuster = searchParams.get("_t")
+    const bypassCache = cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
 
     // Validate parameters
     if (isNaN(page) || page < 1) {
@@ -66,12 +69,17 @@ export async function GET(request) {
 
     const skip = (page - 1) * limit
 
-    // Build query for filtering
-    const query = { used: true }
+    // Build aggregation pipeline for better performance
+    const pipeline = []
+
+    // Match stage - hanya PIN yang sudah digunakan (used: true)
+    const matchStage = {
+      used: true,
+    }
 
     // Add search filter if provided
     if (searchTerm) {
-      query.$or = [
+      matchStage.$or = [
         { code: { $regex: searchTerm, $options: "i" } },
         { "redeemedBy.nama": { $regex: searchTerm, $options: "i" } },
         { "redeemedBy.idGame": { $regex: searchTerm, $options: "i" } },
@@ -80,20 +88,27 @@ export async function GET(request) {
 
     // Add date range filter if provided
     if (startDate || endDate) {
-      query["redeemedBy.redeemedAt"] = {}
+      const dateFilter = {}
 
       if (startDate) {
         const startDateTime = new Date(startDate)
         startDateTime.setHours(0, 0, 0, 0)
-        query["redeemedBy.redeemedAt"].$gte = startDateTime
+        dateFilter.$gte = startDateTime
       }
 
       if (endDate) {
         const endDateTime = new Date(endDate)
         endDateTime.setHours(23, 59, 59, 999)
-        query["redeemedBy.redeemedAt"].$lte = endDateTime
+        dateFilter.$lte = endDateTime
       }
+
+      matchStage["redeemedBy.redeemedAt"] = dateFilter
     }
+
+    pipeline.push({ $match: matchStage })
+
+    // Debug logging untuk melihat berapa banyak data yang cocok
+    console.log("Match stage:", JSON.stringify(matchStage, null, 2))
 
     // Build sort object
     const sortObj = {}
@@ -109,61 +124,112 @@ export async function GET(request) {
       sortObj[sortField] = sortDirection === "asc" ? 1 : -1
     }
 
-    // Execute query with pagination and sorting
-    const [redemptions, totalCount] = await Promise.all([
-      PinCode.find(query, {
-        code: 1,
-        used: 1,
-        processed: 1,
-        "redeemedBy.nama": 1,
-        "redeemedBy.idGame": 1,
-        "redeemedBy.redeemedAt": 1,
-      })
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+    // Use facet to get both data and count in one query
+    pipeline.push({
+      $facet: {
+        redemptions: [
+          { $sort: sortObj },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 1,
+              code: 1,
+              used: 1,
+              processed: 1,
+              processedAt: 1,
+              redeemedBy: 1,
+              createdAt: 1,
+              // Fallback fields jika redeemedBy tidak ada
+              redeemedAt: { $ifNull: ["$redeemedBy.redeemedAt", "$processedAt"] },
+              nama: { $ifNull: ["$redeemedBy.nama", "Data tidak tersedia"] },
+              idGame: { $ifNull: ["$redeemedBy.idGame", "Data tidak tersedia"] },
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+        // Debug: ambil sample data untuk melihat struktur
+        sampleData: [
+          { $limit: 3 },
+          {
+            $project: {
+              _id: 1,
+              code: 1,
+              used: 1,
+              processed: 1,
+              redeemedBy: 1,
+              hasRedeemedBy: { $type: "$redeemedBy" },
+              redeemedByKeys: { $objectToArray: "$redeemedBy" },
+            },
+          },
+        ],
+      },
+    })
 
-      // Get total count in parallel
-      PinCode.countDocuments(query),
-    ])
+    const [result] = await PinCode.aggregate(pipeline)
 
-    logger.info(`Redemptions fetched by ${authResult.user.username}, page: ${page}, limit: ${limit}`)
+    // Setelah const [result] = await PinCode.aggregate(pipeline)
+    console.log("Raw database sample (first 3 documents):")
+    const rawSample = await PinCode.find({ used: true }).limit(3).lean()
+    console.log(JSON.stringify(rawSample, null, 2))
 
-    // Create a response object
+    const redemptions = result.redemptions || []
+    const totalCount = result.totalCount[0]?.count || 0
+    const sampleData = result.sampleData || []
+
+    // Log sample data untuk debugging
+    console.log("Sample data for debugging:", JSON.stringify(sampleData, null, 2))
+    console.log("Total redemptions found:", totalCount)
+    console.log("Redemptions returned:", redemptions.length)
+
+    if (redemptions.length > 0) {
+      console.log("First redemption structure:", JSON.stringify(redemptions[0], null, 2))
+    }
+
+    logger.info(
+      `Redemptions fetched by ${authResult.user.username}, page: ${page}, limit: ${limit}, count: ${totalCount}`,
+    )
+
     const responseData = {
       redemptions,
       count: redemptions.length,
       total: totalCount,
       page,
       totalPages: Math.ceil(totalCount / limit),
+      sampleData, // Include sample data for debugging
       lastUpdated: new Date(),
     }
 
-    // Generate ETag based on response data
-    const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
-    const etag = `"redemptions-${dataHash}"`
-
-    // Check if client has a valid cached version
-    const ifNoneMatch = request.headers.get("if-none-match")
-    if (ifNoneMatch === etag) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: etag,
-          "Cache-Control": "private, max-age=60",
-        },
-      })
+    // Prepare response headers
+    const responseHeaders = {
+      "X-Total-Count": totalCount.toString(),
+      "X-Total-Pages": Math.ceil(totalCount / limit).toString(),
     }
 
-    // Return response with caching headers
+    // Handle caching based on bypass cache flag
+    if (bypassCache) {
+      responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate"
+      responseHeaders["Pragma"] = "no-cache"
+      responseHeaders["Expires"] = "0"
+    } else {
+      responseHeaders["Cache-Control"] = "private, max-age=30"
+
+      // Generate ETag based on data
+      const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
+      responseHeaders["ETag"] = `"redemptions-${dataHash}"`
+
+      // Check if client has cached version
+      const ifNoneMatch = request.headers.get("if-none-match")
+      if (ifNoneMatch === responseHeaders["ETag"]) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: responseHeaders,
+        })
+      }
+    }
+
     return NextResponse.json(responseData, {
-      headers: {
-        ETag: etag,
-        "Cache-Control": "private, max-age=60",
-        "X-Total-Count": totalCount.toString(),
-        "X-Total-Pages": Math.ceil(totalCount / limit).toString(),
-      },
+      headers: responseHeaders,
     })
   } catch (error) {
     logger.error("Error fetching redemptions:", error)

@@ -3,7 +3,6 @@ import connectToDatabase from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
 import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
-import { pinUpdateEmitter } from "../pins/[id]/route"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
 // Rate limiter for batch processing endpoint
@@ -78,7 +77,7 @@ export async function POST(request) {
       })
     }
 
-    // Get the processed pins for logging and event emission
+    // Get the processed pins for logging and response
     const processedPins = await PinCode.find({
       _id: { $in: pinIds },
       processed: true,
@@ -89,19 +88,7 @@ export async function POST(request) {
 
     logger.info(`${result.modifiedCount} PINs ditandai sebagai diproses oleh ${authResult.user.username}`)
 
-    // Emit batch update event with more comprehensive data
-    pinUpdateEmitter.emit("pins-batch-processed", {
-      count: result.modifiedCount,
-      pinIds,
-      codes: processedPins.map((pin) => pin.code),
-      processedAt: now,
-      processedBy: {
-        id: authResult.user._id,
-        username: authResult.user.username,
-      },
-    })
-
-    // Return response with cache control headers
+    // Return response with cache invalidation headers
     return NextResponse.json(
       {
         success: true,
@@ -109,12 +96,16 @@ export async function POST(request) {
         processed: result.modifiedCount,
         processedAt: now,
         processedPins: processedPins.map((pin) => ({ _id: pin._id, code: pin.code })),
+        timestamp: now.toISOString(),
       },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
           Pragma: "no-cache",
           Expires: "0",
+          "X-Data-Updated": "true",
+          "X-Update-Type": "pins-batch-processed",
+          "X-Update-Count": result.modifiedCount.toString(),
         },
       },
     )

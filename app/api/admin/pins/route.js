@@ -59,6 +59,10 @@ export async function GET(request) {
     const page = Number.parseInt(searchParams.get("page") || "1", 10)
     const skip = (page - 1) * limit
 
+    // Check for cache busting parameter
+    const cacheBuster = searchParams.get("_t")
+    const bypassCache = cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
+
     // Validate parameters
     if (isNaN(page) || page < 1) {
       return NextResponse.json({ error: "Invalid page parameter" }, { status: 400 })
@@ -113,7 +117,38 @@ export async function GET(request) {
 
     logger.info(`Pins fetched by ${authResult.user.username}, page: ${page}, limit: ${limit}`)
 
-    // Return response with caching headers
+    // Prepare response headers
+    const responseHeaders = {
+      "X-Total-Count": totalFiltered.toString(),
+      "X-Total-Pages": Math.ceil(totalFiltered / limit).toString(),
+    }
+
+    // Handle caching based on bypass cache flag
+    if (bypassCache) {
+      responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate"
+      responseHeaders["Pragma"] = "no-cache"
+      responseHeaders["Expires"] = "0"
+    } else {
+      responseHeaders["Cache-Control"] = "private, max-age=30"
+
+      // Generate ETag based on data
+      const dataHash = require("crypto")
+        .createHash("md5")
+        .update(JSON.stringify({ pins, stats: { totalAll, usedAll, pendingAll, processedAll } }))
+        .digest("hex")
+      responseHeaders["ETag"] = `"pins-${dataHash}"`
+
+      // Check if client has cached version
+      const ifNoneMatch = request.headers.get("if-none-match")
+      if (ifNoneMatch === responseHeaders["ETag"]) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: responseHeaders,
+        })
+      }
+    }
+
+    // Return response
     return NextResponse.json(
       {
         pins,
@@ -129,13 +164,7 @@ export async function GET(request) {
           processed: processedAll,
         },
       },
-      {
-        headers: {
-          "Cache-Control": "private, max-age=30",
-          "X-Total-Count": totalFiltered.toString(),
-          "X-Total-Pages": Math.ceil(totalFiltered / limit).toString(),
-        },
-      },
+      { headers: responseHeaders },
     )
   } catch (error) {
     logger.error("Error fetching pins:", error)
@@ -143,7 +172,7 @@ export async function GET(request) {
   }
 }
 
-// POST generate new pins - optimized for batch operations
+// POST generate new pins - optimized for batch operations with immediate response
 export async function POST(request) {
   try {
     // Apply rate limiting
@@ -225,17 +254,22 @@ export async function POST(request) {
 
     logger.info(`${pins.length} PIN baru dibuat oleh ${authResult.user.username}`)
 
+    // Return immediate response with cache invalidation headers
     return NextResponse.json(
       {
         success: true,
         count: pins.length,
         message: `Berhasil generate ${pins.length} PIN baru`,
+        timestamp: now.toISOString(),
       },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
           Pragma: "no-cache",
           Expires: "0",
+          "X-Data-Updated": "true",
+          "X-Update-Type": "pin-generated",
+          "X-Update-Count": pins.length.toString(),
         },
       },
     )

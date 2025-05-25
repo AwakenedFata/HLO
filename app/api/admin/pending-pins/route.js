@@ -6,46 +6,40 @@ import logger from "@/lib/utils/logger-server"
 import crypto from "crypto"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
-// More generous rate limiter for pending pins endpoint
+// Rate limiter for pending pins endpoint
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute (every 2 seconds)
-  identifier: "pending-pins",
+  limit: 40, // 40 requests per minute
 })
 
 export async function GET(request) {
   try {
-    // Get identifier for rate limiting
-    const identifier = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "anonymous"
+    // Apply rate limiting
+    const identifier = request.headers.get("x-forwarded-for") || "anonymous"
+    const rateLimitResult = await limiter.check(identifier, 40, "pending-pins")
 
-    // Apply rate limiting with error handling
-    try {
-      await limiter.check(identifier)
-    } catch (rateLimitError) {
-      if (rateLimitError.statusCode === 429) {
-        logger.warn(`Rate limit exceeded for pending-pins: ${identifier}`)
-        return NextResponse.json(
-          {
-            error: "Too many requests. Please try again later.",
-            reset: rateLimitError.rateLimitInfo?.reset || 60,
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: "Too many requests. Please try again later.",
+          reset: rateLimitResult.reset,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": rateLimitResult.reset.toString(),
+            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
           },
-          {
-            status: 429,
-            headers: {
-              "Retry-After": (rateLimitError.rateLimitInfo?.reset || 60).toString(),
-              "X-RateLimit-Limit": (rateLimitError.rateLimitInfo?.limit || 30).toString(),
-              "X-RateLimit-Remaining": (rateLimitError.rateLimitInfo?.remaining || 0).toString(),
-              "X-RateLimit-Reset": (rateLimitError.rateLimitInfo?.reset || 60).toString(),
-            },
-          },
-        )
-      }
-      throw rateLimitError
+        },
+      )
     }
 
     await connectToDatabase()
 
+    // Authenticate and authorize user
     const authResult = await authorizeRequest(["admin", "super-admin"])(request)
     if (authResult.error) {
       return NextResponse.json({ error: authResult.message }, { status: 401 })
@@ -55,34 +49,49 @@ export async function GET(request) {
     const limit = Math.min(Number.parseInt(searchParams.get("limit") || "50", 10), 100)
     const page = Math.max(Number.parseInt(searchParams.get("page") || "1", 10), 1)
 
+    // Check for cache busting parameter
+    const cacheBuster = searchParams.get("_t")
+    const bypassCache = cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
+
+    // Validate parameters
     if (isNaN(page) || page < 1) {
       return NextResponse.json({ error: "Invalid page parameter" }, { status: 400 })
     }
 
     if (isNaN(limit) || limit < 1 || limit > 100) {
-      return NextResponse.json({ error: "Invalid limit parameter" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid limit parameter (1-100)" }, { status: 400 })
     }
 
     const skip = (page - 1) * limit
 
-    const [pendingPins, totalCount] = await Promise.all([
-      PinCode.find(
-        { used: true, processed: false },
-        {
-          _id: 1,
-          code: 1,
-          "redeemedBy.nama": 1,
-          "redeemedBy.idGame": 1,
-          "redeemedBy.redeemedAt": 1,
+    // Use aggregation for better performance
+    const [result] = await PinCode.aggregate([
+      {
+        $facet: {
+          // Get pending pins with pagination
+          pins: [
+            { $match: { used: true, processed: false } },
+            { $sort: { "redeemedBy.redeemedAt": -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 1,
+                code: 1,
+                "redeemedBy.nama": 1,
+                "redeemedBy.idGame": 1,
+                "redeemedBy.redeemedAt": 1,
+              },
+            },
+          ],
+          // Get total count
+          totalCount: [{ $match: { used: true, processed: false } }, { $count: "count" }],
         },
-      )
-        .sort({ "redeemedBy.redeemedAt": -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-
-      PinCode.countDocuments({ used: true, processed: false }),
+      },
     ])
+
+    const pendingPins = result.pins || []
+    const totalCount = result.totalCount[0]?.count || 0
 
     logger.info(
       `Pending pins fetched by ${authResult.user.username}, page: ${page}, limit: ${limit}, count: ${totalCount}`,
@@ -97,47 +106,39 @@ export async function GET(request) {
       lastUpdated: new Date(),
     }
 
-    // Create more stable ETag
-    const dataForHash = {
-      total: totalCount,
-      page,
-      limit,
-      pins: pendingPins.map((p) => ({ id: p._id, code: p.code, redeemedAt: p.redeemedBy?.redeemedAt })),
+    // Prepare response headers
+    const responseHeaders = {
+      "X-Total-Count": totalCount.toString(),
+      "X-Total-Pages": Math.ceil(totalCount / limit).toString(),
     }
-    const dataHash = crypto.createHash("md5").update(JSON.stringify(dataForHash)).digest("hex")
-    const etag = `"pins-${dataHash}"`
 
-    const ifNoneMatch = request.headers.get("if-none-match")
-    if (ifNoneMatch === etag) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: etag,
-          "Cache-Control": "private, max-age=15, must-revalidate",
-        },
-      })
+    // Handle caching based on bypass cache flag
+    if (bypassCache) {
+      responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate"
+      responseHeaders["Pragma"] = "no-cache"
+      responseHeaders["Expires"] = "0"
+    } else {
+      responseHeaders["Cache-Control"] = "private, max-age=15"
+
+      // Generate ETag based on data
+      const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
+      responseHeaders["ETag"] = `"pending-${dataHash}"`
+
+      // Check if client has cached version
+      const ifNoneMatch = request.headers.get("if-none-match")
+      if (ifNoneMatch === responseHeaders["ETag"]) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: responseHeaders,
+        })
+      }
     }
 
     return NextResponse.json(responseData, {
-      headers: {
-        ETag: etag,
-        "Cache-Control": "private, max-age=15, must-revalidate",
-        "X-Total-Count": totalCount.toString(),
-        "X-Total-Pages": Math.ceil(totalCount / limit).toString(),
-      },
+      headers: responseHeaders,
     })
   } catch (error) {
-    // Don't log rate limit errors as errors
-    if (error.statusCode !== 429) {
-      logger.error("Error fetching pending pins:", error)
-    }
-
-    return NextResponse.json(
-      {
-        error: "Server error",
-        message: error.message,
-      },
-      { status: error.statusCode || 500 },
-    )
+    logger.error("Error fetching pending pins:", error)
+    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }

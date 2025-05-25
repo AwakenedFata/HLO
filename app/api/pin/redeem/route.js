@@ -55,16 +55,46 @@ export async function POST(request) {
       return NextResponse.json({ error: "PIN code sudah digunakan" }, { status: 409 })
     }
 
-    // Catat penggunaan pin
+    // ✅ PERBAIKAN: Simpan data dengan struktur yang benar
+    const now = new Date()
+
     pin.used = true
-    pin.idGame = idGame
-    pin.namaPengguna = nama
-    pin.tanggalPenggunaan = new Date()
+    pin.redeemedBy = {
+      idGame: idGame,
+      nama: nama,
+      redeemedAt: now,
+      deviceInfo: request.headers.get("user-agent") || "Unknown",
+      ipAddress: ip,
+    }
 
     await pin.save()
 
     logger.info(`Penggunaan pin berhasil: ${pinCode} untuk game ${idGame} oleh ${nama}`)
-    return NextResponse.json({ message: "PIN code berhasil digunakan" }, { status: 200 })
+
+    // Emit event untuk update real-time
+    if (global.pinUpdateEmitter) {
+      global.pinUpdateEmitter.emit("pin-redeemed", {
+        pinId: pin._id,
+        code: pin.code,
+        redeemedBy: pin.redeemedBy,
+        redeemedAt: now,
+      })
+    }
+
+    return NextResponse.json(
+      {
+        message: "PIN code berhasil digunakan",
+        data: {
+          code: pin.code,
+          redeemedAt: now,
+          redeemedBy: {
+            nama: nama,
+            idGame: idGame,
+          },
+        },
+      },
+      { status: 200 },
+    )
   } catch (error) {
     logger.error(`Gagal menggunakan pin: ${error}`)
     return NextResponse.json({ error: "Gagal menggunakan PIN code" }, { status: 500 })

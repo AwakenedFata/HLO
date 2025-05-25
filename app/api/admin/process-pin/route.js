@@ -3,7 +3,6 @@ import connectToDatabase from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
 import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
-import { pinUpdateEmitter } from "../pins/[id]/route"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
 // Rate limiter for process pin endpoint
@@ -13,7 +12,7 @@ const limiter = rateLimit({
   limit: 30, // 30 requests per minute
 })
 
-// Endpoint for processing pins with optimized performance
+// Endpoint for processing individual pins with optimized performance
 export async function POST(request) {
   try {
     // Apply rate limiting
@@ -54,7 +53,7 @@ export async function POST(request) {
 
     const now = new Date()
 
-    // Find and update the pin in a single operation
+    // Find and update the pin in a single operation with better error handling
     const updatedPin = await PinCode.findOneAndUpdate(
       { _id: pinId, used: true, processed: false },
       {
@@ -68,7 +67,7 @@ export async function POST(request) {
     )
 
     if (!updatedPin) {
-      // Check if the pin exists but is already processed
+      // Check if the pin exists but is already processed or not used
       const existingPin = await PinCode.findById(pinId).lean()
 
       if (!existingPin) {
@@ -94,19 +93,7 @@ export async function POST(request) {
 
     logger.info(`PIN ${updatedPin.code} ditandai sebagai diproses oleh ${authResult.user.username}`)
 
-    // Emit event for pin update with more comprehensive data
-    pinUpdateEmitter.emit("pin-processed", {
-      pinId: updatedPin._id.toString(),
-      code: updatedPin.code,
-      processed: true,
-      processedAt: now,
-      processedBy: {
-        id: authResult.user._id.toString(),
-        username: authResult.user.username,
-      },
-    })
-
-    // Return response with cache control headers
+    // Return response with cache invalidation headers
     return NextResponse.json(
       {
         success: true,
@@ -117,12 +104,16 @@ export async function POST(request) {
           processed: updatedPin.processed,
           processedAt: updatedPin.processedAt,
         },
+        timestamp: now.toISOString(),
       },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
           Pragma: "no-cache",
           Expires: "0",
+          "X-Data-Updated": "true",
+          "X-Update-Type": "pin-processed",
+          "X-Update-Count": "1",
         },
       },
     )
