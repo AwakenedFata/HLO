@@ -76,34 +76,18 @@ function AdminLayout({ children }) {
         sidebarVisible &&
         sidebarRef.current &&
         !sidebarRef.current.contains(event.target) &&
-        !event.target.closest(".btn") && // Don't close if clicking the hamburger button
-        !event.target.closest(".sidebar") // Don't close if clicking inside sidebar
+        !event.target.closest(".btn") // Don't close if clicking the hamburger button
       ) {
         setSidebarVisible(false)
       }
     }
 
-    const handleTouchStart = (event) => {
-      // Handle touch events for better mobile experience
-      if (typeof window !== "undefined" && window.innerWidth > 768) return
-
-      if (
-        sidebarVisible &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target) &&
-        !event.target.closest(".btn")
-      ) {
-        setSidebarVisible(false)
-      }
-    }
-
-    // Add both mouse and touch events
     document.addEventListener("mousedown", handleClickOutside)
-    document.addEventListener("touchstart", handleTouchStart, { passive: true })
+    document.addEventListener("touchstart", handleClickOutside)
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
-      document.removeEventListener("touchstart", handleTouchStart)
+      document.removeEventListener("touchstart", handleClickOutside)
     }
   }, [sidebarVisible])
 
@@ -354,10 +338,10 @@ function AdminLayout({ children }) {
 
     const handleResize = () => {
       if (typeof window !== "undefined") {
-        if (window.innerWidth <= 768) {
+        if (window.innerWidth < 768) {
           setSidebarVisible(false)
         } else {
-          setSidebarVisible(true) // Pastikan sidebar terlihat di desktop
+          setSidebarVisible(true)
         }
       }
     }
@@ -373,40 +357,6 @@ function AdminLayout({ children }) {
       clearInterval(tokenCheckIntervalId)
     }
   }, [router, isRefreshingToken])
-
-  // Enhanced resize handler for better mobile detection
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== "undefined") {
-        const isMobile = window.innerWidth <= 768
-
-        if (isMobile) {
-          setSidebarVisible(false)
-        } else {
-          setSidebarVisible(true) // Pastikan sidebar selalu terlihat di desktop
-        }
-      }
-    }
-
-    // Initial check
-    handleResize()
-
-    // Add resize listener with debouncing
-    let resizeTimer
-    const debouncedResize = () => {
-      clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(handleResize, 100)
-    }
-
-    window.addEventListener("resize", debouncedResize)
-    window.addEventListener("orientationchange", debouncedResize)
-
-    return () => {
-      window.removeEventListener("resize", debouncedResize)
-      window.removeEventListener("orientationchange", debouncedResize)
-      clearTimeout(resizeTimer)
-    }
-  }, [])
 
   // Fetch pending count with rate limiting
   const fetchPendingCount = async () => {
