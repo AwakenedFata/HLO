@@ -178,6 +178,11 @@ function useStatsData() {
     return token
   }, [])
 
+  // Clear error function
+  const clearError = useCallback(() => {
+    setError("")
+  }, [])
+
   const fetchStats = useCallback(
     async (force = false, options = {}) => {
       if (requestInProgressRef.current && !force) {
@@ -398,6 +403,8 @@ function useStatsData() {
     fetchStats,
     formatTimeRemaining,
     updateStatsImmediately,
+    clearError, // Add this to the return object
+    setError, // Add this to the return object
   }
 }
 
@@ -424,6 +431,8 @@ const Dashboard = () => {
     fetchStats,
     formatTimeRemaining,
     updateStatsImmediately,
+    clearError, // Now available from the hook
+    setError, // Now available from the hook
   } = useStatsData()
 
   // Toast helper
@@ -811,7 +820,7 @@ const Dashboard = () => {
       </div>
 
       {error && (
-        <Alert variant="danger" dismissible onClose={() => setError("")}>
+        <Alert variant="danger" dismissible onClose={clearError}>
           <FaExclamationTriangle className="me-2" />
           {error}
         </Alert>

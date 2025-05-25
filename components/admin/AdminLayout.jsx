@@ -45,6 +45,7 @@ function AdminLayout({ children }) {
 
   // Tambahkan ref untuk melacak apakah komponen masih terpasang
   const isMounted = useRef(true)
+  const sidebarRef = useRef(null)
 
   // Minimum time between fetches (5 minutes in milliseconds) - reduced for better UX
   const MIN_FETCH_INTERVAL = 5 * 60 * 1000
@@ -64,6 +65,38 @@ function AdminLayout({ children }) {
       isMounted.current = false
     }
   }, [])
+
+  // Add click outside handler for mobile sidebar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Only handle click outside on mobile (768px and below)
+      if (typeof window !== "undefined" && window.innerWidth > 768) return
+
+      if (
+        sidebarVisible &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target) &&
+        !event.target.closest(".btn") // Don't close if clicking the hamburger button
+      ) {
+        setSidebarVisible(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("touchstart", handleClickOutside)
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("touchstart", handleClickOutside)
+    }
+  }, [sidebarVisible])
+
+  // Close sidebar on route change for mobile
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      setSidebarVisible(false)
+    }
+  }, [pathname])
 
   // Add a helper function to check authentication before making API calls
   const checkAuthAndGetToken = () => {
@@ -304,10 +337,12 @@ function AdminLayout({ children }) {
     window.addEventListener("cache-invalidated", handleDataUpdate)
 
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setSidebarVisible(false)
-      } else {
-        setSidebarVisible(true)
+      if (typeof window !== "undefined") {
+        if (window.innerWidth < 768) {
+          setSidebarVisible(false)
+        } else {
+          setSidebarVisible(true)
+        }
       }
     }
 
@@ -449,6 +484,13 @@ function AdminLayout({ children }) {
     }
   }
 
+  // Handle navigation link clicks on mobile
+  const handleNavLinkClick = () => {
+    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      setSidebarVisible(false)
+    }
+  }
+
   if (authError) {
     return (
       <div className="admin-layout">
@@ -461,58 +503,85 @@ function AdminLayout({ children }) {
 
   return (
     <div className="admin-layout">
-      <div className={`sidebar ${sidebarVisible ? "show" : ""}`}>
+      {/* Mobile overlay */}
+      {sidebarVisible && typeof window !== "undefined" && window.innerWidth <= 768 && (
+        <div className={`sidebar-overlay ${sidebarVisible ? "show" : ""}`} onClick={() => setSidebarVisible(false)} />
+      )}
+
+      <div ref={sidebarRef} className={`sidebar ${sidebarVisible ? "show" : ""}`}>
         <div className="border-bottom">
           <Image src="/assets/logo footter.png" alt="Logo" width={100} height={32} />
         </div>
-        <ul className="nav flex-column p-3">
-          <li className="nav-item">
-            <Link href="/admin/dashboard" className="nav-link d-flex align-items-center">
-              <FaChartPie className="me-2" /> Dashboard
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link href="/admin/pins" className="nav-link d-flex align-items-center">
-              <FaKey className="me-2" /> Manajemen PIN
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link href="/admin/pending-pins" className="nav-link d-flex align-items-center position-relative">
-              <FaExclamationCircle className="me-2" /> PIN Pending
-              {pendingCount > 0 && (
-                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark">
-                  {pendingCount}
-                </span>
-              )}
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link href="/admin/redemption-history" className="nav-link d-flex align-items-center">
-              <FaHistory className="me-2" /> Riwayat Redemption
-            </Link>
-          </li>
-          <li className="nav-item mt-5">
-            <button onClick={handleLogout} className="nav-link d-flex align-items-center border-0 bg-transparent w-100">
-              <FaSignOutAlt className="me-2" /> Logout
-            </button>
-          </li>
-        </ul>
 
-        {isClient && adminUsername && (
-          <div className="mt-auto p-3 border-top profile-section">
-            <div className="d-flex align-items-center justify-content-center flex-column">
-              <div className="profile-image-container mb-2" onClick={() => setShowProfileModal(true)}>
-                <img src={profileImage || "/placeholder.svg"} alt="Profile" className="profile-image" />
-                <div className="profile-image-overlay">
-                  <FaCamera className="camera-icon" />
-                </div>
-              </div>
-              <small className="d-block text-center">
-                <strong>{adminUsername}</strong>
-              </small>
-            </div>
+        <div className="sidebar-nav-container">
+          {/* Main Navigation */}
+          <ul className="nav flex-column p-3">
+            <li className="nav-item">
+              <Link href="/admin/dashboard" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
+                <FaChartPie className="me-2" /> Dashboard
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link href="/admin/pins" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
+                <FaKey className="me-2" /> Manajemen PIN
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                href="/admin/pending-pins"
+                className="nav-link d-flex align-items-center position-relative"
+                onClick={handleNavLinkClick}
+              >
+                <FaExclamationCircle className="me-2" /> PIN Pending
+                {pendingCount > 0 && (
+                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark">
+                    {pendingCount}
+                  </span>
+                )}
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                href="/admin/redemption-history"
+                className="nav-link d-flex align-items-center"
+                onClick={handleNavLinkClick}
+              >
+                <FaHistory className="me-2" /> Riwayat Redemption
+              </Link>
+            </li>
+          </ul>
+
+          {/* Logout Button - Separate section */}
+          <div className="sidebar-logout-section">
+            <ul className="nav flex-column p-3">
+              <li className="nav-item">
+                <button
+                  onClick={handleLogout}
+                  className="nav-link d-flex align-items-center border-0 bg-transparent w-100 text-start"
+                >
+                  <FaSignOutAlt className="me-2" /> Logout
+                </button>
+              </li>
+            </ul>
           </div>
-        )}
+
+          {/* Profile Section */}
+          {isClient && adminUsername && (
+            <div className="profile-section">
+              <div className="d-flex align-items-center justify-content-center flex-column">
+                <div className="profile-image-container mb-2" onClick={() => setShowProfileModal(true)}>
+                  <img src={profileImage || "/placeholder.svg"} alt="Profile" className="profile-image" />
+                  <div className="profile-image-overlay">
+                    <FaCamera className="camera-icon" />
+                  </div>
+                </div>
+                <small className="d-block text-center">
+                  <strong>{adminUsername}</strong>
+                </small>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="content">

@@ -1,66 +1,70 @@
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/utils/rate-limit"
-import logger from "@/lib/utils/logger-edge" // Gunakan logger-edge yang kompatibel dengan Edge Runtime
+import logger from "@/lib/utils/logger-edge"
 
-// Rate limiter untuk API routes umum
+// Use your environment variables for rate limiting
+const RATE_LIMIT_WINDOW = Number.parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000 || 15 * 60 * 1000
+const RATE_LIMIT_MAX = Number.parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100
+
+// Rate limiter configurations using your env vars
 const apiLimiter = rateLimit({
-  interval: 60 * 60 * 1000, // 1 jam
+  interval: 60 * 60 * 1000, // 1 hour
   uniqueTokenPerInterval: 500,
-  limit: 100, // 100 requests per jam
+  limit: RATE_LIMIT_MAX,
   identifier: "api-general",
 })
 
-// Rate limiter untuk endpoint autentikasi
 const authLimiter = rateLimit({
-  interval: 15 * 60 * 1000, // 15 menit
+  interval: RATE_LIMIT_WINDOW,
   uniqueTokenPerInterval: 500,
-  limit: 10, // 10 requests per 15 menit
+  limit: 10, // Keep auth strict
   identifier: "api-auth",
 })
 
-// Rate limiter untuk endpoint redeem
 const redeemLimiter = rateLimit({
-  interval: 60 * 60 * 1000, // 1 jam
+  interval: 60 * 60 * 1000,
   uniqueTokenPerInterval: 500,
-  limit: 5, // 5 requests per jam
+  limit: 5, // Keep redeem very strict
   identifier: "api-redeem",
 })
 
-// Rate limiter untuk endpoint admin
 const adminLimiter = rateLimit({
-  interval: 60 * 60 * 1000, // 1 jam
+  interval: 60 * 60 * 1000,
   uniqueTokenPerInterval: 500,
-  limit: 50, // 50 requests per jam
+  limit: Math.floor(RATE_LIMIT_MAX / 2), // Half of general limit for admin
   identifier: "api-admin",
 })
 
-// Rate limiter untuk endpoint SSE
 const sseLimiter = rateLimit({
-  interval: 60 * 60 * 1000, // 1 jam
+  interval: 60 * 60 * 1000,
   uniqueTokenPerInterval: 500,
-  limit: 10, // 10 requests per jam
+  limit: 10,
   identifier: "api-sse",
 })
 
-// Helper function to get client identifier
+// Enhanced client identifier for Vercel deployment
 function getClientIdentifier(request) {
-  const ip = request.headers.get("x-forwarded-for") || 
-             request.headers.get("x-real-ip") || 
-             "unknown"
+  // Vercel provides these headers
+  const cfConnectingIp = request.headers.get("cf-connecting-ip")
+  const xForwardedFor = request.headers.get("x-forwarded-for")
+  const xRealIp = request.headers.get("x-real-ip")
+
+  // Priority: Cloudflare > X-Real-IP > X-Forwarded-For
+  const ip = cfConnectingIp || xRealIp || xForwardedFor?.split(",")[0]?.trim() || "unknown"
   const userAgent = request.headers.get("user-agent") || "unknown"
-  
-  // Kombinasikan IP dan user-agent untuk rate limiting yang lebih akurat
+
   return `${ip}:${userAgent.substring(0, 50)}`
 }
 
-// Helper function to handle rate limit responses
 function createRateLimitResponse(limitResult) {
-  const retryAfter = limitResult.reset || 60 // Default 60 detik jika tidak ada info reset
+  const retryAfter = limitResult.reset || 60
 
   return NextResponse.json(
     {
-      error: `Too many requests, please try again in ${retryAfter} seconds`,
+      error: "Too many requests",
+      message: `Rate limit exceeded. Please try again in ${retryAfter} seconds.`,
       retryAfter,
+      code: "RATE_LIMIT_EXCEEDED",
     },
     {
       status: 429,
@@ -78,68 +82,66 @@ function createRateLimitResponse(limitResult) {
 }
 
 export async function middleware(request) {
-  // Get the pathname of the request
   const path = request.nextUrl.pathname
-  const ip = request.headers.get("x-forwarded-for") || "unknown"
-  const userAgent = request.headers.get("user-agent") || "unknown"
+  const ip = getClientIdentifier(request).split(":")[0]
+  const method = request.method
 
-  // Get client identifier for rate limiting
-  const tokenKey = getClientIdentifier(request)
-
-  // Cek apakah request ke halaman admin (kecuali login)
+  // Admin route protection (your existing logic)
   if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
-    // Cek apakah ada token di cookies
     const token = request.cookies.get("jwt")?.value
 
-    // Jika tidak ada token, redirect ke login
     if (!token) {
-      logger.warn(`Akses ke halaman admin tanpa token: ${path} dari IP: ${ip}`)
+      logger.warn(`Unauthorized admin access: ${path} from IP: ${ip}`)
       return NextResponse.redirect(new URL("/admin/login", request.url))
     }
   }
 
-  // Apply rate limiting to API routes
+  // Rate limiting for API routes
   if (path.startsWith("/api/")) {
-    let limitResult
+    try {
+      const tokenKey = getClientIdentifier(request)
+      let limitResult
 
-    // Gunakan rate limiter yang sesuai berdasarkan path
-    if (path.startsWith("/api/auth/")) {
-      limitResult = await authLimiter.check(tokenKey)
-    } else if (path.startsWith("/api/pin/redeem")) {
-      limitResult = await redeemLimiter.check(tokenKey)
-    } else if (path.startsWith("/api/admin/")) {
-      limitResult = await adminLimiter.check(tokenKey)
-    } else if (path.startsWith("/api/sse")) {
-      limitResult = await sseLimiter.check(tokenKey)
-    } else {
-      limitResult = await apiLimiter.check(tokenKey)
-    }
+      if (path.startsWith("/api/auth/")) {
+        limitResult = await authLimiter.check(tokenKey)
+      } else if (path.startsWith("/api/pin/redeem")) {
+        limitResult = await redeemLimiter.check(tokenKey)
+      } else if (path.startsWith("/api/admin/")) {
+        limitResult = await adminLimiter.check(tokenKey)
+      } else if (path.startsWith("/api/sse")) {
+        limitResult = await sseLimiter.check(tokenKey)
+      } else {
+        limitResult = await apiLimiter.check(tokenKey)
+      }
 
-    if (!limitResult.success) {
-      logger.warn(`Rate limit exceeded for ${path} from IP: ${ip}, attempts: ${limitResult.count}`)
-      return createRateLimitResponse(limitResult)
+      if (!limitResult.success) {
+        logger.warn(`Rate limit exceeded: ${method} ${path} from ${ip}`)
+        return createRateLimitResponse(limitResult)
+      }
+    } catch (error) {
+      if (error.statusCode === 429) {
+        return createRateLimitResponse(error.rateLimitInfo)
+      }
+      logger.error(`Rate limiting error: ${error.message}`)
     }
   }
 
-  // CORS headers for API routes
+  // CORS and security headers
   if (path.startsWith("/api/")) {
     const response = NextResponse.next()
-
-    // Get origin from request
     const origin = request.headers.get("origin") || ""
 
-    // Definisikan allowed origins berdasarkan environment
-    const allowedOrigins =
-      process.env.NODE_ENV === "production"
-        ? [process.env.FRONTEND_URL, "https://hoklampung.com", "https://www.hoklampung.com"]
-        : ["http://localhost:3000", "http://localhost:5173"]
+    // Your production domains
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      "https://hoklampung.vercel.app",
+      "https://hoklampung.com",
+      "https://www.hoklampung.com",
+    ].filter(Boolean)
 
-    // Set CORS headers if origin is allowed
     if (allowedOrigins.includes(origin)) {
       response.headers.set("Access-Control-Allow-Origin", origin)
-    } else if (process.env.NODE_ENV === "development") {
-      // Untuk development, izinkan semua origin
-      response.headers.set("Access-Control-Allow-Origin", "*")
     }
 
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -148,32 +150,31 @@ export async function middleware(request) {
       "Origin, X-Requested-With, Content-Type, Accept, Authorization",
     )
     response.headers.set("Access-Control-Allow-Credentials", "true")
-    response.headers.set("Access-Control-Max-Age", "86400") // 24 jam
+    response.headers.set("Access-Control-Max-Age", "86400")
 
-    // Tambahkan security headers
+    // Security headers for production
     response.headers.set("X-Content-Type-Options", "nosniff")
     response.headers.set("X-Frame-Options", "DENY")
     response.headers.set("X-XSS-Protection", "1; mode=block")
     response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
-    
-    // Add Content Security Policy in production
+
+    // Production CSP
     if (process.env.NODE_ENV === "production") {
+      response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
       response.headers.set(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https:; frame-ancestors 'none';",
       )
     }
 
-    // Handle preflight requests
-    if (request.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 200,
-        headers: response.headers,
-      })
+    if (method === "OPTIONS") {
+      return new NextResponse(null, { status: 200, headers: response.headers })
     }
 
-    // Log API request
-    logger.info(`API Request: ${request.method} ${path} from ${ip}`)
+    // Log API requests only if enabled
+    if (process.env.LOG_API_REQUESTS === "true") {
+      logger.info(`API: ${method} ${path} from ${ip}`)
+    }
 
     return response
   }
@@ -181,14 +182,6 @@ export async function middleware(request) {
   return NextResponse.next()
 }
 
-// Configure which paths should be processed by this middleware
 export const config = {
-  matcher: [
-    // Apply to all API routes
-    "/api/:path*",
-    // Apply to all admin routes
-    "/admin/:path*",
-    // Exclude static files and images
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/api/:path*", "/admin/:path*", "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
 }

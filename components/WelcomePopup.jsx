@@ -12,6 +12,9 @@ const WelcomePopup = () => {
 
   useEffect(() => {
     setIsClient(true);
+
+    // Cek apakah ini dipanggil dari parent dengan shouldShow prop
+    // Jika parent menentukan popup harus muncul, maka tampilkan
     const timer = setTimeout(() => {
       setShow(true);
     }, 300);
@@ -54,11 +57,14 @@ const WelcomePopup = () => {
     // Aktifkan animasi closing
     setClosing(true);
 
+    // Tandai bahwa popup sudah ditutup dalam sesi ini (bukan refresh)
+    sessionStorage.setItem("welcomePopupShown", "true");
+
     // Tunggu animasi selesai baru benar-benar menutup popup
     setTimeout(() => {
       setShow(false);
       setClosing(false);
-    }, 500); // Sesuaikan dengan durasi animasi di CSS
+    }, 500);
   };
 
   const handleOverlayClick = (e) => {
@@ -70,8 +76,8 @@ const WelcomePopup = () => {
       closePopup();
     }
   };
-  
-  if (!isClient) return null
+
+  if (!isClient) return null;
   if (!show && !closing) return null;
 
   return (

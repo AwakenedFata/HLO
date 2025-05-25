@@ -25,16 +25,8 @@
   display: flex;
   min-height: 100vh;
   background-color: var(--admin-dark);
-  background-image: radial-gradient(
-      circle at 25% 25%,
-      rgba(245, 171, 29, 0.08) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 75% 75%,
-      rgba(255, 140, 66, 0.05) 0%,
-      transparent 50%
-    );
+  background-image: radial-gradient(circle at 25% 25%, rgba(245, 171, 29, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(255, 140, 66, 0.05) 0%, transparent 50%);
   font-family: var(--admin-font);
   color: var(--admin-light);
   text-shadow: 0 0 8px rgba(245, 171, 29, 0.3);
@@ -50,17 +42,15 @@
   min-height: 100vh;
   position: fixed;
   background-color: var(--admin-secondary);
-  background-image: linear-gradient(
-    180deg,
-    var(--admin-secondary) 0%,
-    var(--admin-dark) 100%
-  );
+  background-image: linear-gradient(180deg, var(--admin-secondary) 0%, var(--admin-dark) 100%);
   border-right: 1px solid var(--admin-border);
   box-shadow: var(--admin-shadow);
   z-index: 1000;
   transition: var(--admin-transition);
   overflow-y: auto;
   backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar .border-bottom {
@@ -70,6 +60,42 @@
   padding: 1.5rem 0;
   border-bottom: 1px solid var(--admin-border);
   background: var(--admin-gradient);
+  flex-shrink: 0;
+}
+
+/* Navigation container that can scroll */
+.sidebar-nav-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar .nav {
+  flex: 1;
+}
+
+/* Logout section - separate from main nav */
+.sidebar-logout-section {
+  flex-shrink: 0;
+  border-top: 1px solid var(--admin-border);
+  background: rgba(255, 107, 107, 0.05);
+  margin-top: auto;
+}
+
+.sidebar-logout-section .nav {
+  padding: 0.5rem 0;
+}
+
+.sidebar-logout-section .nav-link {
+  color: rgba(255, 107, 107, 0.8) !important;
+  transition: var(--admin-transition);
+}
+
+.sidebar-logout-section .nav-link:hover {
+  color: #ff6b6b !important;
+  background-color: rgba(255, 107, 107, 0.1);
+  transform: translateX(5px);
 }
 
 .sidebar .nav-link {
@@ -134,6 +160,25 @@
   min-height: 100vh;
   transition: var(--admin-transition);
   padding: 1.5rem;
+}
+
+/* Mobile overlay for sidebar */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: var(--admin-transition);
+}
+
+.sidebar-overlay.show {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Card Styles */
@@ -456,16 +501,8 @@
   align-items: center;
   justify-content: center;
   background: var(--admin-dark);
-  background-image: radial-gradient(
-      circle at 10% 10%,
-      rgba(245, 171, 29, 0.1) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 90% 90%,
-      rgba(255, 140, 66, 0.08) 0%,
-      transparent 50%
-    );
+  background-image: radial-gradient(circle at 10% 10%, rgba(245, 171, 29, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 90% 90%, rgba(255, 140, 66, 0.08) 0%, transparent 50%);
 }
 
 .login-card {
@@ -497,12 +534,7 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: conic-gradient(
-    transparent,
-    transparent,
-    transparent,
-    var(--admin-primary)
-  );
+  background: conic-gradient(transparent, transparent, transparent, var(--admin-primary));
   animation: rotate 4s linear infinite;
   z-index: -1;
 }
@@ -647,16 +679,8 @@ canvas {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(
-      circle at top right,
-      rgba(245, 171, 29, 0.1),
-      transparent 70%
-    ),
-    radial-gradient(
-      circle at bottom left,
-      rgba(255, 140, 66, 0.05),
-      transparent 70%
-    );
+  background: radial-gradient(circle at top right, rgba(245, 171, 29, 0.1), transparent 70%),
+    radial-gradient(circle at bottom left, rgba(255, 140, 66, 0.05), transparent 70%);
   pointer-events: none;
 }
 
@@ -692,6 +716,11 @@ canvas {
 /* Profile Image Styles */
 .profile-section {
   width: 100%;
+  flex-shrink: 0;
+  padding: 1rem;
+  border-top: 1px solid var(--admin-border);
+  background: rgba(245, 171, 29, 0.05);
+  margin-top: auto;
 }
 
 .profile-image-container {
@@ -848,6 +877,7 @@ canvas {
   .sidebar {
     width: 0;
     transform: translateX(-100%);
+    z-index: 1001;
   }
 
   .sidebar.show {
@@ -872,6 +902,16 @@ canvas {
   .table th,
   .table td {
     padding: 0.75rem;
+  }
+
+  /* Profile section adjustments for mobile */
+  .profile-section {
+    padding: 0.75rem;
+  }
+
+  .profile-image-container {
+    width: 60px;
+    height: 60px;
   }
 }
 
