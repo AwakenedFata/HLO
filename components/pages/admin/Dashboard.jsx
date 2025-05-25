@@ -403,8 +403,9 @@ function useStatsData() {
     fetchStats,
     formatTimeRemaining,
     updateStatsImmediately,
-    clearError, // Add this to the return object
-    setError, // Add this to the return object
+    clearError,
+    setError,
+    setRateLimitHit, // Add this line
   }
 }
 
@@ -433,6 +434,7 @@ const Dashboard = () => {
     updateStatsImmediately,
     clearError, // Now available from the hook
     setError, // Now available from the hook
+    setRateLimitHit,
   } = useStatsData()
 
   // Toast helper
