@@ -293,7 +293,6 @@
   }
 }
 
-
 /* ========== GENERAL HOMEPAGE ========== */
 .homepage header {
   position: relative;
@@ -437,7 +436,7 @@
   .homepage .welcome {
     max-width: 95%;
   }
-  
+
   .social-icons {
     gap: 0.8rem;
     margin-left: 1rem;
@@ -1762,18 +1761,18 @@ textarea.contact-input {
 
 /* Logo Styles */
 .footer-logo-container {
-  margin-bottom: 30px !important; 
+  margin-bottom: 30px !important;
 }
 
 .footer-logo {
-  max-width: 80px !important; 
+  max-width: 80px !important;
   height: auto !important;
 }
 
 /* Text Styles */
 .footer-text {
   font-family: "Poppins-Reguler", sans-serif !important;
-  font-size: 0.8rem !important;  
+  font-size: 0.8rem !important;
   margin-bottom: 12px !important;
   line-height: 1.4 !important;
   text-align: justify !important;
@@ -1781,7 +1780,7 @@ textarea.contact-input {
 
 /* Newsletter Form */
 .newsletter-form {
-  margin-bottom: 15px !important; 
+  margin-bottom: 15px !important;
 }
 
 .newsletter-form .input-group {
@@ -1813,7 +1812,7 @@ textarea.contact-input {
 .newsletter-form .btn-submit a {
   background-color: #fff !important;
   color: grey !important;
-  border: none !important; 
+  border: none !important;
   font-size: 1.2rem !important;
   padding: 0 10px 6px !important;
   transition: all 0.3s ease !important;
@@ -1849,7 +1848,7 @@ textarea.contact-input {
   margin-bottom: 12px !important;
   position: relative !important;
   padding-bottom: 4px !important;
-  text-transform: none !important; 
+  text-transform: none !important;
 }
 
 /* Footer Links */
@@ -1869,7 +1868,7 @@ textarea.contact-input {
   color: #fff !important;
   text-decoration: none !important;
   font-size: 0.8rem !important;
-  transition: all 0.2s ease !important; 
+  transition: all 0.2s ease !important;
   display: inline-block !important;
 }
 
@@ -1896,7 +1895,7 @@ textarea.contact-input {
   height: 26px !important;
   border-radius: 50% !important;
   background-color: #fff !important;
-  display: flex  !important;
+  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   margin-right: 8px !important;
@@ -1916,7 +1915,7 @@ textarea.contact-input {
 
 .email-icon,
 .email-icon a {
-  color: #f5ab1d !important; 
+  color: #f5ab1d !important;
 }
 
 .contact-details-footer {
@@ -1974,7 +1973,7 @@ textarea.contact-input {
   width: 28px !important;
   height: 28px !important;
   border-radius: 50% !important;
-  background-color: #000 !important; 
+  background-color: #000 !important;
   color: #fff !important;
   display: flex !important;
   align-items: center !important;
@@ -2435,7 +2434,9 @@ textarea.contact-input {
 /* Small devices (landscape phones, less than 768px) */
 @media (max-width: 768px) {
   .redeem-page {
-    padding-top: 80px !important;
+    padding-top: 40px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   .redeem-container {
@@ -2464,6 +2465,7 @@ textarea.contact-input {
   .redeem-container {
     min-height: 900px !important;
   }
+
   .form-side h1 {
     font-size: 1.3rem !important;
   }
@@ -2478,7 +2480,9 @@ textarea.contact-input {
   }
 
   .redeem-page {
-    padding: 10px 10px 0 !important;
+    padding-top: 40px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   .form-side {
