@@ -686,98 +686,98 @@
 /* Responsive adjustments - Mobile (575px - 426px) */
 @media (max-width: 575px) {
   .aboutus-section {
-    padding: 25px 0;
+    padding: 25px 0 !important;
     min-height: auto !important;
   }
 
   .community-logo {
-    width: 110px;
+    width: 110px !important;
   }
 
   .stat-card-container {
-    width: 150px;
+    width: 150px !important;
   }
 
   .count-text {
-    font-size: 1.5rem;
+    font-size: 1.5rem !important;
   }
 
   /* Adjust stat cards to be in a single row with horizontal scrolling */
   .stat-cards-row {
-    display: flex;
-    justify-content: flex-start;
-    padding-bottom: 15px;
-    margin-left: -5px;
-    margin-right: -5px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    -webkit-overflow-scrolling: touch; /* Untuk scroll yang smooth di iOS */
-    scrollbar-width: none; /* Menyembunyikan scrollbar di Firefox */
+    display: flex !important;
+    justify-content: flex-start !important;
+    padding-bottom: 15px !important;
+    margin-left: -5px !important;
+    margin-right: -5px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 10px !important;
+    -webkit-overflow-scrolling: touch !important; /* Untuk scroll yang smooth di iOS */
+    scrollbar-width: none !important; /* Menyembunyikan scrollbar di Firefox */
   }
 
   /* Menyembunyikan scrollbar di Chrome/Safari */
   .stat-cards-row::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
 
   .stat-card-col {
-    padding-left: 7px;
-    padding-right: 7px;
-    flex: 0 0 auto;
-    margin-top: 20px;
+    padding-left: 7px !important;
+    padding-right: 7px !important;
+    flex: 0 0 auto !important;
+    margin-top: 20px !important;
   }
 }
 
 /* Responsive adjustments - Small Mobile (425px - 376px) */
 @media (max-width: 425px) {
   .stat-card-container {
-    width: 140px;
+    width: 140px !important;
   }
 
   .count-text {
-    font-size: 1.4rem;
+    font-size: 1.4rem !important;
   }
 
   .count-wrappermember,
   .count-wrapperteam {
-    top: 27%;
+    top: 27% !important;
   }
 }
 
 /* Responsive adjustments - Extra Small Mobile (375px - 321px) */
 @media (max-width: 375px) {
   .aboutus-section {
-    padding: 20px 0;
+    padding: 20px 0 !important;
   }
 
   .community-logo {
-    width: 100px;
+    width: 100px !important;
   }
 
   .stat-card-container {
-    width: 130px;
+    width: 130px !important;
   }
 
   .count-text {
-    font-size: 1.3rem;
+    font-size: 1.3rem !important;
   }
 }
 
 /* Responsive adjustments - Tiny Mobile (320px and below) */
 @media (max-width: 320px) {
   .stat-card-container {
-    width: 120px;
+    width: 120px !important;
   }
 
   .count-text {
-    font-size: 1.2rem;
+    font-size: 1.2rem !important;
   }
 
   .count-wrappermember,
   .count-wrapperteam {
-    top: 26%;
+    top: 26% !important;
   }
 }
 
