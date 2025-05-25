@@ -222,6 +222,7 @@
 
 /* Table Styles */
 .table {
+  z-index: -1000 !important;
   color: var(--admin-light);
   border-color: var(--admin-primary);
   margin-bottom: 0;
