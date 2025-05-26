@@ -12,6 +12,10 @@ const limiter = rateLimit({
   limit: 5,
 })
 
+// Fungsi untuk validasi format PIN - harus huruf kapital semua
+const validatePinFormat = (pin) => {
+  return !/[a-z]/.test(pin)
+}
 export async function POST(request) {
   try {
     // Apply rate limiting
@@ -40,6 +44,13 @@ export async function POST(request) {
 
     // Sanitasi input untuk mencegah NoSQL injection
     const { pinCode, idGame, nama } = validation.data
+
+    
+    // Validasi format PIN - harus huruf kapital semua
+    if (!validatePinFormat(pinCode)) {
+      logger.info(`Percobaan penggunaan pin gagal: PIN mengandung huruf kecil (${pinCode})`)
+      return NextResponse.json({ error: "PIN code harus huruf kapital semua" }, { status: 400 })
+    }
 
     // Cari pin di database
     const pin = await PinCode.findOne({ code: pinCode })

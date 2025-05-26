@@ -11,6 +11,12 @@ const limiter = rateLimit({
   limit: 10,
 })
 
+// Fungsi untuk validasi format PIN
+const validatePinFormat = (pin) => {
+  // Cek apakah PIN mengandung huruf kecil
+  return !/[a-z]/.test(pin)
+}
+
 export async function POST(request) {
   try {
     // Apply rate limiting
@@ -31,6 +37,12 @@ export async function POST(request) {
 
     if (!pinCode) {
       return NextResponse.json({ error: "Kode pin harus diisi" }, { status: 400 })
+    }
+
+        // Validasi format PIN - harus huruf kapital semua
+    if (!validatePinFormat(pinCode)) {
+      logger.info(`Percobaan validasi pin gagal: PIN mengandung huruf kecil (${pinCode})`)
+      return NextResponse.json({ error: "PIN code harus huruf kapital semua" }, { status: 400 })
     }
 
     // Cari pin di database

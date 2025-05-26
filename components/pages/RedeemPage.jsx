@@ -1,88 +1,111 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Form, Button } from "react-bootstrap"
-import axios from "axios"
+import { useState, useEffect } from "react";
+import { Form, Button } from "react-bootstrap";
+import axios from "axios";
 
 function RedeemPage() {
-  const [pinCode, setPinCode] = useState("")
-  const [idGame, setIdGame] = useState("")
-  const [nama, setNama] = useState("")
+  const [pinCode, setPinCode] = useState("");
+  const [idGame, setIdGame] = useState("");
+  const [nama, setNama] = useState("");
   const [error, setError] = useState({
     emptyFields: false,
     invalidPin: false,
     usedPin: false,
-  })
-  const [isMobile, setIsMobile] = useState(false)
-  const [windowWidth, setWindowWidth] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isClient, setIsClient] = useState(false)
+    lowercasePin: false,
+  });
+  const [isMobile, setIsMobile] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   // Path relatif untuk gambar
-  const bgRedeemFormAndLogo = "/assets/Redeem/1.png"
-  const bgRedeemMobile = "/assets/Redeem/2.png"
+  const bgRedeemFormAndLogo = "/assets/Redeem/1.png";
+  const bgRedeemMobile = "/assets/Redeem/2.png";
 
   // Tandai bahwa kita sudah di client-side
   useEffect(() => {
-    setIsClient(true)
-  }, [])
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
-    if (!isClient) return
+    if (!isClient) return;
     const handleResize = () => {
-      const width = window.innerWidth
-      setWindowWidth(width)
-      setIsMobile(width <= 768)
-    }
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [isClient])
+      const width = window.innerWidth;
+      setWindowWidth(width);
+      setIsMobile(width <= 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isClient]);
 
+  const validatePinFormat = (pin) => {
+    return !/[a-z]/.test(pin);
+  };
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const emptyFields = !pinCode || !idGame || !nama
+    const emptyFields = !pinCode || !idGame || !nama;
     if (emptyFields) {
       setError({
         emptyFields: true,
         invalidPin: false,
         usedPin: false,
-      })
-      return
+        lowercasePin: false,
+      });
+      return;
     }
 
-    setIsLoading(true)
+    if (!validatePinFormat(pinCode)) {
+      setError({
+        emptyFields: false,
+        invalidPin: false,
+        usedPin: false,
+        lowercasePin: true,
+      });
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const response = await axios.post(`/api/pin/redeem`, {
         pinCode,
         idGame,
         nama,
-      })
+      });
 
       // Check for the correct success message from the API
       if (response.data.message === "PIN code berhasil digunakan") {
         // Gunakan environment variable untuk nomor WhatsApp
-        const phoneNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6285709346954"
-        const formattedPhone = phoneNumber.replace(/-/g, "").replace(/\s/g, "")
-        const message = `*Saya ingin meredeem giftcard dengan keterangan*\nPIN Code: ${pinCode}\nID Game: ${idGame}\nNama: ${nama}`
-        window.location.href = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+        const phoneNumber =
+          process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6285709346954";
+        const formattedPhone = phoneNumber.replace(/-/g, "").replace(/\s/g, "");
+        const message = `*Saya ingin meredeem giftcard dengan keterangan*\nPIN Code: ${pinCode}\nID Game: ${idGame}\nNama: ${nama}`;
+        window.location.href = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
+          message
+        )}`;
       }
     } catch (error) {
-      const errMsg = error.response?.data?.error || "Terjadi kesalahan server"
+      const errMsg = error.response?.data?.error || "Terjadi kesalahan server";
 
       setError({
         emptyFields: false,
         invalidPin: errMsg === "PIN code tidak ditemukan",
         usedPin: errMsg === "PIN code sudah digunakan",
-      })
-      if (errMsg !== "PIN code tidak ditemukan" && errMsg !== "PIN code sudah digunakan") {
-        alert("Terjadi kesalahan server. Coba lagi nanti.")
+        lowercasePin: errMsg === "PIN code harus huruf kapital semua",
+      });
+      if (
+        errMsg !== "PIN code tidak ditemukan" &&
+        errMsg !== "PIN code sudah digunakan" &&
+        errMsg !== "PIN code harus huruf kapital semua"
+      ) {
+        alert("Terjadi kesalahan server. Coba lagi nanti.");
       }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div
@@ -100,7 +123,9 @@ function RedeemPage() {
       <div
         className="redeem-container"
         style={{
-          backgroundImage: `url(${isMobile ? bgRedeemMobile : bgRedeemFormAndLogo})`,
+          backgroundImage: `url(${
+            isMobile ? bgRedeemMobile : bgRedeemFormAndLogo
+          })`,
           backgroundSize: "contain",
           backgroundRepeat: "no-repeat",
           backgroundPosition: "center",
@@ -119,7 +144,8 @@ function RedeemPage() {
             width: isMobile ? "85%" : "35%",
             position: "absolute",
             left: isMobile ? "50%" : "25%",
-            top: windowWidth <= 768 ? "auto" : windowWidth <= 992 ? "53%" : "50%",
+            top:
+              windowWidth <= 768 ? "auto" : windowWidth <= 992 ? "53%" : "50%",
             bottom: isMobile ? "70px" : "auto",
             transform: isMobile ? "translateX(-50%)" : "translate(-50%, -50%)",
             padding: "0",
@@ -127,7 +153,12 @@ function RedeemPage() {
         >
           <h1
             style={{
-              fontSize: windowWidth <= 320 ? "1.5rem" : windowWidth <= 992 ? "1.5rem" : "2.2rem",
+              fontSize:
+                windowWidth <= 320
+                  ? "1.5rem"
+                  : windowWidth <= 992
+                  ? "1.5rem"
+                  : "2.2rem",
               fontWeight: "bold",
               marginBottom: "20px",
               textAlign: "center",
@@ -152,12 +183,13 @@ function RedeemPage() {
                 placeholder="PIN code"
                 value={pinCode}
                 onChange={(e) => {
-                  setPinCode(e.target.value)
+                  setPinCode(e.target.value);
                   setError({
                     emptyFields: false,
                     invalidPin: false,
                     usedPin: false,
-                  })
+                    lowercasePin: false,
+                  });
                 }}
                 style={{
                   padding: windowWidth <= 320 ? "10px 15px" : "12px 20px",
@@ -168,13 +200,39 @@ function RedeemPage() {
                 }}
               />
               {error.invalidPin && !error.emptyFields && (
-                <p className="error-message" style={{ color: "red", fontSize: "0.8rem", marginLeft: "10px" }}>
+                <p
+                  className="error-message"
+                  style={{
+                    color: "red",
+                    fontSize: "0.8rem",
+                    marginLeft: "10px",
+                  }}
+                >
                   *PIN code tidak valid
                 </p>
               )}
               {error.usedPin && !error.emptyFields && !error.invalidPin && (
-                <p className="error-message" style={{ color: "red", fontSize: "0.8rem", marginLeft: "10px" }}>
+                <p
+                  className="error-message"
+                  style={{
+                    color: "red",
+                    fontSize: "0.8rem",
+                    marginLeft: "10px",
+                  }}
+                >
                   *PIN code sudah pernah digunakan
+                </p>
+              )}
+              { error.lowercasePin && !error.usedPin && !error.emptyFields && !error.invalidPin && (
+                <p
+                  className="error-message"
+                  style={{
+                    color: "red",
+                    fontSize: "0.8rem",
+                    marginLeft: "10px",
+                  }}
+                >
+                  *PIN code harus huruf kapital semua
                 </p>
               )}
             </Form.Group>
@@ -247,7 +305,12 @@ function RedeemPage() {
               className="form-side-note"
               style={{
                 color: "white",
-                fontSize: windowWidth <= 320 ? "0.7rem" : windowWidth <= 992 ? "0.8rem" : "1rem",
+                fontSize:
+                  windowWidth <= 320
+                    ? "0.7rem"
+                    : windowWidth <= 992
+                    ? "0.8rem"
+                    : "1rem",
                 marginTop: "15px",
                 textAlign: "center",
                 textShadow: "0px 1px 2px rgba(0,0,0,0.3)",
@@ -267,7 +330,7 @@ function RedeemPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default RedeemPage
+export default RedeemPage;
