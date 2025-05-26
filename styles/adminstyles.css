@@ -299,6 +299,14 @@
   z-index: -1 !important;
 }
 
+.table thead.sticky-top {
+  z-index: 0;
+}
+
+.table th.sticky-top {
+  z-index: 0;
+}
+
 .table td {
   vertical-align: middle;
   border-color: var(--admin-border);
