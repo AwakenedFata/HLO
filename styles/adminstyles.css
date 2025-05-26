@@ -265,16 +265,25 @@
   background: none;
 }
 
+.dropdown-menu {
+  z-index: 2000 !important;
+}
+
 /* Table Styles */
 .table {
-  z-index: -1000 !important;
+  z-index: 1;
   color: var(--admin-light);
   border-color: var(--admin-primary);
   margin-bottom: 0;
   text-align: center;
 }
 
+.table thead th {
+  z-index: -1000;
+}  
+
 .table th {
+  z-index: -1000;
   font-weight: 600;
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -284,6 +293,10 @@
   border-top: none;
   border-bottom: 1px solid var(--admin-border);
   background-color: rgba(245, 171, 29, 0.1);
+}
+
+.table-thead {
+  z-index: -1 !important;
 }
 
 .table td {
