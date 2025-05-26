@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Navbar, Nav, Container } from "react-bootstrap"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -12,6 +12,8 @@ function NavbarComponent() {
   const [hasMounted, setHasMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const pathname = usePathname()
+
+  const navbarRef = useRef(null)
 
   useEffect(() => {
     setHasMounted(true)
@@ -62,6 +64,36 @@ function NavbarComponent() {
     }
   }, [pathname, hasMounted, expanded, isMobile])
 
+  // Handle click outside to close navbar on mobile
+  useEffect(() => {
+    if (!hasMounted) return
+
+    const handleClickOutside = (event) => {
+      // Only apply on mobile devices (below 992px)
+      if (window.innerWidth >= 992) return
+      
+      // Check if navbar is expanded and click is outside navbar
+      if (expanded && navbarRef.current && !navbarRef.current.contains(event.target)) {
+        setExpanded(false)
+        
+        // Reset color based on current page and scroll position
+        if (pathname === "/" && window.scrollY <= 10) {
+          setChangeColor(false)
+        }
+      }
+    }
+
+    // Add event listener when navbar is expanded
+    if (expanded) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [expanded, pathname, hasMounted])
+
   const handleLinkClick = () => {
     setExpanded(false)
   }
@@ -81,7 +113,7 @@ function NavbarComponent() {
   if (!hasMounted) return null // Mencegah render sebelum client siap
 
   return (
-    <Navbar expand="lg" className={changeColor ? "color-active" : ""} expanded={expanded} onToggle={toggleNavbar}>
+    <Navbar expand="lg" className={changeColor ? "color-active" : ""} expanded={expanded} onToggle={toggleNavbar} ref={navbarRef}>
       <Container>
         <Link href="/" className="navbar-brand logo-navbar">
           <img
