@@ -6,6 +6,6 @@
     },
     "jsx": "react-jsx"
   },
-  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "next.config.mjs"],
+  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "next.config.mjs", "tsconfig.json"],
   "exclude": ["node_modules", ".next"]
 }
