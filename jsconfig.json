@@ -6,6 +6,6 @@
     },
     "jsx": "react-jsx"
   },
-  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "next.config.mjs", "tsconfig.json"],
+  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "next.config.mjs", "tsconfig.json", "lib/models/Gallery"],
   "exclude": ["node_modules", ".next"]
 }

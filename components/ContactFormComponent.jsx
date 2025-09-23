@@ -1,9 +1,15 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Container, Row, Col, Form, Button } from "react-bootstrap"
-import { FaWhatsapp, FaInstagram } from "react-icons/fa"
-import { TfiEmail } from "react-icons/tfi"
+import { useState } from "react";
+import { Container, Row, Col, Form, Button } from "react-bootstrap";
+import { FaWhatsapp, FaInstagram } from "react-icons/fa";
+import { TfiEmail } from "react-icons/tfi";
+import { IoIosMail } from "react-icons/io";
+import styled from "styled-components";
+
+const FormContainer = styled.div`
+  width: 270px;
+`;
 
 function ContactFormComponent() {
   const [formData, setFormData] = useState({
@@ -11,27 +17,29 @@ function ContactFormComponent() {
     email: "",
     subject: "",
     message: "",
-  })
+  });
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData({
       ...formData,
       [name]: value,
-    })
-  }
+    });
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     // Prepare email parameters
-    const recipient = "hoklampung.official@gmail.com"
-    const subject = encodeURIComponent(formData.subject)
-    const body = encodeURIComponent(`Nama: ${formData.name}\nEmail: ${formData.email}\n\n${formData.message}`)
+    const recipient = "hoklampung.official@gmail.com";
+    const subject = encodeURIComponent(formData.subject);
+    const body = encodeURIComponent(
+      `Nama: ${formData.name}\nEmail: ${formData.email}\n\n${formData.message}`
+    );
 
     // Redirect to Gmail compose
-    window.location.href = `https://mail.google.com/mail/?view=cm&fs=1&to=${recipient}&su=${subject}&body=${body}`
-  }
+    window.location.href = `https://mail.google.com/mail/?view=cm&fs=1&to=${recipient}&su=${subject}&body=${body}`;
+  };
 
   return (
     <div className="contact-us-section">
@@ -52,58 +60,62 @@ function ContactFormComponent() {
             <Row>
               {/* Left Column - Form */}
               <Col lg={6}>
-                <h3 className="contact-subtitle mb-4">Tulis pesan kepada kami</h3>
+                <h3 className="contact-subtitle mb-4">
+                  Tulis pesan kepada kami
+                </h3>
                 <Form onSubmit={handleSubmit}>
-                  <Form.Group className="mb-3">
-                    <Form.Control
-                      type="text"
-                      placeholder="Nama"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      className="contact-input"
-                    />
-                  </Form.Group>
+                  <FormContainer>
+                    <Form.Group className="mb-3">
+                      <Form.Control
+                        type="text"
+                        placeholder="Nama"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        required
+                        className="contact-input"
+                      />
+                    </Form.Group>
 
-                  <Form.Group className="mb-3">
-                    <Form.Control
-                      type="email"
-                      placeholder="Email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      className="contact-input"
-                    />
-                  </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Control
+                        type="email"
+                        placeholder="Email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                        className="contact-input"
+                      />
+                    </Form.Group>
 
-                  <Form.Group className="mb-3">
-                    <Form.Control
-                      type="text"
-                      placeholder="Subjek"
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleChange}
-                      required
-                      className="contact-input"
-                    />
-                  </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Control
+                        type="text"
+                        placeholder="Subjek"
+                        name="subject"
+                        value={formData.subject}
+                        onChange={handleChange}
+                        required
+                        className="contact-input"
+                      />
+                    </Form.Group>
 
-                  <Form.Group className="mb-4">
-                    <Form.Control
-                      as="textarea"
-                      rows={5}
-                      placeholder="Mulai menulis pesan di sini"
-                      name="message"
-                      value={formData.message}
-                      onChange={handleChange}
-                      required
-                      className="contact-input"
-                    />
-                  </Form.Group>
+                    <Form.Group className="mb-4">
+                      <Form.Control
+                        as="textarea"
+                        rows={5}
+                        placeholder="Mulai menulis pesan di sini"
+                        name="message"
+                        value={formData.message}
+                        onChange={handleChange}
+                        required
+                        className="contact-input"
+                      />
+                    </Form.Group>
+                  </FormContainer>
 
-                  <Button type="submit" className="contact-button">
+                  <Button type="submit" className="kontak-button">
                     Kirim Pesan
                   </Button>
                 </Form>
@@ -113,15 +125,21 @@ function ContactFormComponent() {
               <Col lg={6} className="contact-info-col">
                 <div className="contact-info-text">
                   <p>
-                    Apabila Kamu memiliki pertanyaan, saran, kerja sama ataupun ingin bergabung dalam komunitas, jangan
-                    ragu untuk menghubungi kami. Kami siap memberikan informasi yang kamu butuhkan.
+                    Apabila Kamu memiliki pertanyaan, saran, kerja sama ataupun
+                    ingin bergabung dalam komunitas, jangan ragu untuk
+                    menghubungi kami. Kami siap memberikan informasi yang kamu
+                    butuhkan.
                   </p>
                 </div>
 
                 <div className="contact-info-items">
                   <div className="contact-info-item">
                     <div className="contact-icon">
-                      <a href="https://wa.me/6285709346954" target="_blank" rel="noopener noreferrer">
+                      <a
+                        href="https://wa.me/6285709346954"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <FaWhatsapp />
                       </a>
                     </div>
@@ -154,7 +172,7 @@ function ContactFormComponent() {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <TfiEmail />
+                        <IoIosMail />
                       </a>
                     </div>
                     <div className="contact-detail">
@@ -169,7 +187,7 @@ function ContactFormComponent() {
         </Row>
       </Container>
     </div>
-  )
+  );
 }
 
-export default ContactFormComponent
+export default ContactFormComponent;

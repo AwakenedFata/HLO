@@ -1,13 +1,13 @@
 "use client";
 
-import PlatformsPage from "@/components/pages/PlatformsPage"
+import PlatformsPageComponent from "@/components/pages/PlatformsPage"
 
-function PlatormsPage() {
+function PlatformsPage() {
   return (
     <div className="platforms-page w-100 min-vh-100">
-      <PlatformsPage />
+      <PlatformsPageComponent />
     </div>
   )
 }
 
-export default PlatormsPage
+export default PlatformsPage

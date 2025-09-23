@@ -10,9 +10,11 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
+  FaRegImages,
   FaCamera,
   FaExclamationCircle,
 } from "react-icons/fa"
+import { RiArticleFill } from "react-icons/ri";
 import axios from "axios"
 import Image from "next/image"
 import "@/styles/adminstyles.css"
@@ -42,6 +44,7 @@ function AdminLayout({ children }) {
   const [pendingCount, setPendingCount] = useState(0)
   const [authError, setAuthError] = useState(false)
   const [isRefreshingToken, setIsRefreshingToken] = useState(false)
+  const [isMobile, setIsMobile] = useState(false) // Add state to track mobile
 
   // Tambahkan ref untuk melacak apakah komponen masih terpasang
   const isMounted = useRef(true)
@@ -57,6 +60,17 @@ function AdminLayout({ children }) {
 
   useEffect(() => {
     setIsClient(true)
+    // Initialize mobile state on client
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768
+      setIsMobile(mobile)
+      if (mobile) {
+        setSidebarVisible(false)
+      } else {
+        setSidebarVisible(true)
+      }
+    }
+    checkMobile()
   }, [])
 
   useEffect(() => {
@@ -69,8 +83,8 @@ function AdminLayout({ children }) {
   // Add click outside handler for mobile sidebar
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Only handle click outside on mobile (768px and below)
-      if (typeof window !== "undefined" && window.innerWidth > 768) return
+      // Only handle click outside on mobile
+      if (!isMobile) return
 
       if (
         sidebarVisible &&
@@ -89,14 +103,14 @@ function AdminLayout({ children }) {
       document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("touchstart", handleClickOutside)
     }
-  }, [sidebarVisible])
+  }, [sidebarVisible, isMobile])
 
   // Close sidebar on route change for mobile
   useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+    if (isMobile) {
       setSidebarVisible(false)
     }
-  }, [pathname])
+  }, [pathname, isMobile])
 
   // Add a helper function to check authentication before making API calls
   const checkAuthAndGetToken = () => {
@@ -337,12 +351,12 @@ function AdminLayout({ children }) {
     window.addEventListener("cache-invalidated", handleDataUpdate)
 
     const handleResize = () => {
-      if (typeof window !== "undefined") {
-        if (window.innerWidth < 768) {
-          setSidebarVisible(false)
-        } else {
-          setSidebarVisible(true)
-        }
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile) {
+        setSidebarVisible(false)
+      } else {
+        setSidebarVisible(true)
       }
     }
 
@@ -486,7 +500,7 @@ function AdminLayout({ children }) {
 
   // Handle navigation link clicks on mobile
   const handleNavLinkClick = () => {
-    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+    if (isMobile) {
       setSidebarVisible(false)
     }
   }
@@ -503,9 +517,9 @@ function AdminLayout({ children }) {
 
   return (
     <div className="admin-layout">
-      {/* Mobile overlay */}
-      {sidebarVisible && typeof window !== "undefined" && window.innerWidth <= 768 && (
-        <div className={`sidebar-overlay ${sidebarVisible ? "show" : ""}`} onClick={() => setSidebarVisible(false)} />
+      {/* Mobile overlay - Only render on client and when mobile */}
+      {isClient && isMobile && sidebarVisible && (
+        <div className="sidebar-overlay show" onClick={() => setSidebarVisible(false)} />
       )}
 
       <div ref={sidebarRef} className={`sidebar ${sidebarVisible ? "show" : ""}`}>
@@ -547,6 +561,24 @@ function AdminLayout({ children }) {
                 onClick={handleNavLinkClick}
               >
                 <FaHistory className="me-2" /> Riwayat Redemption
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                href="/admin/gallery"
+                className="nav-link d-flex align-items-center"
+                onClick={handleNavLinkClick}
+              >
+                <FaRegImages className="me-2" /> Manajemen Gallery
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                href="/admin/article"
+                className="nav-link d-flex align-items-center"
+                onClick={handleNavLinkClick}
+              >
+                <RiArticleFill className="me-2" /> Manajemen Artikel
               </Link>
             </li>
           </ul>

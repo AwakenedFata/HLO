@@ -1,4 +1,5 @@
 "use client"
+
 import SponsorsComponent from "@/components/SponsorsComponent" 
 
 const PartnersPage = () => {

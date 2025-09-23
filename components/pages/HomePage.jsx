@@ -11,7 +11,7 @@ const HomePage = () => {
   return (
     <div className="main-background">
       <HeroComponent />
-      <CommunityComponent />
+      <CommunityComponent id="aboutus" class="aboutus" />
       <GalleryComponent />
       <JoinUsComponent />
       <SponsorsComponent />

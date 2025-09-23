@@ -1540,7 +1540,7 @@ textarea.contact-input {
   resize: none;
 }
 
-.contact-button {
+.kontak-button {
   background: #f9a826 !important;
   font-family: "Overpass", sans-serif;
   border: none;
@@ -1553,7 +1553,7 @@ textarea.contact-input {
   font-size: 1rem;
 }
 
-.contact-button:hover {
+.kontak-button:hover {
   background-color: #e89417 !important;
 }
 
@@ -1639,6 +1639,11 @@ textarea.contact-input {
 
   .contact-button {
     max-width: 100%;
+  }
+    .contact-us-section .col-lg-6:first-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 }
 
@@ -2514,7 +2519,6 @@ textarea.contact-input {
 
 /*  STYLE MERCHANPAGE */
 .merchan-page {
-  padding-top: 80px;
   object-fit: cover;
   z-index: -1;
 }
