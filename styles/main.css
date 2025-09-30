@@ -956,7 +956,7 @@ swiper-slide.swiper-slide-active {
   }
 }
 
-@media (max-width: 991px) {
+@media (max-width: 992px) {
   .gallery-section {
     padding: 60px 0;
   }
@@ -973,12 +973,16 @@ swiper-slide.swiper-slide-active {
     padding: 25px 25px 60px;
   }
 
+  .gallery-image {
+    border-radius: 26px !important;
+  }
+
   .gallery-item {
     max-width: 350px;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .gallery-section {
     padding: 50px 0;
   }
@@ -999,15 +1003,23 @@ swiper-slide.swiper-slide-active {
     padding: 20px 20px 50px;
   }
 
+  .gallery-image {
+    border-radius: 22px !important;
+  }
+
   .gallery-item {
     max-width: 300px;
   }
 }
 
 /* Key changes for mobile devices */
-@media (max-width: 575px) {
+@media (max-width: 480px) {
   .gallery-section {
     padding: 40px 0;
+  }
+
+    .gallery-image {
+    border-radius: 56px !important;
   }
 
   .gallery-title {
@@ -1031,6 +1043,10 @@ swiper-slide.swiper-slide-active {
 
   .gallery-title h1 {
     font-size: 1.2rem;
+  }
+
+  .gallery-image {
+    border-radius: 32px !important;
   }
 }
 /* Gallery Section Styles */
@@ -1525,32 +1541,35 @@ swiper-slide.swiper-slide-active {
   background-color: #fff;
   margin-bottom: 15px;
   font-family: "Roboto-Reguler", sans-serif;
-  font-size: 1rem;
   border-radius: 10px;
   box-shadow: 10px 5px 50px rgba(0, 0, 0, 0.1);
   height: auto;
 }
 
 .contact-input::placeholder {
-  color: #999;
+  color: #b0b0b0 !important;
+  font-size: 0.7rem;
 }
 
 textarea.contact-input {
   min-height: 120px;
   resize: none;
+  padding-left: -5px;
+  padding-top: 10px;
 }
 
 .kontak-button {
   background: #f9a826 !important;
   font-family: "Overpass", sans-serif;
   border: none;
-  padding: 12px 40px;
+  padding: 10px 12px;
   font-weight: 600;
   border-radius: 5px;
   transition: all 0.3s ease;
   width: 100%;
-  max-width: 180px;
-  font-size: 1rem;
+  color: white;
+  max-width: 140px;
+  font-size: 0.85rem;
 }
 
 .kontak-button:hover {
@@ -1568,6 +1587,7 @@ textarea.contact-input {
 .contact-info-text {
   margin-bottom: 30px;
   color: #6c757d;
+  text-align: justify;
   line-height: 1.6;
   font-size: 1rem;
   font-family: "Roboto-Reguler", sans-serif;
@@ -1640,7 +1660,8 @@ textarea.contact-input {
   .contact-button {
     max-width: 100%;
   }
-    .contact-us-section .col-lg-6:first-child {
+
+  .contact-us-section .col-lg-6:first-child {
     display: flex;
     flex-direction: column;
     align-items: center;

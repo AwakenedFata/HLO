@@ -22,7 +22,6 @@ export const navLinks = [
   { id: 1, path: "/", text: "Home" },
   { id: 2, path: "/#aboutus", text: "About Us" },
   { id: 3, path: "/gallery", text: "Gallery" },
-  { id: 4, path: "/partners", text: "Partners" },
   { id: 5, path: "/platforms", text: "Platforms" },
   { id: 6, path: "/redeem", text: "Redeem" },
   { id: 7, path: "/merchan", text: "Merchandise" },

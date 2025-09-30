@@ -9,13 +9,35 @@ import { FaXTwitter } from "react-icons/fa6"
 import { GoMail } from "react-icons/go"
 import { TfiEmail } from "react-icons/tfi"
 
-
 function FooterComponent() {
-  const [currentYear, setCurrentYear] = useState(2023) 
+  const [currentYear, setCurrentYear] = useState(2023)
+  const [email, setEmail] = useState("")
+  const [status, setStatus] = useState("")
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear())
   }, [])
+
+  const handleSubscribe = async () => {
+    if (!email) {
+      setStatus("Email tidak boleh kosong.")
+      return
+    }
+
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await res.json()
+      setStatus(data.message || data.error)
+      setEmail("")
+    } catch (error) {
+      setStatus("Terjadi kesalahan. Coba lagi.")
+    }
+  }
 
   return (
     <footer className="footer">
@@ -33,15 +55,21 @@ function FooterComponent() {
             </p>
             <div className="newsletter-form">
               <div className="input-group">
-                <input type="email" className="form-control" placeholder="Submit email" aria-label="Email address" />
-                <button className="btn btn-submit" type="button">
-                  <a href="https://mail.google.com/mail/?view=cm&fs=1&to=hoklampung.official@gmail.com">
-                    <GoMail />
-                  </a>
+                <input
+                  type="email"
+                  className="form-control"
+                  placeholder="Submit email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <button className="btn btn-submit" type="button" onClick={handleSubscribe}>
+                  <GoMail />
                 </button>
               </div>
+              {status && <p className="mt-2">{status}</p>}
             </div>
           </Col>
+
           {/* Middle Column - About Links */}
           <Col lg={2} md={4} sm={6} className="footer-col">
             <h5 className="footer-heading">About</h5>
@@ -60,6 +88,7 @@ function FooterComponent() {
               </li>
             </ul>
           </Col>
+
           {/* Middle Column - Service Links */}
           <Col lg={2} md={4} sm={6} className="footer-col">
             <h5 className="footer-heading">Service</h5>
@@ -82,6 +111,7 @@ function FooterComponent() {
               </li>
             </ul>
           </Col>
+
           {/* Right Column - Contact Info */}
           <Col lg={4} md={4} sm={12} className="footer-col">
             <h5 className="footer-heading">Contact</h5>
@@ -193,4 +223,5 @@ function FooterComponent() {
     </footer>
   )
 }
+
 export default FooterComponent

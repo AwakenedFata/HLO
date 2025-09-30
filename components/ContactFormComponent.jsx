@@ -114,10 +114,9 @@ function ContactFormComponent() {
                       />
                     </Form.Group>
                   </FormContainer>
-
-                  <Button type="submit" className="kontak-button">
+                  <button type="submit" className="kontak-button d-flex justify-content-center text-align-center">
                     Kirim Pesan
-                  </Button>
+                  </button>
                 </Form>
               </Col>
 

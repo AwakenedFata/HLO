@@ -29,7 +29,7 @@ function JoinUsComponent() {
           {/* Left Column - Logo, Text, QR */}
           <Col lg={6} className="left-content" data-aos="fade-right" data-aos-duration="1000">
             <div className="logo-container mb-4">
-              <img src="/assets/Join & Follow/logo.png" alt="HOK Logo" className="hok-logo" />
+              <img src="/assets/Join & Follow/logo hok 1.png" alt="HOK Logo" className="hok-logo" />
             </div>
 
             <div className="joinus-text">

@@ -37,7 +37,7 @@ function SponsorsComponent() {
   }
 
   return (
-    <div className="sponsors-section w-100 min-vh-100 d-flex align-items-center position-relative overflow-container">
+    <div id="partners" className="sponsors-section w-100 min-vh-100 d-flex align-items-center position-relative overflow-container">
       <Container>
         {/* Title */}
         <div className="sponsors-title text-center" data-aos="fade-down" data-aos-duration="1000">

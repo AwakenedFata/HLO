@@ -4,8 +4,15 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "checkJs": false,
+    "skipLibCheck": true
   },
-  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "next.config.mjs", "tsconfig.json", "lib/models/Gallery"],
+  "include": [
+    "**/*.js",
+    "**/*.jsx",
+    "next.config.mjs",
+    "lib/models/Gallery"
+  ],
   "exclude": ["node_modules", ".next"]
 }
