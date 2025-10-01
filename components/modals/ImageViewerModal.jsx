@@ -111,7 +111,7 @@ const ImageViewerModal = ({ isOpen, onClose, item }) => {
 
   const handleViewArticle = async () => {
     try {
-      const response = await fetch(`/api/admin/article/by-gallery/${item._id}`)
+      const response = await fetch(`/api/admin/artikel/by-gallery/${item._id}`)
       const data = await response.json()
 
       if (data.success && data.article) {
