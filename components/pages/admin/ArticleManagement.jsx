@@ -237,7 +237,7 @@ function ArticleManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.get("/api/admin/gallery", {
+      const response = await api.get("/api/admin/galeri", {
         headers: { Authorization: `Bearer ${token}` },
         params: { limit: 100, status: "active" },
       })
@@ -278,7 +278,7 @@ function ArticleManagement() {
           params.relatedGallery = filterGallery
         }
 
-        const response = await api.get("/api/admin/article", {
+        const response = await api.get("/api/admin/artikel", {
           headers: {
             Authorization: `Bearer ${token}`,
             "Cache-Control": "no-cache",
@@ -386,10 +386,10 @@ function ArticleManagement() {
         formData.append("files", file) // Changed to "files" to match backend expectation for multiple
       }
 
-      console.log("[v0] FormData created, uploading to /api/admin/article/upload-multiple")
+      console.log("[v0] FormData created, uploading to /api/admin/artikel/upload-multiple")
 
       // Upload all files at once
-      const response = await api.post("/api/admin/article/upload-multiple", formData, {
+      const response = await api.post("/api/admin/artikel/upload-multiple", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
@@ -475,7 +475,7 @@ function ArticleManagement() {
           formData.append("file", blob, selectedFile.name)
 
           try {
-            const response = await api.post("/api/admin/article/upload", formData, {
+            const response = await api.post("/api/admin/artikel/upload", formData, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "multipart/form-data",
@@ -651,11 +651,11 @@ function ArticleManagement() {
 
       let response
       if (editingArticle) {
-        response = await api.put(`/api/admin/article/${editingArticle._id}`, submitData, {
+        response = await api.put(`/api/admin/artikel/${editingArticle._id}`, submitData, {
           headers: { Authorization: `Bearer ${token}` },
         })
       } else {
-        response = await api.post("/api/admin/article", submitData, {
+        response = await api.post("/api/admin/artikel", submitData, {
           headers: { Authorization: `Bearer ${token}` },
         })
       }
@@ -714,7 +714,7 @@ function ArticleManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.delete(`/api/admin/article/${articleId}`, {
+      const response = await api.delete(`/api/admin/artikel/${articleId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
 
@@ -740,7 +740,7 @@ function ArticleManagement() {
       if (!token) return
 
       const response = await api.post(
-        "/api/admin/article/bulk-delete",
+        "/api/admin/artikel/bulk-delete",
         { ids: selectedArticles },
         { headers: { Authorization: `Bearer ${token}` } },
       )

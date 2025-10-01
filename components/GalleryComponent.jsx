@@ -280,7 +280,7 @@ function GalleryComponent() {
   const handleImageClick = async (galleryItem) => {
     try {
       console.log("[v0] Gallery item clicked:", galleryItem.title)
-      const res = await fetch(`/api/admin/article/by-gallery/${galleryItem._id}`)
+      const res = await fetch(`/api/admin/artikel/by-gallery/${galleryItem._id}`)
       const data = await res.json()
 
       if (data?.success && data?.article?.slug) {

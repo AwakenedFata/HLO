@@ -239,7 +239,7 @@ function GalleryManagement() {
           status: filterStatus,
         }
 
-        const response = await api.get("/api/admin/gallery", {
+        const response = await api.get("/api/admin/galeri", {
           params,
           headers: {
             Authorization: `Bearer ${token}`,
@@ -683,7 +683,7 @@ function GalleryManagement() {
         const formData = new FormData()
         formData.append("file", file)
 
-        const response = await api.post("/api/admin/gallery/upload", formData, {
+        const response = await api.post("/api/admin/galeri/upload", formData, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
@@ -876,7 +876,7 @@ function GalleryManagement() {
         const token = checkAuth()
         if (!token) return
 
-        await api.post("/api/admin/gallery", formData, {
+        await api.post("/api/admin/galeri", formData, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -932,7 +932,7 @@ function GalleryManagement() {
         const token = checkAuth()
         if (!token) return
 
-        await api.put(`/api/admin/gallery/${editingGallery._id}`, updateData, {
+        await api.put(`/api/admin/galeri/${editingGallery._id}`, updateData, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -959,7 +959,7 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      await api.delete(`/api/admin/gallery/${galleryToDelete._id}`, {
+      await api.delete(`/api/admin/galeri/${galleryToDelete._id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1018,7 +1018,7 @@ function GalleryManagement() {
       if (!token) return
 
       const response = await api.post(
-        "/api/admin/gallery/bulk-delete",
+        "/api/admin/galeri/bulk-delete",
         {
           ids: selectedGalleries,
         },
@@ -1050,7 +1050,7 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.get("/api/admin/frames", {
+      const response = await api.get("/api/admin/bingkai", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1126,7 +1126,7 @@ function GalleryManagement() {
         const formData = new FormData()
         formData.append("file", file)
 
-        const uploadResponse = await api.post("/api/admin/frames/upload", formData, {
+        const uploadResponse = await api.post("/api/admin/bingkai/upload", formData, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
@@ -1176,7 +1176,7 @@ function GalleryManagement() {
         const token = checkAuth()
         if (!token) return
 
-        const response = await api.post("/api/admin/frames", frameFormData, {
+        const response = await api.post("/api/admin/bingkai", frameFormData, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -1224,7 +1224,7 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.delete(`/api/admin/frames/${frameToDelete._id}`, {
+      const response = await api.delete(`/api/admin/bingkai/${frameToDelete._id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
