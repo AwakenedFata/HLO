@@ -110,7 +110,7 @@ function GalleryComponent() {
     const fetchGalleryData = async () => {
       try {
         setLoading(true)
-        const response = await fetch("/api/gallery-section")
+        const response = await fetch("/api/seksi-galeri")
         const result = await response.json()
 
         if (result.success) {
