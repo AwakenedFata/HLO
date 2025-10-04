@@ -1,12 +1,13 @@
-import '@/styles/main.css'
-import { Providers } from './providers'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'animate.css'
-import 'aos/dist/aos.css'
+import "@/styles/main.css"
+import { Providers } from "./providers"
+import "bootstrap/dist/css/bootstrap.min.css"
+import "animate.css"
+import "aos/dist/aos.css"
 
 export const metadata = {
-  title: 'HOK LAMPUNG OFFICIAL',
-  description: 'Situs Ini merupakan Website Resmi dari Komunitas Honor of Kings Lampung. #OURALLCOMMUNITY #HONOROFKINGS',
+  title: "HOK LAMPUNG OFFICIAL",
+  description:
+    "Situs Ini merupakan Website Resmi dari Komunitas Honor of Kings Lampung. #OURALLCOMMUNITY #HONOROFKINGS",
 }
 
 export default function RootLayout({ children }) {

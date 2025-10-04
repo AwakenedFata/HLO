@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useSession } from "next-auth/react"
 import {
   Row,
   Col,
@@ -103,10 +104,11 @@ api.interceptors.request.use((config) => {
 
 function PinManagement() {
   const router = useRouter()
+  const { status } = useSession()
   const fileInputRef = useRef(null)
   const isMountedRef = useRef(false)
   const pollingIntervalRef = useRef(null)
-  const requestInProgressRef = useRef(false)
+  const requestInProgressRef = useRef(null)
   const componentIdRef = useRef(Math.random().toString(36).substr(2, 9))
   const abortControllerRef = useRef(null)
   const searchTimeoutRef = useRef(null)
@@ -199,16 +201,18 @@ function PinManagement() {
 
   // Check authentication
   const checkAuth = useCallback(() => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      safeSetState(() => {
-        setAuthError(true)
-      })
-      router.push("/admin/login")
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication..., current status:", status)
+      if (status === "unauthenticated") {
+        safeSetState(() => {
+          setAuthError(true)
+        })
+        router.push("/admin/login")
+      }
       return null
     }
-    return token
-  }, [router, safeSetState])
+    return true
+  }, [status, router, safeSetState])
 
   // Immediate stats update function
   const updateStatsImmediately = useCallback((operation, count = 1) => {
@@ -284,6 +288,11 @@ function PinManagement() {
   // Enhanced fetch pins function with better cache handling
   const fetchPins = useCallback(
     async (page = 1, limit = 100, force = false, options = {}) => {
+      if (status !== "authenticated") {
+        console.log("⏳ Waiting for authentication..., current status:", status)
+        return
+      }
+
       if (requestInProgressRef.current && !force) {
         return
       }
@@ -442,13 +451,29 @@ function PinManagement() {
         })
       }
     },
-    [checkAuth, lastRefreshTime, lastEtag, filterStatus, searchTerm, router, safeSetState, applyFilters, addToast],
+    [
+      checkAuth,
+      lastRefreshTime,
+      lastEtag,
+      filterStatus,
+      searchTerm,
+      router,
+      safeSetState,
+      applyFilters,
+      addToast,
+      status,
+    ],
   )
 
   // Improved generate PINs with immediate UI update
   const handleGeneratePins = useCallback(
     async (e) => {
       e.preventDefault()
+
+      if (status !== "authenticated") {
+        addToast("Sesi belum siap, silakan tunggu...", "warning")
+        return
+      }
 
       if (!pinCount || pinCount <= 0 || pinCount > 1000) {
         addToast("Jumlah PIN harus antara 1-1000", "error")
@@ -517,12 +542,17 @@ function PinManagement() {
         }
       }
     },
-    [pinCount, pinPrefix, checkAuth, fetchPins, itemsPerPage, addToast, updateStatsImmediately],
+    [pinCount, pinPrefix, checkAuth, fetchPins, itemsPerPage, addToast, updateStatsImmediately, status],
   )
 
   // Improved delete with immediate UI update
   const handleDeletePin = useCallback(async () => {
     if (!pinToDelete) return
+
+    if (status !== "authenticated") {
+      addToast("Sesi belum siap, silakan tunggu...", "warning")
+      return
+    }
 
     try {
       const token = checkAuth()
@@ -568,11 +598,17 @@ function PinManagement() {
     itemsPerPage,
     addToast,
     updateStatsImmediately,
+    status,
   ])
 
   // Improved delete multiple with immediate UI update
   const handleDeleteMultiplePins = useCallback(async () => {
     if (selectedPins.length === 0) return
+
+    if (status !== "authenticated") {
+      addToast("Sesi belum siap, silakan tunggu...", "warning")
+      return
+    }
 
     setDeletingMultiple(true)
     try {
@@ -628,11 +664,17 @@ function PinManagement() {
     itemsPerPage,
     addToast,
     updateStatsImmediately,
+    status,
   ])
 
   // Improved mark as processed with immediate UI update
   const handleMarkAsProcessed = useCallback(async () => {
     if (!pinToProcess) return
+
+    if (status !== "authenticated") {
+      addToast("Sesi belum siap, silakan tunggu...", "warning")
+      return
+    }
 
     setProcessing(true)
     try {
@@ -698,6 +740,7 @@ function PinManagement() {
     itemsPerPage,
     addToast,
     updateStatsImmediately,
+    status,
   ])
 
   // Enhanced manual refresh
@@ -768,6 +811,10 @@ function PinManagement() {
     isMountedRef.current = true
     setIsClient(true)
 
+    if (status === "loading") {
+      return
+    }
+
     const token = checkAuth()
     if (!token) {
       return
@@ -777,7 +824,7 @@ function PinManagement() {
       try {
         await forceRefreshData(fetchPins, 1, 100)
         setTimeout(() => {
-          if (isMountedRef.current && !rateLimitHit) {
+          if (isMountedRef.current && !rateLimitHit && status === "authenticated") {
             startPolling()
           }
         }, 2000)
@@ -814,7 +861,7 @@ function PinManagement() {
       window.removeEventListener("pin-status-changed", handlePinUpdate)
       window.removeEventListener("pin-redeemed", handlePinUpdate)
     }
-  }, [])
+  }, [status])
 
   // Handle filter/search changes
   useEffect(() => {
@@ -908,6 +955,11 @@ function PinManagement() {
     async (file) => {
       if (!validateFile(file)) return
 
+      if (status !== "authenticated") {
+        addToast("Sesi belum siap, silakan tunggu...", "warning")
+        return
+      }
+
       setIsImporting(true)
       setImportError("")
       setImportSuccess("")
@@ -953,7 +1005,7 @@ function PinManagement() {
         }
       }
     },
-    [validateFile, checkAuth, fetchPins, itemsPerPage, addToast, updateStatsImmediately],
+    [validateFile, checkAuth, fetchPins, itemsPerPage, addToast, updateStatsImmediately, status],
   )
 
   // Select all pins
@@ -1152,6 +1204,20 @@ function PinManagement() {
     )
   }
 
+  // Show loading while session is loading
+  if (status === "loading") {
+    return (
+      <div className="adminpanelmanajemenpinpage">
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+          <div className="text-center">
+            <Spinner animation="border" variant="primary" />
+            <p className="mt-3">Memuat sesi...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Show loading while not client-side
   if (!isClient) {
     return (
@@ -1282,6 +1348,7 @@ function PinManagement() {
                           min="1"
                           max="1000"
                           placeholder="Masukkan jumlah PIN"
+                          disabled={status !== "authenticated"}
                         />
                         <Form.Text muted>Masukkan jumlah PIN yang ingin digenerate (maksimal 1000)</Form.Text>
                       </Form.Group>
@@ -1295,12 +1362,18 @@ function PinManagement() {
                           onChange={(e) => setPinPrefix(e.target.value.toUpperCase())}
                           placeholder="Contoh: HLO"
                           maxLength={5}
+                          disabled={status !== "authenticated"}
                         />
                         <Form.Text muted>Awalan untuk PIN (maksimal 5 karakter, huruf kapital dan angka)</Form.Text>
                       </Form.Group>
                     </Col>
                     <Col md={2} className="d-flex align-items-end">
-                      <Button type="submit" variant="primary" className="generate d-flex align-items-center justify-content-center" disabled={generating}>
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        className="generate d-flex align-items-center justify-content-center"
+                        disabled={generating || status !== "authenticated"}
+                      >
                         {generating ? (
                           <>
                             <Spinner animation="border" size="sm" className="me-2" />
@@ -1348,6 +1421,7 @@ function PinManagement() {
                     ref={fileInputRef}
                     onChange={handleFileInputChange}
                     className="form-control-lg"
+                    disabled={status !== "authenticated"}
                   />
                   <Form.Text muted>File CSV harus memiliki kolom 'PIN Code'. Maksimal ukuran file: 5MB</Form.Text>
                 </Form.Group>
@@ -1384,7 +1458,7 @@ function PinManagement() {
                 <Button
                   variant="success"
                   onClick={handleImportButtonClick}
-                  disabled={isImporting || importPreview.length === 0}
+                  disabled={isImporting || importPreview.length === 0 || status !== "authenticated"}
                   size="lg"
                 >
                   {isImporting ? (
@@ -1415,7 +1489,7 @@ function PinManagement() {
                   variant="danger"
                   size="sm"
                   onClick={() => setShowDeleteMultipleModal(true)}
-                  disabled={deletingMultiple}
+                  disabled={deletingMultiple || status !== "authenticated"}
                 >
                   <FaTrash className="me-1" />
                   {deletingMultiple ? "Menghapus..." : `Hapus (${selectedPins.length})`}
@@ -1425,7 +1499,7 @@ function PinManagement() {
                 variant={pollingActive && !rateLimitHit ? "success" : "outline-secondary"}
                 size="sm"
                 onClick={togglePolling}
-                disabled={rateLimitHit}
+                disabled={rateLimitHit || status !== "authenticated"}
               >
                 {pollingActive ? (
                   <>
@@ -1439,11 +1513,21 @@ function PinManagement() {
                   </>
                 )}
               </Button>
-              <Button variant="outline-primary" size="sm" onClick={handleRefresh} disabled={loading}>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={loading || status !== "authenticated"}
+              >
                 <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
                 {loading ? "Memuat..." : "Refresh"}
               </Button>
-              <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
+              <Button
+                variant="outline-success"
+                size="sm"
+                onClick={handleExportCSV}
+                disabled={status !== "authenticated"}
+              >
                 <FaFileDownload className="me-1" /> Export CSV
               </Button>
             </div>
@@ -1461,6 +1545,7 @@ function PinManagement() {
                   placeholder="Cari PIN, nama, atau ID game..."
                   value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
+                  disabled={status !== "authenticated"}
                 />
                 {searchLoading && (
                   <InputGroup.Text>
@@ -1486,6 +1571,7 @@ function PinManagement() {
                   </>
                 }
                 variant="outline-secondary"
+                disabled={status !== "authenticated"}
               >
                 <Dropdown.Item active={filterStatus === "all"} onClick={() => setFilterStatus("all")}>
                   <FaEye className="me-2" />
@@ -1517,7 +1603,9 @@ function PinManagement() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={handleSelectAll}
-                      disabled={loading || filteredPins.filter((pin) => !pin.used).length === 0}
+                      disabled={
+                        loading || filteredPins.filter((pin) => !pin.used).length === 0 || status !== "authenticated"
+                      }
                     />
                   </th>
                   <th>PIN Code</th>
@@ -1551,6 +1639,7 @@ function PinManagement() {
                             type="checkbox"
                             checked={selectedPins.includes(pin._id)}
                             onChange={(e) => handleSelectPin(pin._id, e.target.checked)}
+                            disabled={status !== "authenticated"}
                           />
                         )}
                       </td>
@@ -1593,6 +1682,7 @@ function PinManagement() {
                                   setPinToDelete(pin)
                                   setShowDeleteModal(true)
                                 }}
+                                disabled={status !== "authenticated"}
                               >
                                 <FaTrash />
                               </Button>
@@ -1607,6 +1697,7 @@ function PinManagement() {
                                   setPinToProcess(pin)
                                   setShowProcessModal(true)
                                 }}
+                                disabled={status !== "authenticated"}
                               >
                                 <FaCheck />
                               </Button>
@@ -1625,7 +1716,7 @@ function PinManagement() {
             <div className="text-muted">
               Menampilkan {filteredPins.length.toLocaleString("id-ID")} dari {totalItems.toLocaleString("id-ID")} PIN
             </div>
-            {pollingActive && !rateLimitHit && (
+            {pollingActive && !rateLimitHit && status === "authenticated" && (
               <Badge bg="success" className="d-flex align-items-center">
                 <FaWifi className="me-1" />
                 Auto-refresh aktif

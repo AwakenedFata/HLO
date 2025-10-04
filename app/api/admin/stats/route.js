@@ -1,29 +1,47 @@
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
+import connectDB from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
-import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import crypto from "crypto"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdminSession } from "@/lib/utils/auth"
 
-// Rate limiter for stats endpoint
+// SOLUTION 2: Increased rate limit from 30 to 60 requests per minute
 const limiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
+  interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 30, // Increased limit for dashboard
+  limit: 60, // Increased from 30
 })
 
 export async function GET(request) {
   try {
-    // Apply rate limiting
-    const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await limiter.check(identifier, 30, "dashboard-stats")
+    // Auth with NextAuth - moved before rate limit for better security
+    let session
+    try {
+      session = await requireAdminSession()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      return NextResponse.json({ error: err?.message || "Unauthorized" }, { status })
+    }
 
+    // SOLUTION 1: Rate limit check with proper error handling
+    const identifier = request.headers.get("x-forwarded-for") || session.user?.email || "anonymous"
+    const rateLimitResult = await limiter.check(identifier, 60, "dashboard-stats")
+    
     if (!rateLimitResult.success) {
+      // Log the rate limit error
+      logger.error("Rate limit exceeded for dashboard stats", {
+        identifier,
+        rateLimitInfo: rateLimitResult,
+        statusCode: 429,
+      })
+
+      // Return immediately without proceeding to database query
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
+        { 
+          error: "Too many requests. Please try again later.", 
           reset: rateLimitResult.reset,
+          retryAfter: rateLimitResult.reset 
         },
         {
           status: 429,
@@ -37,37 +55,20 @@ export async function GET(request) {
       )
     }
 
-    // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ error: authResult.message }, { status: 401 })
-    }
-
-    await connectToDatabase()
+    await connectDB()
 
     const { searchParams } = new URL(request.url)
 
-    // Check for cache busting parameter
     const cacheBuster = searchParams.get("_t")
-    const bypassCache = cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
+    const bypassCache = !!cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
 
-    // Use aggregation pipeline for more efficient statistics calculation
     const statsAggregation = await PinCode.aggregate([
       {
         $facet: {
-          // Count total pins
           totalCount: [{ $count: "count" }],
-
-          // Count used pins
           usedCount: [{ $match: { used: true } }, { $count: "count" }],
-
-          // Count pending pins
           pendingCount: [{ $match: { used: true, processed: false } }, { $count: "count" }],
-
-          // Count processed pins
           processedCount: [{ $match: { used: true, processed: true } }, { $count: "count" }],
-
-          // Get batch data
           batchesData: [
             {
               $project: {
@@ -93,12 +94,8 @@ export async function GET(request) {
                 },
               },
             },
-            {
-              $sort: { _id: 1 },
-            },
+            { $sort: { _id: 1 } },
           ],
-
-          // Get recent activity (last 10 processed pins)
           recentActivity: [
             { $match: { processed: true, processedAt: { $exists: true } } },
             { $sort: { processedAt: -1 } },
@@ -116,14 +113,12 @@ export async function GET(request) {
       },
     ]).exec()
 
-    // Extract values from aggregation result
     const totalCount = statsAggregation[0].totalCount[0]?.count || 0
     const usedCount = statsAggregation[0].usedCount[0]?.count || 0
     const pendingCount = statsAggregation[0].pendingCount[0]?.count || 0
     const processedCount = statsAggregation[0].processedCount[0]?.count || 0
 
-    // Convert batch data to the expected format
-    const batches = statsAggregation[0].batchesData.map((batch, index) => ({
+    const batches = (statsAggregation[0].batchesData || []).map((batch, index) => ({
       id: index + 1,
       name: batch._id || "NO_PREFIX",
       count: batch.total,
@@ -132,24 +127,17 @@ export async function GET(request) {
       processed: batch.processed,
     }))
 
-    // Format recent activity
-    const recentActivity = statsAggregation[0].recentActivity.map((item) => ({
+    const recentActivity = (statsAggregation[0].recentActivity || []).map((item) => ({
       code: item.code,
       processedAt: item.processedAt,
-      redeemedBy: item.redeemedBy
-        ? {
-            nama: item.redeemedBy.nama,
-            idGame: item.redeemedBy.idGame,
-          }
-        : null,
+      redeemedBy: item.redeemedBy ? { nama: item.redeemedBy.nama, idGame: item.redeemedBy.idGame } : null,
     }))
 
-    // Create response data
     const responseData = {
       total: totalCount,
       used: usedCount,
       unused: totalCount - usedCount,
-      available: totalCount - usedCount, // Alias for unused
+      available: totalCount - usedCount,
       pending: pendingCount,
       processed: processedCount,
       batches,
@@ -157,40 +145,29 @@ export async function GET(request) {
       lastUpdated: new Date(),
     }
 
-    // Prepare response headers
     const responseHeaders = {
       "X-Total-Count": totalCount.toString(),
       "X-Last-Updated": new Date().toISOString(),
     }
 
-    // Handle caching based on bypass cache flag
     if (bypassCache) {
       responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate"
       responseHeaders["Pragma"] = "no-cache"
       responseHeaders["Expires"] = "0"
     } else {
-      responseHeaders["Cache-Control"] = "private, max-age=30"
-
-      // Generate ETag based on response data
+      // SOLUTION 4: Better cache control - cache for 15 seconds instead of 30
+      responseHeaders["Cache-Control"] = "private, max-age=15, stale-while-revalidate=30"
       const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
       responseHeaders["ETag"] = `"stats-${dataHash}"`
-
-      // Check if client has a valid cached version
       const ifNoneMatch = request.headers.get("if-none-match")
       if (ifNoneMatch === responseHeaders["ETag"]) {
-        return new NextResponse(null, {
-          status: 304,
-          headers: responseHeaders,
-        })
+        return new NextResponse(null, { status: 304, headers: responseHeaders })
       }
     }
 
-    logger.info(`Dashboard stats accessed by ${authResult.user.username}`)
+    logger.info(`Dashboard stats accessed by ${session.user?.email || "unknown"}`)
 
-    // Return optimized response with caching headers
-    return NextResponse.json(responseData, {
-      headers: responseHeaders,
-    })
+    return NextResponse.json(responseData, { headers: responseHeaders })
   } catch (error) {
     logger.error("Error fetching dashboard stats:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })

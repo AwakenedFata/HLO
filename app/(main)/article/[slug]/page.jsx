@@ -5,7 +5,8 @@ import GalleryArticlePage from "@/components/pages/GalleryArticlePage"
 import { notFound } from "next/navigation"
 
 export default async function ArticleDetailPage({ params }) {
-  const { slug } = params
+  // Await params before destructuring
+  const { slug } = await params
 
   try {
     await connectToDatabase()
@@ -88,7 +89,8 @@ export default async function ArticleDetailPage({ params }) {
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = params
+  // Await params before destructuring
+  const { slug } = await params
 
   try {
     await connectToDatabase()

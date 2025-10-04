@@ -1,30 +1,24 @@
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
+import connectDB from "@/lib/db"
 import Banner from "@/lib/models/banner"
-import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdminSession } from "@/lib/utils/auth"
 
-// Rate limiter for GET endpoint
 const getLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
+  interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 60, // 60 requests per minute
+  limit: 60,
 })
 
-// GET current active banner
 export async function GET(request) {
   try {
-    // Apply rate limiting
+    // Rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await getLimiter.check(identifier, 60)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rateLimitResult.reset },
         {
           status: 429,
           headers: {
@@ -37,15 +31,15 @@ export async function GET(request) {
       )
     }
 
-    await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    // Auth
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
     }
+    const { session } = guard
 
-    // Find the most recent active banner
+    await connectDB()
+
     const currentBanner = await Banner.findOne({ isActive: true })
       .populate("createdBy", "username")
       .populate("updatedBy", "username")
@@ -54,31 +48,16 @@ export async function GET(request) {
 
     if (!currentBanner) {
       return NextResponse.json(
-        {
-          success: true,
-          banner: null,
-          message: "No active banner found",
-        },
-        {
-          headers: {
-            "Cache-Control": "private, max-age=30",
-          },
-        },
+        { success: true, banner: null, message: "No active banner found" },
+        { headers: { "Cache-Control": "private, max-age=30" } },
       )
     }
 
-    logger.info(`Current banner fetched by ${authResult.user.username}: ${currentBanner._id}`)
+    logger.info(`Current banner fetched by ${session.user?.email || "unknown"}: ${currentBanner._id}`)
 
     return NextResponse.json(
-      {
-        success: true,
-        banner: currentBanner,
-      },
-      {
-        headers: {
-          "Cache-Control": "private, max-age=30",
-        },
-      },
+      { success: true, banner: currentBanner },
+      { headers: { "Cache-Control": "private, max-age=30" } },
     )
   } catch (error) {
     logger.error("Error fetching current banner:", error)

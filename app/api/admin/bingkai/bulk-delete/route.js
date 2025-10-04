@@ -1,95 +1,76 @@
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
+import connectDB from "@/lib/db"
 import Frame from "@/lib/models/frame"
-import { authorizeRequest } from "@/lib/utils/auth-server"
+import { requireAdmin } from "@/lib/utils/auth"
 import { validateRequest, frameBulkDeleteSchema } from "@/lib/utils/validation"
 import { deleteFromS3 } from "@/lib/utils/s3"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
-// Rate limiter for bulk delete endpoint
-const bulkDeleteLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 50,
-  limit: 5, // 5 bulk delete requests per minute
-})
+const bulkDeleteLimiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 50, limit: 5 })
 
-// POST bulk delete frames
 export async function POST(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await bulkDeleteLimiter.check(identifier, 5)
-
-    if (!rateLimitResult.success) {
+    const rate = await bulkDeleteLimiter.check(identifier, 5)
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many bulk delete requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many bulk delete requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
-    await connectToDatabase()
+    await connectDB()
 
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    try {
+      await requireAdmin(request)
+    } catch (err) {
+      return NextResponse.json({ error: err.message || "Unauthorized" }, { status: err?.statusCode || 401 })
     }
 
     const body = await request.json()
-
-    // Validate request
     const validation = await validateRequest(frameBulkDeleteSchema, body)
     if (!validation.success) {
       return NextResponse.json(validation.error, { status: 400 })
     }
 
     const { ids } = validation.data
-
-    // Find frames to delete
     const frames = await Frame.find({ _id: { $in: ids } })
-
     if (frames.length === 0) {
       return NextResponse.json({ error: "No frames found" }, { status: 404 })
     }
 
-    // Delete images from S3
     const s3DeletePromises = frames
-      .filter((frame) => frame.imageKey)
-      .map(async (frame) => {
+      .filter((f) => f.imageKey)
+      .map(async (f) => {
         try {
-          await deleteFromS3(frame.imageKey)
-          logger.info(`Frame image deleted from S3: ${frame.imageKey}`)
-          return { success: true, key: frame.imageKey }
-        } catch (s3Error) {
-          logger.warn(`Failed to delete frame image from S3: ${frame.imageKey} - ${s3Error.message}`)
-          return { success: false, key: frame.imageKey, error: s3Error.message }
+          await deleteFromS3(f.imageKey)
+          logger.info(`[admin] Frame image deleted from S3: ${f.imageKey}`)
+          return { success: true, key: f.imageKey }
+        } catch (e) {
+          logger.warn(`[admin] Failed to delete frame image from S3: ${f.imageKey} - ${e.message}`)
+          return { success: false, key: f.imageKey, error: e.message }
         }
       })
 
     const s3Results = await Promise.allSettled(s3DeletePromises)
 
-    // Delete from database
     const deleteResult = await Frame.deleteMany({ _id: { $in: ids } })
-
-    logger.info(`${deleteResult.deletedCount} frames bulk deleted by ${authResult.user.username}`)
+    logger.info(`[admin] ${deleteResult.deletedCount} frames bulk deleted`)
 
     return NextResponse.json(
       {
         success: true,
         deletedCount: deleteResult.deletedCount,
-        s3Results: s3Results.map((result) => result.value || result.reason),
+        s3Results: s3Results.map((r) => r.value || r.reason),
         message: `${deleteResult.deletedCount} frame berhasil dihapus`,
       },
       {

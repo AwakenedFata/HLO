@@ -5,7 +5,7 @@ import { Poppins } from "next/font/google"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
@@ -15,8 +15,12 @@ const poppins = Poppins({
 const ArticleContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding-top: 100px;
+  padding: 100px 20px 40px;
   font-family: ${poppins.style.fontFamily};
+
+  @media (max-width: 768px) {
+    padding: 80px 15px 30px;
+  }
 `
 
 const BackButton = styled(Link)`
@@ -39,9 +43,14 @@ const ArticleLayout = styled.div`
   grid-template-columns: 1fr 300px;
   gap: 40px;
   
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr 250px;
+    gap: 30px;
+  }
+  
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 25px;
   }
 `
 
@@ -56,6 +65,10 @@ const CoverImage = styled.div`
   width: 100%;
   height: 400px;
   overflow: hidden;
+  border-radius: 12px;
+  @media (max-width: 768px) {
+    height: 250px;
+  }
   
   img {
     width: 100%;
@@ -67,6 +80,10 @@ const CoverImage = styled.div`
 const ArticleHeader = styled.div`
   padding: 30px;
   border-bottom: 1px solid #eee;
+
+  @media (max-width: 768px) {
+    padding: 20px;
+  }
 `
 
 const ArticleTitle = styled.h1`
@@ -75,6 +92,10 @@ const ArticleTitle = styled.h1`
   color: #333;
   margin-bottom: 20px;
   line-height: 1.2;
+
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+  }
 `
 
 const ArticleMeta = styled.div`
@@ -84,6 +105,11 @@ const ArticleMeta = styled.div`
   color: #666;
   font-size: 14px;
   margin-bottom: 15px;
+
+  @media (max-width: 768px) {
+    gap: 15px;
+    font-size: 13px;
+  }
 `
 
 const MetaItem = styled.div`
@@ -111,10 +137,20 @@ const TagBadge = styled.span`
 const ArticleContent = styled.div`
   padding: 30px;
   
+  @media (max-width: 768px) {
+    padding: 20px;
+  }
+  
   p {
     margin-bottom: 16px;
     line-height: 1.7;
     color: #444;
+    font-size: 16px;
+
+    @media (max-width: 768px) {
+      font-size: 15px;
+      line-height: 1.6;
+    }
   }
   
   h2, h3, h4 {
@@ -125,11 +161,19 @@ const ArticleContent = styled.div`
   h2 {
     font-size: 1.8rem;
     font-weight: 600;
+
+    @media (max-width: 768px) {
+      font-size: 1.4rem;
+    }
   }
   
   h3 {
     font-size: 1.4rem;
     font-weight: 600;
+
+    @media (max-width: 768px) {
+      font-size: 1.2rem;
+    }
   }
   
   img {
@@ -152,6 +196,10 @@ const Sidebar = styled.aside`
   display: flex;
   flex-direction: column;
   gap: 30px;
+
+  @media (max-width: 768px) {
+    gap: 20px;
+  }
 `
 
 const SidebarSection = styled.div`
@@ -159,6 +207,14 @@ const SidebarSection = styled.div`
   border-radius: 12px;
   padding: 25px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 1024px) {
+    padding: 20px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 20px;
+  }
 `
 
 const SidebarTitle = styled.h3`
@@ -168,6 +224,19 @@ const SidebarTitle = styled.h3`
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 2px solid #f5a623;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  @media (max-width: 1024px) {
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    margin-bottom: 15px;
+  }
 `
 
 const RecentArticleItem = styled(Link)`
@@ -198,6 +267,11 @@ const RecentArticleImage = styled.div`
   overflow: hidden;
   flex-shrink: 0;
   
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 50px;
+  }
+  
   img {
     width: 100%;
     height: 100%;
@@ -219,11 +293,19 @@ const RecentArticleTitle = styled.h4`
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
 `
 
 const RecentArticleDate = styled.span`
   font-size: 12px;
   color: #666;
+
+  @media (max-width: 768px) {
+    font-size: 11px;
+  }
 `
 
 const DiscoveredTopicItem = styled(Link)`
@@ -244,6 +326,10 @@ const DiscoveredTopicItem = styled(Link)`
   
   &:last-child {
     margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px;
   }
 `
 
@@ -267,6 +353,10 @@ const TopicTitle = styled.h4`
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
 `
 
 const LabelGrid = styled.div`
@@ -274,6 +364,15 @@ const LabelGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
   margin-top: 15px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 6px;
+  }
 `
 
 const LabelItem = styled.button`
@@ -294,6 +393,11 @@ const LabelItem = styled.button`
     border-color: #f5a623;
     transform: translateY(-1px);
   }
+
+  @media (max-width: 768px) {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
 `
 
 const SearchInput = styled.input`
@@ -308,6 +412,11 @@ const SearchInput = styled.input`
     outline: none;
     border-color: #f5a623;
   }
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
 `
 
 const FilteredArticlesSection = styled.div`
@@ -316,6 +425,11 @@ const FilteredArticlesSection = styled.div`
   padding: 25px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 30px;
+
+  @media (max-width: 768px) {
+    padding: 20px;
+    margin-bottom: 20px;
+  }
 `
 
 const FilteredArticleItem = styled(Link)`
@@ -337,6 +451,11 @@ const FilteredArticleItem = styled(Link)`
   &:last-child {
     border-bottom: none;
   }
+
+  @media (max-width: 768px) {
+    gap: 12px;
+    padding: 12px 0;
+  }
 `
 
 const FilteredArticleImage = styled.div`
@@ -345,6 +464,11 @@ const FilteredArticleImage = styled.div`
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    width: 60px;
+    height: 60px;
+  }
   
   img {
     width: 100%;
@@ -367,6 +491,10 @@ const FilteredArticleTitle = styled.h4`
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+  }
 `
 
 const FilteredArticleExcerpt = styled.p`
@@ -378,11 +506,19 @@ const FilteredArticleExcerpt = styled.p`
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
 `
 
 const FilteredArticleDate = styled.span`
   font-size: 12px;
   color: #999;
+
+  @media (max-width: 768px) {
+    font-size: 11px;
+  }
 `
 
 const ClearFilterButton = styled.button`
@@ -400,6 +536,31 @@ const ClearFilterButton = styled.button`
   &:hover {
     background: #c82333;
   }
+
+  @media (max-width: 768px) {
+    padding: 5px 10px;
+    font-size: 11px;
+    margin-left: 0;
+    margin-top: 5px;
+  }
+`
+
+const RelatedGalleryImage = styled.img`
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  border-radius: 8px;
+  margin: 0 auto 15px;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 1024px) {
+    max-width: 180px;
+  }
+
+  @media (max-width: 768px) {
+    max-width: 160px;
+  }
 `
 
 const GalleryArticlePage = ({
@@ -411,72 +572,92 @@ const GalleryArticlePage = ({
 }) => {
   const [labelSearch, setLabelSearch] = useState("")
   const [selectedLabel, setSelectedLabel] = useState("")
+  const [formattedContent, setFormattedContent] = useState("")
 
   const formatDate = (date) => {
     if (!date) return ""
     return format(new Date(date), "dd MMMM yyyy", { locale: id })
   }
 
-  const formatContentWithImages = (content, contentImages = []) => {
-    if (!content) return ""
-
-    const paragraphs = content.split("\n").filter((p) => p.trim())
-    const totalParagraphs = paragraphs.length
-    const totalImages = contentImages.length
-
-    if (totalImages === 0) {
-      return paragraphs
-        .map((paragraph, index) => {
-          if (paragraph.trim()) {
-            return `<p key="${index}">${paragraph.trim()}</p>`
-          }
-          return ""
-        })
-        .join("")
+  const imagePlacements = useMemo(() => {
+    if (!article.content || !article.contentImages || article.contentImages.length === 0) {
+      return {}
     }
 
-    const imageInsertPoints = []
-    if (totalImages > 0 && totalParagraphs > 1) {
-      const interval = Math.max(2, Math.floor(totalParagraphs / (totalImages + 1)))
-      for (let i = 1; i <= totalImages; i++) {
-        const insertPoint = Math.min(interval * i, totalParagraphs - 1)
-        imageInsertPoints.push(insertPoint)
-      }
+    const paragraphs = article.content.split("\n").filter((p) => p.trim())
+    const totalParagraphs = paragraphs.length
+    const images = Array.isArray(article.contentImages) ? article.contentImages.filter(Boolean) : []
+
+    if (images.length === 0 || totalParagraphs === 0) {
+      return {}
+    }
+
+    const seed = article._id ? article._id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0
+    
+    let seedValue = seed
+    const seededRandom = () => {
+      seedValue = (seedValue * 9301 + 49297) % 233280
+      return seedValue / 233280
+    }
+
+    const gaps = Array.from({ length: totalParagraphs }, (_, i) => i)
+
+    for (let i = gaps.length - 1; i > 0; i--) {
+      const j = Math.floor(seededRandom() * (i + 1))
+      ;[gaps[i], gaps[j]] = [gaps[j], gaps[i]]
+    }
+
+    const placements = {}
+    images.forEach((img, idx) => {
+      const gapIdx = gaps[idx % gaps.length]
+      if (!placements[gapIdx]) placements[gapIdx] = []
+      placements[gapIdx].push(img)
+    })
+
+    return placements
+  }, [article._id, article.content, article.contentImages])
+
+  useEffect(() => {
+    if (!article.content) {
+      setFormattedContent("")
+      return
+    }
+
+    const paragraphs = article.content.split("\n").filter((p) => p.trim())
+    
+    if (!article.contentImages || article.contentImages.length === 0) {
+      const simpleHtml = paragraphs
+        .map((paragraph, index) => (paragraph.trim() ? `<p key="p-${index}">${paragraph.trim()}</p>` : ""))
+        .join("")
+      setFormattedContent(simpleHtml)
+      return
     }
 
     let result = ""
-    let imageIndex = 0
-
     paragraphs.forEach((paragraph, index) => {
       if (paragraph.trim()) {
-        result += `<p key="${index}">${paragraph.trim()}</p>`
+        result += `<p key="p-${index}">${paragraph.trim()}</p>`
       }
 
-      if (imageInsertPoints.includes(index + 1) && imageIndex < contentImages.length) {
-        const image = contentImages[imageIndex]
-        result += `<div style="margin: 30px 0; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 12px;">
-          <img src="${image.url}" 
-               alt="${image.originalName || `Gambar ${imageIndex + 1}`}" 
-               style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
-          ${image.originalName ? `<p style="font-size: 13px; color: #666; margin-top: 12px; font-style: italic; font-weight: 500;">${image.originalName}</p>` : ""}
-        </div>`
-        imageIndex++
+      const imgsHere = imagePlacements[index] || []
+      if (imgsHere.length > 0) {
+        imgsHere.forEach((image, i) => {
+          result += `<div style="margin: 20px 0; text-align: center; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+            <img src="${image.url}" 
+                 alt="${image.originalName || `Gambar ${i + 1}`}" 
+                 style="max-width: 70%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
+            ${
+              image.originalName
+                ? `<p style="font-size: 11px; color: #666; margin-top: 8px; font-style: italic; font-weight: 500;">${image.originalName}</p>`
+                : ""
+            }
+          </div>`
+        })
       }
     })
 
-    while (imageIndex < contentImages.length) {
-      const image = contentImages[imageIndex]
-      result += `<div style="margin: 30px 0; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 12px;">
-        <img src="${image.url}" 
-             alt="${image.originalName || `Gambar ${imageIndex + 1}`}" 
-             style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
-        ${image.originalName ? `<p style="font-size: 13px; color: #666; margin-top: 12px; font-style: italic; font-weight: 500;">${image.originalName}</p>` : ""}
-      </div>`
-      imageIndex++
-    }
-
-    return result
-  }
+    setFormattedContent(result)
+  }, [article.content, article.contentImages, imagePlacements])
 
   const filteredLabels = allLabels.filter((label) => label.toLowerCase().includes(labelSearch.toLowerCase()))
 
@@ -544,11 +725,7 @@ const GalleryArticlePage = ({
           </ArticleHeader>
 
           <ArticleContent>
-            <div
-              dangerouslySetInnerHTML={{
-                __html: formatContentWithImages(article.content, article.contentImages),
-              }}
-            />
+            <div dangerouslySetInnerHTML={{ __html: formattedContent }} />
           </ArticleContent>
         </MainContent>
 
@@ -556,7 +733,7 @@ const GalleryArticlePage = ({
           {selectedLabel && filteredArticles.length > 0 && (
             <FilteredArticlesSection>
               <SidebarTitle>
-                Artikel dengan Label: {selectedLabel}
+                <span>Artikel dengan Label: {selectedLabel}</span>
                 <ClearFilterButton onClick={() => setSelectedLabel("")}>Hapus Filter</ClearFilterButton>
               </SidebarTitle>
               {filteredArticles.map((filteredArticle) => (
@@ -639,10 +816,9 @@ const GalleryArticlePage = ({
             <SidebarSection>
               <SidebarTitle>Galeri Terkait</SidebarTitle>
               <div style={{ textAlign: "center" }}>
-                <img
+                <RelatedGalleryImage
                   src={article.relatedGallery.imageUrl || "/placeholder.svg"}
                   alt={article.relatedGallery.title}
-                  style={{ width: "100%", borderRadius: "8px", marginBottom: "15px" }}
                 />
                 <h4 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "8px" }}>
                   {article.relatedGallery.title}

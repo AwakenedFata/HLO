@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import ReactCrop, { centerCrop, makeAspectCrop, convertToPixelCrop } from "react-image-crop"
 import "react-image-crop/dist/ReactCrop.css"
 import {
@@ -69,6 +70,7 @@ const api = axios.create({
 })
 
 function GalleryManagement() {
+  const { status } = useSession()
   const router = useRouter()
   const fileInputRef = useRef(null)
   const bannerFileInputRef = useRef(null)
@@ -163,7 +165,7 @@ function GalleryManagement() {
   const [bannerCropImage, setBannerCropImage] = useState(null)
   const [bannerImgRef, setBannerImgRef] = useState()
 
-  const [bannerAspectRatio, setBannerAspectRatio] = useState(16 / 5) // Default banner ratio
+  const [bannerAspectRatio, setBannerAspectRatio] = useState(16 / 5)
 
   // Frame management state
   const [frames, setFrames] = useState([])
@@ -191,7 +193,7 @@ function GalleryManagement() {
   const [frameDeleting, setFrameDeleting] = useState(false)
 
   const [noCrop, setNoCrop] = useState(false)
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState("16-9") // State to track selected aspect ratio for preview
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState("16-9")
 
   // Toast helper
   const addToast = useCallback((message, type = "success", duration = 5000) => {
@@ -209,29 +211,28 @@ function GalleryManagement() {
     }, duration)
   }, [])
 
-  // Check authentication
   const checkAuth = useCallback(() => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      setAuthError(true)
-      router.push("/admin/login")
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication..., current status:", status)
       return null
     }
-    return token
-  }, [router])
+    return true
+  }, [status])
 
   // Fetch galleries
   const fetchGalleries = useCallback(
     async (page = 1, limit = 20) => {
       if (!isMountedRef.current) return
 
+      if (status !== "authenticated") {
+        console.log("⏳ Waiting for authentication before fetching galleries...")
+        return
+      }
+
       setLoading(true)
       setError("")
 
       try {
-        const token = checkAuth()
-        if (!token) return
-
         const params = {
           page,
           limit,
@@ -241,9 +242,6 @@ function GalleryManagement() {
 
         const response = await api.get("/api/admin/galeri", {
           params,
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
         })
 
         if (isMountedRef.current) {
@@ -259,7 +257,6 @@ function GalleryManagement() {
         if (!isMountedRef.current) return
 
         if (error.response?.status === 401) {
-          sessionStorage.removeItem("adminToken")
           setAuthError(true)
           router.push("/admin/login")
         } else {
@@ -271,21 +268,18 @@ function GalleryManagement() {
         }
       }
     },
-    [checkAuth, searchTerm, filterStatus, router],
+    [status, searchTerm, filterStatus, router],
   )
 
   // Fetch current banner
-
   const fetchCurrentBanner = useCallback(async () => {
-    try {
-      const token = checkAuth()
-      if (!token) return null
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication before fetching banner...")
+      return null
+    }
 
-      const response = await api.get("/api/admin/banner/current", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+    try {
+      const response = await api.get("/api/admin/banner/current")
 
       if (response.data.success && response.data.banner) {
         const banner = {
@@ -295,17 +289,15 @@ function GalleryManagement() {
         setCurrentBanner(banner)
         return banner
       } else {
-        // Clear current banner if no active banner found
         setCurrentBanner(null)
         return null
       }
     } catch (error) {
       console.log("No current banner found or error fetching banner:", error)
-      // Clear current banner on error
       setCurrentBanner(null)
       return null
     }
-  }, [checkAuth])
+  }, [status])
 
   const handleBannerDelete = async () => {
     if (!bannerToDelete) return
@@ -315,11 +307,7 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.delete(`/api/admin/banner/${bannerToDelete._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await api.delete(`/api/admin/banner/${bannerToDelete._id}`)
 
       if (response.data.success) {
         setCurrentBanner(null)
@@ -338,7 +326,6 @@ function GalleryManagement() {
 
   const handleBannerFileSelect = (file) => {
     if (file) {
-      // Clear previous states
       setBannerPreviewImage(null)
       setBannerData({
         imageUrl: "",
@@ -405,7 +392,7 @@ function GalleryManagement() {
       setBannerImgRef(e.currentTarget)
     },
     [bannerAspectRatio],
-  ) // Added bannerAspectRatio dependency
+  )
 
   const createBannerCroppedImage = useCallback(async () => {
     try {
@@ -477,12 +464,10 @@ function GalleryManagement() {
         const previewUrl = URL.createObjectURL(croppedFile)
         setBannerPreviewImage(previewUrl)
 
-        // Close crop modal
         setShowBannerCropModal(false)
         setBannerCropImage(null)
         setBannerCrop(undefined)
 
-        // Auto upload after crop
         await handleBannerUpload(croppedFile)
       }
     } catch (error) {
@@ -491,7 +476,6 @@ function GalleryManagement() {
     }
   }
 
-  // Handle banner upload with auto upload after crop
   const handleBannerUpload = useCallback(
     async (fileToUpload = null) => {
       const file = fileToUpload || selectedBannerFile
@@ -512,7 +496,6 @@ function GalleryManagement() {
 
         const uploadResponse = await api.post("/api/admin/banner/upload", formData, {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         })
@@ -528,7 +511,6 @@ function GalleryManagement() {
           const currentPreview = bannerPreviewImage
           setBannerPreviewImage(imageUrl)
 
-          // Cleanup old blob URL after a small delay to ensure new image loads
           if (currentPreview && currentPreview.startsWith("blob:")) {
             setTimeout(() => {
               URL.revokeObjectURL(currentPreview)
@@ -547,8 +529,6 @@ function GalleryManagement() {
     [selectedBannerFile, checkAuth, addToast, bannerPreviewImage],
   )
 
-  // Handle banner submit - FIXED VERSION
-
   const handleBannerSubmit = useCallback(
     async (e) => {
       e.preventDefault()
@@ -566,7 +546,6 @@ function GalleryManagement() {
 
         const response = await api.post("/api/admin/banner", bannerData, {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         })
@@ -580,7 +559,6 @@ function GalleryManagement() {
             updatedAt: new Date().toISOString(),
           })
 
-          // Clean up form fields
           setBannerData({
             imageUrl: "",
             imageKey: "",
@@ -590,7 +568,6 @@ function GalleryManagement() {
             bannerFileInputRef.current.value = ""
           }
 
-          // Keep the preview visible briefly to avoid flash, then clear safely
           const currentPreview = bannerPreviewImage
           setTimeout(() => {
             try {
@@ -615,7 +592,6 @@ function GalleryManagement() {
     [bannerData, checkAuth, addToast, fetchCurrentBanner, bannerPreviewImage],
   )
 
-  // Handle file selection and show preview
   const handleFileSelect = useCallback(
     (file) => {
       if (!file) return
@@ -636,7 +612,6 @@ function GalleryManagement() {
         return
       }
 
-      // Create preview using FileReader
       const reader = new FileReader()
       reader.onload = (e) => {
         setPreviewImage(e.target.result)
@@ -648,7 +623,6 @@ function GalleryManagement() {
     [addToast],
   )
 
-  // Handle preview button click
   const handlePreviewClick = useCallback(() => {
     if (selectedFile && previewImage) {
       setShowCropModal(true)
@@ -657,9 +631,7 @@ function GalleryManagement() {
     }
   }, [selectedFile, previewImage, addToast])
 
-  // Handle image view in full screen
   const handleImageView = useCallback((imageUrl, title) => {
-    // Ensure the URL is valid before setting it
     if (imageUrl && typeof imageUrl === "string") {
       setSelectedImageUrl(imageUrl)
       setSelectedImageTitle(title)
@@ -685,12 +657,10 @@ function GalleryManagement() {
 
         const response = await api.post("/api/admin/galeri/upload", formData, {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         })
 
-        // Ensure the URL is valid before setting it
         if (response.data.imageUrl && typeof response.data.imageUrl === "string") {
           setFormData((prev) => ({
             ...prev,
@@ -702,7 +672,6 @@ function GalleryManagement() {
           throw new Error("Invalid image URL received from server.")
         }
 
-        // Clear transient states
         setPreviewImage(null)
         setSelectedFile(null)
         setShowCropModal(false)
@@ -710,16 +679,11 @@ function GalleryManagement() {
         setCompletedCrop(undefined)
         setImgRef(undefined)
 
-        // - Reset noCrop so next pick shows modal by default
-        // - Set aspectRatio default for the next modal session
-        // - DO NOT reset selectedAspectRatio here; keep it to reflect the current image correctly in preview
         setNoCrop(false)
         setAspectRatio(16 / 9)
-        // keep selectedAspectRatio as-is to display correct badge/height for current preview
       } catch (error) {
         console.error("Image upload error:", error)
         addToast("Gagal upload gambar: " + (error.response?.data?.error || error.message), "error")
-        // Reset form data if upload fails to prevent using stale data
         setFormData((prev) => ({ ...prev, imageUrl: "", imageKey: "" }))
       } finally {
         setUploading(false)
@@ -822,7 +786,6 @@ function GalleryManagement() {
     }
   }, [selectedFile, previewImage, completedCrop, imgRef, getCroppedImg, handleFileUpload, addToast])
 
-  // Helper to determine object-fit based on aspect ratio
   const getPreviewObjectFit = () => {
     if (selectedAspectRatio === "no-crop") {
       return "contain"
@@ -837,12 +800,10 @@ function GalleryManagement() {
     setCompletedCrop(null)
     setCrop(null)
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
 
-    // Clear form data image fields but keep other fields
     setFormData((prev) => ({
       ...prev,
       imageUrl: "",
@@ -852,7 +813,6 @@ function GalleryManagement() {
 
   const handleReplaceImage = useCallback(() => {
     resetImageUpload()
-    // Trigger file input click after state reset
     setTimeout(() => {
       if (fileInputRef.current) {
         fileInputRef.current.click()
@@ -860,7 +820,6 @@ function GalleryManagement() {
     }, 100)
   }, [])
 
-  // Handle form submit
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault()
@@ -876,11 +835,7 @@ function GalleryManagement() {
         const token = checkAuth()
         if (!token) return
 
-        await api.post("/api/admin/galeri", formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await api.post("/api/admin/galeri", formData)
 
         addToast("Gallery item berhasil ditambahkan", "success")
         setFormData({
@@ -905,7 +860,6 @@ function GalleryManagement() {
     [formData, checkAuth, addToast, fetchGalleries, itemsPerPage, resetImageUpload],
   )
 
-  // Handle edit submit
   const handleEditSubmit = useCallback(
     async (e) => {
       e.preventDefault()
@@ -932,11 +886,7 @@ function GalleryManagement() {
         const token = checkAuth()
         if (!token) return
 
-        await api.put(`/api/admin/galeri/${editingGallery._id}`, updateData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await api.put(`/api/admin/galeri/${editingGallery._id}`, updateData)
 
         addToast("Gallery item berhasil ditambahkan", "success")
         setShowEditModal(false)
@@ -951,7 +901,6 @@ function GalleryManagement() {
     [editingGallery, checkAuth, addToast, fetchGalleries, currentPage, itemsPerPage],
   )
 
-  // Handle delete
   const handleDelete = useCallback(async () => {
     if (!galleryToDelete) return
 
@@ -959,11 +908,7 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      await api.delete(`/api/admin/galeri/${galleryToDelete._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      await api.delete(`/api/admin/galeri/${galleryToDelete._id}`)
 
       addToast("Gallery item berhasil dihapus", "success")
       setShowDeleteModal(false)
@@ -974,7 +919,6 @@ function GalleryManagement() {
     }
   }, [galleryToDelete, checkAuth, addToast, fetchGalleries, currentPage, itemsPerPage])
 
-  // Handle select all
   const handleSelectAll = useCallback(
     (checked) => {
       setSelectAll(checked)
@@ -987,7 +931,6 @@ function GalleryManagement() {
     [filteredGalleries],
   )
 
-  // Handle select gallery
   const handleSelectGallery = useCallback((id, checked) => {
     if (checked) {
       setSelectedGalleries((prev) => [...prev, id])
@@ -997,18 +940,15 @@ function GalleryManagement() {
     }
   }, [])
 
-  // Handle refresh
   const handleRefresh = useCallback(() => {
     fetchGalleries(currentPage, itemsPerPage)
   }, [fetchGalleries, currentPage, itemsPerPage])
 
-  // Handle search
   const handleSearchChange = useCallback((value) => {
     setSearchTerm(value)
     setCurrentPage(1)
   }, [])
 
-  // Bulk delete functionality
   const handleBulkDelete = useCallback(async () => {
     if (selectedGalleries.length === 0) return
 
@@ -1017,17 +957,9 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.post(
-        "/api/admin/galeri/bulk-delete",
-        {
-          ids: selectedGalleries,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
+      const response = await api.post("/api/admin/galeri/bulk-delete", {
+        ids: selectedGalleries,
+      })
 
       addToast(`${response.data.deletedCount} gallery items berhasil dihapus`, "success")
       setShowDeleteMultipleModal(false)
@@ -1042,19 +974,16 @@ function GalleryManagement() {
     }
   }, [selectedGalleries, checkAuth, addToast, fetchGalleries, currentPage, itemsPerPage])
 
-  // Fetch frames
   const fetchFrames = useCallback(async () => {
     if (!isMountedRef.current) return
 
-    try {
-      const token = checkAuth()
-      if (!token) return
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication before fetching frames...")
+      return
+    }
 
-      const response = await api.get("/api/admin/bingkai", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+    try {
+      const response = await api.get("/api/admin/bingkai")
 
       if (isMountedRef.current) {
         setFrames(response.data.frames)
@@ -1064,16 +993,14 @@ function GalleryManagement() {
       if (!isMountedRef.current) return
 
       if (error.response?.status === 401) {
-        sessionStorage.removeItem("adminToken")
         setAuthError(true)
         router.push("/admin/login")
       } else {
         console.error("Error fetching frames:", error)
       }
     }
-  }, [checkAuth, router])
+  }, [status, router])
 
-  // Handle frame file selection
   const handleFrameFileSelect = useCallback(
     (file) => {
       if (!file) return
@@ -1101,13 +1028,11 @@ function GalleryManagement() {
       }
       reader.readAsDataURL(file)
 
-      // Auto upload frame without cropping
       handleFrameUpload(file)
     },
     [addToast],
   )
 
-  // Handle frame upload
   const handleFrameUpload = useCallback(
     async (fileToUpload = null) => {
       const file = fileToUpload || selectedFrameFile
@@ -1128,7 +1053,6 @@ function GalleryManagement() {
 
         const uploadResponse = await api.post("/api/admin/bingkai/upload", formData, {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         })
@@ -1155,7 +1079,6 @@ function GalleryManagement() {
     [selectedFrameFile, checkAuth, addToast],
   )
 
-  // Handle frame submit
   const handleFrameSubmit = useCallback(
     async (e) => {
       e.preventDefault()
@@ -1178,7 +1101,6 @@ function GalleryManagement() {
 
         const response = await api.post("/api/admin/bingkai", frameFormData, {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         })
@@ -1186,7 +1108,6 @@ function GalleryManagement() {
         if (response.data.success) {
           addToast("Frame berhasil ditambahkan", "success")
 
-          // Reset form
           setFrameFormData({
             relatedGallery: "",
             imageUrl: "",
@@ -1202,7 +1123,6 @@ function GalleryManagement() {
             frameFileInputRef.current.value = ""
           }
 
-          // Refresh frames list
           await fetchFrames()
         }
       } catch (error) {
@@ -1215,7 +1135,6 @@ function GalleryManagement() {
     [frameFormData, checkAuth, addToast, fetchFrames],
   )
 
-  // Handle frame delete
   const handleFrameDelete = useCallback(async () => {
     if (!frameToDelete) return
 
@@ -1224,11 +1143,7 @@ function GalleryManagement() {
       const token = checkAuth()
       if (!token) return
 
-      const response = await api.delete(`/api/admin/bingkai/${frameToDelete._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await api.delete(`/api/admin/bingkai/${frameToDelete._id}`)
 
       if (response.data.success) {
         addToast("Frame berhasil dihapus", "success")
@@ -1244,23 +1159,19 @@ function GalleryManagement() {
     }
   }, [frameToDelete, checkAuth, addToast, fetchFrames])
 
-  // Initialize component
   useEffect(() => {
     setIsClient(true)
     isMountedRef.current = true
 
     return () => {
       isMountedRef.current = false
-      // Cleanup blob URLs on unmount with error handling
       try {
         if (bannerPreviewImage && bannerPreviewImage.startsWith("blob:")) {
           URL.revokeObjectURL(bannerPreviewImage)
         }
-        // Also clean up previewImage if it's a blob URL
         if (previewImage && previewImage.startsWith("blob:")) {
           URL.revokeObjectURL(previewImage)
         }
-        // Clean up framePreviewImage if it's a blob URL
         if (framePreviewImage && framePreviewImage.startsWith("blob:")) {
           URL.revokeObjectURL(framePreviewImage)
         }
@@ -1270,17 +1181,14 @@ function GalleryManagement() {
     }
   }, [bannerPreviewImage, previewImage, framePreviewImage])
 
-  // Fetch data when component mounts or dependencies change
   useEffect(() => {
-    if (isClient && !authError) {
+    if (isClient && !authError && status === "authenticated") {
       fetchGalleries(1, itemsPerPage)
       fetchCurrentBanner()
-      // Fetch frames
       fetchFrames()
     }
-  }, [isClient, authError, fetchGalleries, itemsPerPage, fetchCurrentBanner, fetchFrames])
+  }, [isClient, authError, status, fetchGalleries, itemsPerPage, fetchCurrentBanner, fetchFrames])
 
-  // Stats cards
   const statsCards = [
     {
       title: "Total Gallery",
@@ -1308,7 +1216,6 @@ function GalleryManagement() {
     },
   ]
 
-  // Render pagination
   const renderPagination = () => {
     if (totalPages <= 1) return null
 
@@ -1359,7 +1266,19 @@ function GalleryManagement() {
     )
   }
 
-  // Show loading while not client-side
+  if (status === "loading") {
+    return (
+      <div className="gallery-management-page">
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+          <div className="text-center">
+            <Spinner animation="border" variant="primary" />
+            <p className="mt-3 text-muted">Memuat sesi...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!isClient) {
     return (
       <div className="gallery-management-page">
@@ -1373,7 +1292,6 @@ function GalleryManagement() {
     )
   }
 
-  // Show auth error
   if (authError) {
     return (
       <div className="gallery-management-page">
@@ -1388,7 +1306,6 @@ function GalleryManagement() {
     )
   }
 
-  // Show loading while data hasn't loaded
   if (!dataLoaded) {
     return (
       <div className="gallery-management-page">
@@ -1401,8 +1318,7 @@ function GalleryManagement() {
               variant="outline-primary"
               size="sm"
               onClick={() => fetchGalleries(1, itemsPerPage)}
-              disabled={loading}
-              className="mt-2"
+              disabled={loading || status !== "authenticated"}
             >
               {loading ? "Memuat ulang..." : "Muat Ulang Data"}
             </Button>
@@ -1420,15 +1336,15 @@ function GalleryManagement() {
 
   const getPreviewHeight = () => {
     if (selectedAspectRatio === "no-crop") {
-      return "auto" // Let image maintain its natural aspect ratio
+      return "auto"
     }
 
     const aspectRatios = {
-      "16-9": "225px", // 400 * 9/16 = 225
-      "4-3": "300px", // 400 * 3/4 = 300
-      "1-1": "400px", // 400 * 1/1 = 400
-      "3-4": "533px", // 400 * 4/3 = 533 (but we'll cap it)
-      free: "250px", // Default height for free crop
+      "16-9": "225px",
+      "4-3": "300px",
+      "1-1": "400px",
+      "3-4": "533px",
+      free: "250px",
     }
 
     return aspectRatios[selectedAspectRatio] || "200px"
@@ -1438,7 +1354,12 @@ function GalleryManagement() {
     <div className="gallery-management-page">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="mb-0">Manajemen Gallery</h1>
-        <Button variant="outline-primary" size="sm" onClick={handleRefresh} disabled={loading}>
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading || status !== "authenticated"}
+        >
           <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
           {loading ? "Memuat..." : "Refresh"}
         </Button>
@@ -1449,7 +1370,6 @@ function GalleryManagement() {
           {error}
         </Alert>
       )}
-      {/* Stats Cards */}
       <Row className="mb-4">
         {statsCards.map((stat, index) => (
           <Col md={3} key={index}>
@@ -1465,7 +1385,6 @@ function GalleryManagement() {
           </Col>
         ))}
       </Row>
-      {/* Action Tabs */}
       <Card className="mb-4 shadow-sm">
         <Card.Header>
           <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="border-0" fill>
@@ -1498,6 +1417,7 @@ function GalleryManagement() {
                           }
                           placeholder="Masukkan judul gallery"
                           required
+                          disabled={status !== "authenticated"}
                         />
                       </Form.Group>
                     </Col>
@@ -1518,6 +1438,7 @@ function GalleryManagement() {
                           }
                           placeholder="Masukkan label gallery"
                           required
+                          disabled={status !== "authenticated"}
                         />
                       </Form.Group>
                     </Col>
@@ -1540,6 +1461,7 @@ function GalleryManagement() {
                           }
                           placeholder="Masukkan lokasi"
                           required
+                          disabled={status !== "authenticated"}
                         />
                       </Form.Group>
                     </Col>
@@ -1559,6 +1481,7 @@ function GalleryManagement() {
                             }))
                           }
                           required
+                          disabled={status !== "authenticated"}
                         />
                       </Form.Group>
                     </Col>
@@ -1578,6 +1501,7 @@ function GalleryManagement() {
                         }))
                       }
                       placeholder="Masukkan link Google Maps (contoh: https://maps.google.com/...)"
+                      disabled={status !== "authenticated"}
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
@@ -1591,16 +1515,14 @@ function GalleryManagement() {
                         accept="image/*"
                         ref={fileInputRef}
                         onChange={(e) => {
-                          const file = e.target.files?.[0] // Fixed: Removed extra '.' after files
+                          const file = e.target.files?.[0]
                           if (!file) return
 
-                          // Validate file type
                           if (!file.type.startsWith("image/")) {
                             addToast("File harus berupa gambar", "error")
                             return
                           }
 
-                          // Validate file size (max 10MB)
                           if (file.size > 10 * 1024 * 1024) {
                             addToast("Ukuran file maksimal 10MB", "error")
                             return
@@ -1616,7 +1538,6 @@ function GalleryManagement() {
                             return
                           }
 
-                          // Create preview for cropping
                           const reader = new FileReader()
                           reader.onload = () => {
                             setPreviewImage(reader.result)
@@ -1626,6 +1547,7 @@ function GalleryManagement() {
                         }}
                         className="form-control-lg"
                         required={!formData.imageUrl}
+                        disabled={status !== "authenticated"}
                         style={{
                           display: formData.imageUrl ? "none" : "block",
                         }}
@@ -1642,27 +1564,26 @@ function GalleryManagement() {
                               variant="outline-primary"
                               size="sm"
                               onClick={handleReplaceImage}
-                              disabled={uploading}
+                              disabled={uploading || status !== "authenticated"}
                             >
-                              <FaExpand className="me-1" /> {/* Changed icon to FaExpand for consistency */}
+                              <FaExpand className="me-1" />
                               Ganti Gambar
                             </Button>
                           </div>
                         </div>
                       )}
 
-                      {(selectedFile || previewImage) &&
-                        !noCrop && ( // Only show preview button if not in no-crop mode
-                          <Button
-                            variant="outline-info"
-                            onClick={handlePreviewClick}
-                            disabled={uploading}
-                            title="Preview & Crop Gambar"
-                          >
-                            <FaSearchPlus className="me-1" />
-                            Preview
-                          </Button>
-                        )}
+                      {(selectedFile || previewImage) && !noCrop && (
+                        <Button
+                          variant="outline-info"
+                          onClick={handlePreviewClick}
+                          disabled={uploading || status !== "authenticated"}
+                          title="Preview & Crop Gambar"
+                        >
+                          <FaSearchPlus className="me-1" />
+                          Preview
+                        </Button>
+                      )}
                     </div>
                     <Form.Text muted>Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB</Form.Text>
                     {uploading && (
@@ -1719,7 +1640,7 @@ function GalleryManagement() {
                               padding: "4px 8px",
                               borderRadius: "4px",
                               fontSize: "12px",
-                              pointerEvents: "none", // Prevent this from interfering with clicks
+                              pointerEvents: "none",
                             }}
                           >
                             {selectedAspectRatio === "no-crop"
@@ -1744,7 +1665,12 @@ function GalleryManagement() {
                       </div>
                     )}
                   </Form.Group>
-                  <Button type="submit" variant="primary" size="lg" disabled={submitting || uploading}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    disabled={submitting || uploading || status !== "authenticated"}
+                  >
                     {submitting ? (
                       <>
                         <Spinner animation="border" size="sm" className="me-2" />
@@ -1789,6 +1715,7 @@ function GalleryManagement() {
                         ref={bannerFileInputRef}
                         onChange={(e) => handleBannerFileSelect(e.target.files[0])}
                         className="form-control-lg"
+                        disabled={status !== "authenticated"}
                       />
                     </div>
                     <Form.Text muted>
@@ -1804,7 +1731,6 @@ function GalleryManagement() {
                     )}
                   </Form.Group>
 
-                  {/* Banner Preview */}
                   {bannerPreviewImage && (
                     <div className="mt-3">
                       <div
@@ -1864,7 +1790,11 @@ function GalleryManagement() {
                   )}
 
                   <div className="d-flex gap-2">
-                    <Button type="submit" variant="primary" disabled={bannerSubmitting || !bannerData.imageUrl}>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={bannerSubmitting || !bannerData.imageUrl || status !== "authenticated"}
+                    >
                       {bannerSubmitting ? (
                         <>
                           <Spinner animation="border" size="sm" className="me-2" />
@@ -1902,7 +1832,7 @@ function GalleryManagement() {
                           bannerFileInputRef.current.value = ""
                         }
                       }}
-                      disabled={bannerSubmitting}
+                      disabled={bannerSubmitting || status !== "authenticated"}
                     >
                       <FaTimes className="me-2" />
                       Reset
@@ -1910,7 +1840,6 @@ function GalleryManagement() {
                   </div>
                 </Form>
 
-                {/* Current Banner Display */}
                 <hr className="my-4" />
 
                 <h5 className="mb-3">
@@ -1995,6 +1924,7 @@ function GalleryManagement() {
                           setBannerToDelete(currentBanner)
                           setShowBannerDeleteModal(true)
                         }}
+                        disabled={status !== "authenticated"}
                       >
                         <FaTrash className="me-1" />
                         Hapus Banner
@@ -2031,7 +1961,7 @@ function GalleryManagement() {
                           variant="danger"
                           size="sm"
                           onClick={() => setShowDeleteMultipleModal(true)}
-                          disabled={deletingMultiple}
+                          disabled={deletingMultiple || status !== "authenticated"}
                         >
                           <FaTrash className="me-1" />
                           {deletingMultiple ? "Menghapus..." : `Hapus (${selectedGalleries.length})`}
@@ -2041,7 +1971,6 @@ function GalleryManagement() {
                   </div>
                 </Card.Header>
                 <Card.Body>
-                  {/* Search and Filter */}
                   <Row className="mb-3">
                     <Col md={8}>
                       <InputGroup>
@@ -2052,9 +1981,14 @@ function GalleryManagement() {
                           placeholder="Cari judul, label, atau lokasi..."
                           value={searchTerm}
                           onChange={(e) => handleSearchChange(e.target.value)}
+                          disabled={status !== "authenticated"}
                         />
                         {searchTerm && (
-                          <Button variant="outline-secondary" onClick={() => handleSearchChange("")}>
+                          <Button
+                            variant="outline-secondary"
+                            onClick={() => handleSearchChange("")}
+                            disabled={status !== "authenticated"}
+                          >
                             &times;
                           </Button>
                         )}
@@ -2071,6 +2005,7 @@ function GalleryManagement() {
                           </>
                         }
                         variant="outline-secondary"
+                        disabled={status !== "authenticated"}
                       >
                         <Dropdown.Item active={filterStatus === "all"} onClick={() => setFilterStatus("all")}>
                           <FaEye className="me-2" />
@@ -2088,7 +2023,6 @@ function GalleryManagement() {
                     </Col>
                   </Row>
 
-                  {/* Table */}
                   <div className="table-responsive" style={{ maxHeight: "500px", overflowY: "auto" }}>
                     <Table striped bordered hover responsive className="mb-0">
                       <thead className="table-dark sticky-top">
@@ -2098,7 +2032,7 @@ function GalleryManagement() {
                               type="checkbox"
                               checked={selectAll}
                               onChange={(e) => handleSelectAll(e.target.checked)}
-                              disabled={loading || filteredGalleries.length === 0}
+                              disabled={loading || filteredGalleries.length === 0 || status !== "authenticated"}
                             />
                           </th>
                           <th>Gambar</th>
@@ -2134,6 +2068,7 @@ function GalleryManagement() {
                                   type="checkbox"
                                   checked={selectedGalleries.includes(gallery._id)}
                                   onChange={(e) => handleSelectGallery(gallery._id, e.target.checked)}
+                                  disabled={status !== "authenticated"}
                                 />
                               </td>
                               <td>
@@ -2230,6 +2165,7 @@ function GalleryManagement() {
                                         setEditingGallery(gallery)
                                         setShowEditModal(true)
                                       }}
+                                      disabled={status !== "authenticated"}
                                     >
                                       <FaEdit />
                                     </Button>
@@ -2242,6 +2178,7 @@ function GalleryManagement() {
                                         setGalleryToDelete(gallery)
                                         setShowDeleteModal(true)
                                       }}
+                                      disabled={status !== "authenticated"}
                                     >
                                       <FaTrash />
                                     </Button>
@@ -2267,7 +2204,6 @@ function GalleryManagement() {
               </Card>
             </Tab>
 
-            {/* New Tab for Frame Upload */}
             <Tab
               eventKey="frames"
               title={
@@ -2298,6 +2234,7 @@ function GalleryManagement() {
                         }))
                       }
                       required
+                      disabled={status !== "authenticated"}
                     >
                       <option value="">Pilih Gallery...</option>
                       {galleries.map((gallery) => (
@@ -2321,6 +2258,7 @@ function GalleryManagement() {
                       onChange={(e) => handleFrameFileSelect(e.target.files[0])}
                       className="form-control-lg"
                       required={!frameFormData.imageUrl}
+                      disabled={status !== "authenticated"}
                     />
                     <Form.Text muted>
                       Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB. Gambar akan diupload dalam ukuran
@@ -2335,7 +2273,6 @@ function GalleryManagement() {
                     )}
                   </Form.Group>
 
-                  {/* Frame Preview */}
                   {framePreviewImage && (
                     <div className="mt-3">
                       <div
@@ -2396,7 +2333,12 @@ function GalleryManagement() {
                     <Button
                       type="submit"
                       variant="primary"
-                      disabled={frameSubmitting || !frameFormData.imageUrl || !frameFormData.relatedGallery}
+                      disabled={
+                        frameSubmitting ||
+                        !frameFormData.imageUrl ||
+                        !frameFormData.relatedGallery ||
+                        status !== "authenticated"
+                      }
                     >
                       {frameSubmitting ? (
                         <>
@@ -2430,7 +2372,7 @@ function GalleryManagement() {
                           frameFileInputRef.current.value = ""
                         }
                       }}
-                      disabled={frameSubmitting}
+                      disabled={frameSubmitting || status !== "authenticated"}
                     >
                       <FaTimes className="me-2" />
                       Reset
@@ -2438,7 +2380,6 @@ function GalleryManagement() {
                   </div>
                 </Form>
 
-                {/* Frame management table below the upload form */}
                 <hr className="my-4" />
 
                 <h5 className="mb-3">
@@ -2446,7 +2387,6 @@ function GalleryManagement() {
                   Kelola Frame
                 </h5>
 
-                {/* Frame Stats */}
                 <Row className="mb-3">
                   <Col md={3}>
                     <Card className="text-center h-100 border-primary">
@@ -2494,12 +2434,16 @@ function GalleryManagement() {
                   </Col>
                 </Row>
 
-                {/* Frame Table */}
                 <Card className="shadow-sm">
                   <Card.Header className="bg-light">
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="fw-bold">Daftar Frame</span>
-                      <Button variant="outline-primary" size="sm" onClick={fetchFrames} disabled={loading}>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={fetchFrames}
+                        disabled={loading || status !== "authenticated"}
+                      >
                         <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
                         Refresh
                       </Button>
@@ -2648,6 +2592,7 @@ function GalleryManagement() {
                                           setFrameToDelete(frame)
                                           setShowFrameDeleteModal(true)
                                         }}
+                                        disabled={status !== "authenticated"}
                                       >
                                         <FaTrash />
                                       </Button>
@@ -2670,13 +2615,10 @@ function GalleryManagement() {
                 </Card>
               </div>
             </Tab>
-
-            {/* Existing tabs continue here */}
           </Tabs>
         </Card.Header>
       </Card>
 
-      {/* Toast Notifications */}
       <ToastContainer position="top-end" className="p-3">
         {toasts.map((toast) => (
           <Toast
@@ -2701,7 +2643,6 @@ function GalleryManagement() {
         ))}
       </ToastContainer>
 
-      {/* Image Viewer Modal */}
       <Modal show={showImageModal} onHide={() => setShowImageModal(false)} centered size="xl">
         <Modal.Header closeButton className="bg-dark text-white">
           <Modal.Title>
@@ -2745,7 +2686,6 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Edit Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
@@ -2769,6 +2709,7 @@ function GalleryManagement() {
                         defaultValue={editingGallery.title}
                         placeholder="Masukkan judul gallery"
                         required
+                        disabled={status !== "authenticated"}
                         onClick={(e) => e.stopPropagation()}
                         onFocus={(e) => e.stopPropagation()}
                       />
@@ -2786,6 +2727,7 @@ function GalleryManagement() {
                         defaultValue={editingGallery.label}
                         placeholder="Masukkan label gallery"
                         required
+                        disabled={status !== "authenticated"}
                         onClick={(e) => e.stopPropagation()}
                         onFocus={(e) => e.stopPropagation()}
                       />
@@ -2805,6 +2747,7 @@ function GalleryManagement() {
                         defaultValue={editingGallery.location}
                         placeholder="Masukkan lokasi"
                         required
+                        disabled={status !== "authenticated"}
                         onClick={(e) => e.stopPropagation()}
                         onFocus={(e) => e.stopPropagation()}
                       />
@@ -2821,6 +2764,7 @@ function GalleryManagement() {
                         name="uploadDate"
                         defaultValue={new Date(editingGallery.uploadDate).toISOString().split("T")[0]}
                         required
+                        disabled={status !== "authenticated"}
                         onClick={(e) => e.stopPropagation()}
                         onFocus={(e) => e.stopPropagation()}
                       />
@@ -2837,6 +2781,7 @@ function GalleryManagement() {
                     name="mapLink"
                     defaultValue={editingGallery.mapLink}
                     placeholder="Masukkan link Lokasi (Google Map)"
+                    disabled={status !== "authenticated"}
                     onClick={(e) => e.stopPropagation()}
                     onFocus={(e) => e.stopPropagation()}
                   />
@@ -2926,7 +2871,12 @@ function GalleryManagement() {
             >
               Batal
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting} onClick={(e) => e.stopPropagation()}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={submitting || status !== "authenticated"}
+              onClick={(e) => e.stopPropagation()}
+            >
               {submitting ? (
                 <>
                   <Spinner animation="border" size="sm" className="me-2" />
@@ -2943,7 +2893,6 @@ function GalleryManagement() {
         </Form>
       </Modal>
 
-      {/* Delete Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -2963,14 +2912,13 @@ function GalleryManagement() {
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
             Batal
           </Button>
-          <Button variant="danger" onClick={handleDelete}>
+          <Button variant="danger" onClick={handleDelete} disabled={status !== "authenticated"}>
             <FaTrash className="me-2" />
             Hapus
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Delete Multiple Modal */}
       <Modal show={showDeleteMultipleModal} onHide={() => setShowDeleteMultipleModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -3003,7 +2951,6 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Crop Modal */}
       <Modal
         show={showCropModal}
         onHide={() => {
@@ -3086,7 +3033,7 @@ function GalleryManagement() {
                       setAspectRatio(undefined)
                       setCrop(undefined)
                       setCompletedCrop(undefined)
-                      setSelectedAspectRatio("no-crop") // Update selected aspect ratio state
+                      setSelectedAspectRatio("no-crop")
                     }}
                   >
                     <FaUpload className="me-1" />
@@ -3100,8 +3047,7 @@ function GalleryManagement() {
                       setAspectRatio(16 / 9)
                       setCrop(undefined)
                       setCompletedCrop(undefined)
-                      setSelectedAspectRatio("16-9") // Update selected aspect ratio state
-                      // Force re-initialization of crop area
+                      setSelectedAspectRatio("16-9")
                       setTimeout(() => {
                         if (imgRef) {
                           const { width, height } = imgRef
@@ -3138,8 +3084,7 @@ function GalleryManagement() {
                       setAspectRatio(4 / 3)
                       setCrop(undefined)
                       setCompletedCrop(undefined)
-                      setSelectedAspectRatio("4-3") // Update selected aspect ratio state
-                      // Force re-initialization of crop area
+                      setSelectedAspectRatio("4-3")
                       setTimeout(() => {
                         if (imgRef) {
                           const { width, height } = imgRef
@@ -3176,8 +3121,7 @@ function GalleryManagement() {
                       setAspectRatio(1)
                       setCrop(undefined)
                       setCompletedCrop(undefined)
-                      setSelectedAspectRatio("1-1") // Update selected aspect ratio state
-                      // Force re-initialization of crop area
+                      setSelectedAspectRatio("1-1")
                       setTimeout(() => {
                         if (imgRef) {
                           const { width, height } = imgRef
@@ -3205,8 +3149,7 @@ function GalleryManagement() {
                       setAspectRatio(3 / 4)
                       setCrop(undefined)
                       setCompletedCrop(undefined)
-                      setSelectedAspectRatio("3-4") // Update selected aspect ratio state
-                      // Force re-initialization of crop area
+                      setSelectedAspectRatio("3-4")
                       setTimeout(() => {
                         if (imgRef) {
                           const { width, height } = imgRef
@@ -3243,8 +3186,7 @@ function GalleryManagement() {
                       setAspectRatio(undefined)
                       setCrop(undefined)
                       setCompletedCrop(undefined)
-                      setSelectedAspectRatio("free") // Update selected aspect ratio state
-                      // Initialize default crop area
+                      setSelectedAspectRatio("free")
                       setTimeout(() => {
                         if (imgRef) {
                           const { width, height } = imgRef
@@ -3290,8 +3232,8 @@ function GalleryManagement() {
               setSelectedFile(null)
               setCrop(undefined)
               setCompletedCrop(undefined)
-              setNoCrop(false) // Reset noCrop state
-              setSelectedAspectRatio("16-9") // Reset to default aspect ratio
+              setNoCrop(false)
+              setSelectedAspectRatio("16-9")
               if (fileInputRef.current) {
                 fileInputRef.current.value = ""
               }
@@ -3327,7 +3269,6 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Banner Delete Modal */}
       <Modal show={showBannerDeleteModal} onHide={() => setShowBannerDeleteModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -3364,7 +3305,6 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Banner Crop Modal */}
       <Modal
         show={showBannerCropModal}
         onHide={() => {
@@ -3478,7 +3418,6 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Frame Delete Modal */}
       <Modal show={showFrameDeleteModal} onHide={() => setShowFrameDeleteModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>

@@ -1,32 +1,29 @@
 import { NextResponse } from "next/server"
+import crypto from "crypto"
 import connectToDatabase from "@/lib/db"
 import Banner from "@/lib/models/banner"
-import { authorizeRequest } from "@/lib/utils/auth-server"
+import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
 import { validateRequest, bannerCreationSchema } from "@/lib/utils/validation"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
-// Rate limiter for GET endpoint
 const getLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
+  interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute
+  limit: 30,
 })
 
-// Rate limiter for POST endpoint
 const postLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
+  interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 10, // 10 requests per minute
+  limit: 10,
 })
 
-// GET all banners with pagination and filtering
 export async function GET(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await getLimiter.check(identifier, 30)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -45,53 +42,29 @@ export async function GET(request) {
       )
     }
 
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ error: guard.message }, { status: guard.status })
+    }
+    const { session } = guard
+
     await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
+    const page = Number.parseInt(searchParams.get("page") || "1", 10)
+    const limit = Number.parseInt(searchParams.get("limit") || "20", 10)
+    const search = searchParams.get("search") || undefined
+    const sortBy = searchParams.get("sortBy") || "createdAt"
+    const sortOrder = searchParams.get("sortOrder") || "desc"
+    const status = searchParams.get("status") || "all"
+    const skip = (page - 1) * limit
 
-    // Extract and clean query parameters
-    const queryParams = {
-      page: searchParams.get("page") || "1",
-      limit: searchParams.get("limit") || "20",
-      search: searchParams.get("search") || undefined,
-      sortBy: searchParams.get("sortBy") || "createdAt",
-      sortOrder: searchParams.get("sortOrder") || "desc",
-      status: searchParams.get("status") || "all",
-    }
-
-    // Remove null/empty string values
-    Object.keys(queryParams).forEach((key) => {
-      if (queryParams[key] === null || queryParams[key] === "") {
-        delete queryParams[key]
-      }
-    })
-
-    const { page = "1", limit = "20", search, sortBy = "createdAt", sortOrder = "desc", status = "all" } = queryParams
-
-    const pageNum = Number.parseInt(page, 10)
-    const limitNum = Number.parseInt(limit, 10)
-    const skip = (pageNum - 1) * limitNum
-
-    // Check for cache busting parameter
     const cacheBuster = searchParams.get("_t")
-    const bypassCache = cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
+    const bypassCache = !!cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
 
-    // Build query filter based on status
     const query = {}
-    if (status === "active") {
-      query.isActive = true
-    } else if (status === "inactive") {
-      query.isActive = false
-    }
-    // If status is "all", don't add isActive filter
+    if (status === "active") query.isActive = true
+    else if (status === "inactive") query.isActive = false
 
-    // Add search filter if provided
     if (search && search.trim()) {
       query.$or = [
         { imageUrl: { $regex: search.trim(), $options: "i" } },
@@ -99,66 +72,50 @@ export async function GET(request) {
       ]
     }
 
-    // Build sort object
-    const sort = {}
-    sort[sortBy] = sortOrder === "asc" ? 1 : -1
+    const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 }
 
     const totalFiltered = await Banner.countDocuments(query)
-
     const banners = await Banner.find(query)
       .populate("createdBy", "username")
       .populate("updatedBy", "username")
       .sort(sort)
       .skip(skip)
-      .limit(limitNum)
+      .limit(limit)
       .lean()
 
-    // Calculate statistics
-    const [totalAll, activeAll] = await Promise.all([
+    const [totalAll, activeAll, thisMonth] = await Promise.all([
       Banner.countDocuments({}),
       Banner.countDocuments({ isActive: true }),
+      Banner.countDocuments({
+        createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+      }),
     ])
 
     const stats = {
       total: totalAll,
       active: activeAll,
       inactive: totalAll - activeAll,
-      thisMonth: await Banner.countDocuments({
-        createdAt: {
-          $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        },
-      }),
+      thisMonth,
     }
 
-    logger.info(
-      `Banners fetched by ${authResult.user.username}, page: ${pageNum}, limit: ${limitNum}, total: ${totalFiltered}`,
-    )
+    logger.info(`Banners fetched by ${session.user.email}, page: ${page}, limit: ${limit}, total: ${totalFiltered}`)
 
-    // Prepare response headers
     const responseHeaders = {
       "X-Total-Count": totalFiltered.toString(),
-      "X-Total-Pages": Math.ceil(totalFiltered / limitNum).toString(),
+      "X-Total-Pages": Math.ceil(totalFiltered / limit).toString(),
     }
 
-    // Handle caching
     if (bypassCache) {
       responseHeaders["Cache-Control"] = "no-store, no-cache, must-revalidate"
       responseHeaders["Pragma"] = "no-cache"
       responseHeaders["Expires"] = "0"
     } else {
       responseHeaders["Cache-Control"] = "private, max-age=30"
-
-      // Generate ETag
-      const dataHash = require("crypto").createHash("md5").update(JSON.stringify({ banners, stats })).digest("hex")
+      const dataHash = crypto.createHash("md5").update(JSON.stringify({ banners, stats })).digest("hex")
       responseHeaders["ETag"] = `"banners-${dataHash}"`
-
-      // Check if client has cached version
       const ifNoneMatch = request.headers.get("if-none-match")
       if (ifNoneMatch === responseHeaders["ETag"]) {
-        return new NextResponse(null, {
-          status: 304,
-          headers: responseHeaders,
-        })
+        return new NextResponse(null, { status: 304, headers: responseHeaders })
       }
     }
 
@@ -167,27 +124,28 @@ export async function GET(request) {
         banners,
         stats,
         pagination: {
-          current: pageNum,
-          total: Math.ceil(totalFiltered / limitNum),
+          current: page,
+          total: Math.ceil(totalFiltered / limit),
           totalItems: totalFiltered,
-          limit: limitNum,
+          limit,
         },
       },
       { headers: responseHeaders },
     )
   } catch (error) {
+    const status = error?.statusCode || 500
+    if (status === 401 || status === 403) {
+      return NextResponse.json({ error: error.message }, { status })
+    }
     logger.error("Error fetching banners:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }
 
-// POST create new banner
 export async function POST(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await postLimiter.check(identifier, 10)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -207,16 +165,9 @@ export async function POST(request) {
     }
 
     await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
-    }
+    const session = await requireAdmin()
 
     const body = await request.json()
-
-    // Validate request
     const validation = await validateRequest(bannerCreationSchema, body)
     if (!validation.success) {
       return NextResponse.json(validation.error, { status: 400 })
@@ -224,24 +175,19 @@ export async function POST(request) {
 
     const { imageUrl, imageKey } = validation.data
 
-    // Create banner item
+    const adminId = await resolveAdminIdFromSession(session)
+
     const banner = await Banner.create({
       imageUrl,
       imageKey,
-      createdBy: authResult.user._id,
       isActive: true,
+      createdBy: adminId,
     })
 
-    await banner.populate("createdBy", "username")
-
-    logger.info(`Banner created by ${authResult.user.username}: ${imageKey}`)
+    logger.info(`Banner created by ${session.user.email}: ${imageKey}`)
 
     return NextResponse.json(
-      {
-        success: true,
-        banner,
-        message: "Banner berhasil dibuat",
-      },
+      { success: true, banner, message: "Banner berhasil dibuat" },
       {
         status: 201,
         headers: {
@@ -254,6 +200,10 @@ export async function POST(request) {
       },
     )
   } catch (error) {
+    const status = error?.statusCode || 500
+    if (status === 401 || status === 403) {
+      return NextResponse.json({ error: error.message }, { status })
+    }
     logger.error("Error creating banner:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }

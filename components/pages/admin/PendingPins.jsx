@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import {
   Row,
   Col,
@@ -90,6 +91,7 @@ api.interceptors.request.use((config) => {
 })
 
 function PendingPins() {
+  const { status } = useSession()
   const router = useRouter()
   const isMountedRef = useRef(false)
   const pollingIntervalRef = useRef(null)
@@ -161,16 +163,18 @@ function PendingPins() {
 
   // Check authentication
   const checkAuth = useCallback(() => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      safeSetState(() => {
-        setAuthError(true)
-      })
-      router.push("/admin/login")
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication..., current status:", status)
+      if (status === "unauthenticated") {
+        safeSetState(() => {
+          setAuthError(true)
+        })
+        router.push("/admin/login")
+      }
       return null
     }
-    return token
-  }, [router, safeSetState])
+    return true
+  }, [status, router, safeSetState])
 
   // Immediate stats update function for dashboard
   const updateStatsImmediately = useCallback((operation, count = 1) => {
@@ -195,6 +199,11 @@ function PendingPins() {
   // Enhanced fetch pending pins function with better cache handling
   const fetchPendingPins = useCallback(
     async (page = 1, limit = 50, force = false, options = {}) => {
+      if (status !== "authenticated") {
+        console.log("⏳ Waiting for authentication..., current status:", status)
+        return { waitingAuth: true }
+      }
+
       if (requestInProgressRef.current && !force) {
         return
       }
@@ -330,7 +339,7 @@ function PendingPins() {
         })
       }
     },
-    [checkAuth, lastRefreshTime, lastEtag, router, safeSetState, addToast],
+    [checkAuth, lastRefreshTime, lastEtag, router, safeSetState, addToast, status],
   )
 
   // Improved mark as processed with immediate UI update
@@ -584,6 +593,10 @@ function PendingPins() {
 
   // Initialize component
   useEffect(() => {
+    if (status === "loading") {
+      return
+    }
+
     isMountedRef.current = true
     setIsClient(true)
 
@@ -596,7 +609,7 @@ function PendingPins() {
       try {
         await forceRefreshData(fetchPendingPins, 1, 50)
         setTimeout(() => {
-          if (isMountedRef.current && !rateLimitHit) {
+          if (isMountedRef.current && !rateLimitHit && status === "authenticated") {
             startPolling()
           }
         }, 2000)
@@ -609,7 +622,7 @@ function PendingPins() {
 
     // Listen untuk update dari komponen lain
     const handlePinUpdate = () => {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && status === "authenticated") {
         forceRefreshData(fetchPendingPins, currentPage, itemsPerPage)
       }
     }
@@ -632,7 +645,7 @@ function PendingPins() {
       window.removeEventListener("pin-redeemed", handlePinUpdate)
       window.removeEventListener("pin-generated", handlePinUpdate)
     }
-  }, [])
+  }, [status])
 
   // Connection status indicator
   const getConnectionStatusBadge = () => {
@@ -729,6 +742,19 @@ function PendingPins() {
     )
   }
 
+  if (status === "loading") {
+    return (
+      <div className="adminpanelpendingpinpage">
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+          <div className="text-center">
+            <Spinner animation="border" variant="primary" />
+            <p className="mt-3 text-muted">Memuat sesi...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Show loading while not client-side
   if (!isClient) {
     return (
@@ -771,7 +797,7 @@ function PendingPins() {
               variant="outline-primary"
               size="sm"
               onClick={() => forceRefreshData(fetchPendingPins, 1, itemsPerPage)}
-              disabled={loading}
+              disabled={loading || status !== "authenticated"}
               className="mt-2"
             >
               {loading ? "Memuat ulang..." : "Muat Ulang Data"}
@@ -843,7 +869,7 @@ function PendingPins() {
                   variant="success"
                   size="sm"
                   onClick={() => setShowBatchProcessModal(true)}
-                  disabled={batchProcessing}
+                  disabled={batchProcessing || status !== "authenticated"}
                 >
                   <FaCheckDouble className="me-1" />
                   {batchProcessing ? "Memproses..." : `Proses Semua (${selectedPins.length})`}
@@ -853,7 +879,7 @@ function PendingPins() {
                 variant={pollingActive && !rateLimitHit ? "success" : "outline-secondary"}
                 size="sm"
                 onClick={togglePolling}
-                disabled={rateLimitHit}
+                disabled={rateLimitHit || status !== "authenticated"}
               >
                 {pollingActive ? (
                   <>
@@ -867,7 +893,12 @@ function PendingPins() {
                   </>
                 )}
               </Button>
-              <Button variant="outline-primary" size="sm" onClick={handleRefresh} disabled={loading}>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={loading || status !== "authenticated"}
+              >
                 <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
                 {loading ? "Memuat..." : "Refresh"}
               </Button>
@@ -885,7 +916,7 @@ function PendingPins() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={handleSelectAll}
-                      disabled={loading || pendingPins.length === 0}
+                      disabled={loading || pendingPins.length === 0 || status !== "authenticated"}
                     />
                   </th>
                   <th>PIN Code</th>
@@ -917,7 +948,7 @@ function PendingPins() {
                           type="checkbox"
                           checked={selectedPins.includes(pin._id)}
                           onChange={(e) => handleSelectPin(pin._id, e.target.checked)}
-                          disabled={processing && processingId === pin._id}
+                          disabled={(processing && processingId === pin._id) || status !== "authenticated"}
                         />
                       </td>
                       <td>
@@ -934,7 +965,7 @@ function PendingPins() {
                             variant="success"
                             size="sm"
                             onClick={() => handleMarkAsProcessed(pin)}
-                            disabled={processing && processingId === pin._id}
+                            disabled={(processing && processingId === pin._id) || status !== "authenticated"}
                           >
                             {processing && processingId === pin._id ? (
                               <>

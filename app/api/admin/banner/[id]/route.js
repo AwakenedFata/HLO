@@ -1,26 +1,23 @@
 import { NextResponse } from "next/server"
 import connectToDatabase from "@/lib/db"
 import Banner from "@/lib/models/banner"
-import { authorizeRequest } from "@/lib/utils/auth-server"
+import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
 import { validateRequest, bannerUpdateSchema } from "@/lib/utils/validation"
 import { deleteFromS3 } from "@/lib/utils/s3"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
-// Rate limiter for all endpoints
 const limiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
+  interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 20, // 20 requests per minute
+  limit: 20,
 })
 
-// GET single banner item
 export async function GET(request, { params }) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await limiter.check(identifier, 20)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -39,45 +36,37 @@ export async function GET(request, { params }) {
       )
     }
 
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ error: guard.message }, { status: guard.status })
+    }
+    const { session } = guard
+
     await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
-    }
-
     const { id } = params
-
-    if (!id) {
-      return NextResponse.json({ error: "Banner ID is required" }, { status: 400 })
-    }
+    if (!id) return NextResponse.json({ error: "Banner ID is required" }, { status: 400 })
 
     const banner = await Banner.findById(id).populate("createdBy", "username").populate("updatedBy", "username")
 
-    if (!banner) {
-      return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
-    }
+    if (!banner) return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
 
-    logger.info(`Banner item ${id} fetched by ${authResult.user.username}`)
+    logger.info(`Banner item ${id} fetched by ${session.user.email}`)
 
-    return NextResponse.json({
-      success: true,
-      banner,
-    })
+    return NextResponse.json({ success: true, banner })
   } catch (error) {
+    const status = error?.statusCode || 500
+    if (status === 401 || status === 403) {
+      return NextResponse.json({ error: error.message }, { status })
+    }
     logger.error("Error fetching banner item:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }
 
-// PUT update banner item
 export async function PUT(request, { params }) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await limiter.check(identifier, 15)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -97,29 +86,24 @@ export async function PUT(request, { params }) {
     }
 
     await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
-    }
+    const session = await requireAdmin()
 
     const { id } = params
+    if (!id) return NextResponse.json({ error: "Banner ID is required" }, { status: 400 })
+
     const body = await request.json()
-
-    if (!id) {
-      return NextResponse.json({ error: "Banner ID is required" }, { status: 400 })
-    }
-
-    // Validate request
     const validation = await validateRequest(bannerUpdateSchema, body)
     if (!validation.success) {
       return NextResponse.json(validation.error, { status: 400 })
     }
 
-    const updateData = { ...validation.data }
-    updateData.updatedBy = authResult.user._id
-    updateData.updatedAt = new Date()
+    const adminId = await resolveAdminIdFromSession(session)
+
+    const updateData = {
+      ...validation.data,
+      updatedAt: new Date(),
+      updatedBy: adminId,
+    }
 
     const banner = await Banner.findByIdAndUpdate(id, updateData, {
       new: true,
@@ -128,18 +112,12 @@ export async function PUT(request, { params }) {
       .populate("createdBy", "username")
       .populate("updatedBy", "username")
 
-    if (!banner) {
-      return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
-    }
+    if (!banner) return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
 
-    logger.info(`Banner item ${id} updated by ${authResult.user.username}`)
+    logger.info(`Banner item ${id} updated by ${session.user.email}`)
 
     return NextResponse.json(
-      {
-        success: true,
-        banner,
-        message: "Banner item berhasil diupdate",
-      },
+      { success: true, banner, message: "Banner item berhasil diupdate" },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -151,18 +129,19 @@ export async function PUT(request, { params }) {
       },
     )
   } catch (error) {
+    const status = error?.statusCode || 500
+    if (status === 401 || status === 403) {
+      return NextResponse.json({ error: error.message }, { status })
+    }
     logger.error("Error updating banner item:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }
 
-// DELETE banner item
 export async function DELETE(request, { params }) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await limiter.check(identifier, 10)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -182,26 +161,15 @@ export async function DELETE(request, { params }) {
     }
 
     await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
-    }
+    const session = await requireAdmin()
 
     const { id } = params
-
-    if (!id) {
-      return NextResponse.json({ error: "Banner ID is required" }, { status: 400 })
-    }
+    if (!id) return NextResponse.json({ error: "Banner ID is required" }, { status: 400 })
 
     const banner = await Banner.findById(id)
+    if (!banner) return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
 
-    if (!banner) {
-      return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
-    }
-
-    // Delete image from S3
+    // best-effort delete from S3
     try {
       if (banner.imageKey) {
         await deleteFromS3(banner.imageKey)
@@ -209,19 +177,14 @@ export async function DELETE(request, { params }) {
       }
     } catch (s3Error) {
       logger.warn(`Failed to delete banner image from S3: ${s3Error.message}`)
-      // Continue with database deletion even if S3 deletion fails
     }
 
-    // Delete from database
     await Banner.findByIdAndDelete(id)
 
-    logger.info(`Banner item ${id} deleted by ${authResult.user.username}`)
+    logger.info(`Banner item ${id} deleted by ${session.user.email}`)
 
     return NextResponse.json(
-      {
-        success: true,
-        message: "Banner item berhasil dihapus",
-      },
+      { success: true, message: "Banner item berhasil dihapus" },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -233,6 +196,10 @@ export async function DELETE(request, { params }) {
       },
     )
   } catch (error) {
+    const status = error?.statusCode || 500
+    if (status === 401 || status === 403) {
+      return NextResponse.json({ error: error.message }, { status })
+    }
     logger.error("Error deleting banner item:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }

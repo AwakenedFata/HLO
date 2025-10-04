@@ -282,7 +282,6 @@ const GalleryCard = ({ item }) => {
             onClick={handleImageClick}
             onLoad={handleImageLoad}
             onError={handleImageError}
-            loading="lazy"
             style={{
               opacity: imageLoaded ? 1 : 0,
             }}

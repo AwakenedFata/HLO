@@ -3,6 +3,7 @@
 import React from "react"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Card, Row, Col, Alert, Spinner, Button, Modal, Badge, Toast, ToastContainer } from "react-bootstrap"
+import { useSession } from "next-auth/react"
 import axios from "axios"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js"
 import { Pie, Bar } from "react-chartjs-2"
@@ -20,38 +21,37 @@ import {
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
-// Cache utilities - Improved
 const CACHE_KEYS = {
   DASHBOARD_STATS: "dashboard_stats",
   DASHBOARD_STATS_LAST_FETCH: "dashboard_stats_last_fetch",
-  PIN_MANAGEMENT_LAST_FETCH: "pin_management_last_fetch",
-  PIN_MANAGEMENT_DATA: "pin_management_data",
 }
 
 const invalidateAllCaches = () => {
   Object.values(CACHE_KEYS).forEach((key) => {
     localStorage.removeItem(key)
   })
-  // Also clear any ETag related cache
   sessionStorage.removeItem("dashboard_etag")
   sessionStorage.removeItem("stats_etag")
 }
 
-// Force refresh function that bypasses all caches
 const forceRefreshData = async (fetchFunction, ...args) => {
-  // Clear all cache indicators
   invalidateAllCaches()
-
-  // Add cache-busting parameter
   const timestamp = Date.now()
-  return await fetchFunction(...args, {
-    force: true,
-    bypassCache: true,
-    cacheBuster: timestamp,
-  })
+  try {
+    return await fetchFunction(...args, {
+      force: true,
+      bypassCache: true,
+      cacheBuster: timestamp,
+    })
+  } catch (error) {
+    if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+      console.log("⏭️ Request was canceled, ignoring...")
+      return { canceled: true }
+    }
+    throw error
+  }
 }
 
-// Create axios instance with improved cache handling
 const api = axios.create({
   timeout: 30000,
   headers: {
@@ -59,16 +59,15 @@ const api = axios.create({
   },
 })
 
-// Add request interceptor to handle cache busting
 api.interceptors.request.use((config) => {
-  // Add cache busting for critical operations
+  // SOLUTION 4: Only add cache-control headers for mutations, not GET requests
   if (config.method === "post" || config.method === "delete" || config.method === "patch") {
     config.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     config.headers["Pragma"] = "no-cache"
     config.headers["Expires"] = "0"
   }
 
-  // Remove ETag for force refresh
+  // SOLUTION 4: Only bypass cache when explicitly forced
   if (config.bypassCache) {
     delete config.headers["If-None-Match"]
     config.params = { ...config.params, _t: Date.now() }
@@ -77,12 +76,10 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Add response interceptor for better error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      sessionStorage.removeItem("adminToken")
       window.location.href = "/admin/login"
     }
     return Promise.reject(error)
@@ -98,6 +95,8 @@ const BarChartComponent = React.memo(({ data, options }) => {
 })
 
 function useStatsData() {
+  const { status } = useSession()
+
   const [stats, setStats] = useState({
     total: 0,
     used: 0,
@@ -119,15 +118,12 @@ function useStatsData() {
   const [rateLimitHit, setRateLimitHit] = useState(false)
 
   const isMounted = useRef(true)
-  const timeoutRef = useRef(null)
   const abortControllerRef = useRef(null)
-  const isFetchingRef = useRef(false)
   const requestInProgressRef = useRef(false)
 
-  const MIN_FETCH_INTERVAL = 2000 // Reduced for better responsiveness
-  const POLLING_INTERVAL = 15000 // 15 seconds for dashboard
+  const MIN_FETCH_INTERVAL = 2000
+  const POLLING_INTERVAL = 15000
 
-  // Immediate stats update function
   const updateStatsImmediately = useCallback((operation, count = 1) => {
     setStats((prevStats) => {
       const newStats = { ...prevStats }
@@ -155,37 +151,30 @@ function useStatsData() {
           break
       }
 
-      // Update cache immediately
       localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(newStats))
-
       return newStats
     })
   }, [])
 
-  // Safe state update function
   const safeSetState = useCallback((updateFn) => {
     if (isMounted.current) {
       updateFn()
     }
   }, [])
 
-  // Check authentication
-  const checkAuth = useCallback(() => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      return null
-    }
-    return token
-  }, [])
-
-  // Clear error function
   const clearError = useCallback(() => {
     setError("")
   }, [])
 
   const fetchStats = useCallback(
     async (force = false, options = {}) => {
+      if (status !== "authenticated") {
+        console.log("⏳ Waiting for authentication..., current status:", status)
+        return { waitingAuth: true }
+      }
+
       if (requestInProgressRef.current && !force) {
+        console.log("⏭️ Request already in progress, skipping...")
         return { alreadyInProgress: true }
       }
 
@@ -193,21 +182,15 @@ function useStatsData() {
         return { componentUnmounted: true }
       }
 
-      const token = checkAuth()
-      if (!token) {
-        return { authError: true }
-      }
-
-      // Rate limiting check
       const now = Date.now()
       if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
         const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
+        console.log(`⏱️ Rate limited: wait ${timeRemaining}s`)
         return { rateLimited: true, timeRemaining }
       }
 
       requestInProgressRef.current = true
 
-      // Cancel previous request
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
@@ -221,20 +204,22 @@ function useStatsData() {
       })
 
       try {
-        const headers = { Authorization: `Bearer ${token}` }
+        console.log("🚀 Fetching stats from API...", { force, bypassCache: options.bypassCache })
 
-        // Force bypass cache if specified
-        if (options.bypassCache || force) {
+        const headers = {}
+
+        // SOLUTION 4: Better cache strategy - only bypass when explicitly forced
+        if (force) {
           headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
           headers["Pragma"] = "no-cache"
           delete headers["If-None-Match"]
-        } else if (lastEtag && !force) {
+        } else if (lastEtag) {
           headers["If-None-Match"] = lastEtag
         }
 
+        // SOLUTION 4: Only add cache buster when forcing
         let queryParams = ""
-        // Add cache buster for force refresh
-        if (options.bypassCache || force) {
+        if (force) {
           queryParams = `?_t=${Date.now()}`
         }
 
@@ -242,8 +227,10 @@ function useStatsData() {
           headers,
           signal: abortControllerRef.current.signal,
           validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
-          bypassCache: options.bypassCache || force,
+          bypassCache: force, // Changed: only bypass when force=true
         })
+
+        console.log("✅ Stats API response received:", response.status)
 
         if (!isMounted.current) {
           return { componentUnmounted: true }
@@ -253,8 +240,8 @@ function useStatsData() {
           setConnectionStatus("connected")
         })
 
-        // Handle 304 Not Modified - but still update timestamp
         if (response.status === 304) {
+          console.log("📦 Using cached data (304)")
           safeSetState(() => {
             setLastFetchTime(now)
             setIsRefreshing(false)
@@ -263,12 +250,10 @@ function useStatsData() {
           return { notModified: true }
         }
 
-        // Save ETag only if not bypassing cache
         const newEtag = response.headers.etag
-        if (newEtag && !options.bypassCache && !force) {
+        if (newEtag && !force) {
           setLastEtag(newEtag)
         } else {
-          // Clear ETag for force refresh
           setLastEtag(null)
         }
 
@@ -284,29 +269,33 @@ function useStatsData() {
           setLoading(false)
         })
 
-        // Update cache
         localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(responseData))
         localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
 
+        console.log("✅ Stats updated successfully")
         return { success: true }
       } catch (error) {
         if (!isMounted.current) {
           return { componentUnmounted: true }
         }
 
-        if (error.name === "AbortError") {
+        if (error.name === "CanceledError" || error.name === "AbortError" || error.code === "ERR_CANCELED") {
+          console.log("⏭️ Request was canceled")
           return { aborted: true }
         }
+
+        console.error("❌ Stats fetch error:", error)
 
         safeSetState(() => {
           setConnectionStatus("error")
 
           if (error.response?.status === 401) {
-            sessionStorage.removeItem("adminToken")
+            setError("Sesi telah berakhir. Silakan login kembali.")
             return { authError: true }
           } else if (error.response?.status === 429) {
             setRateLimitHit(true)
-            setError("Rate limit tercapai. Auto-refresh dihentikan sementara.")
+            const retryAfter = error.response.headers["retry-after"] || 60
+            setError(`Rate limit tercapai. Coba lagi dalam ${retryAfter} detik. Auto-refresh dihentikan sementara.`)
           } else if (error.response?.status === 404) {
             setError("API endpoint tidak ditemukan. Periksa konfigurasi backend.")
           } else if (error.response?.status >= 500) {
@@ -319,7 +308,6 @@ function useStatsData() {
             setError("Gagal mengambil data statistik: " + (error.response?.data?.error || error.message))
           }
 
-          // Load from cache if no stats currently loaded
           if (!stats.total) {
             const cachedData = JSON.parse(localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS) || "{}")
             if (cachedData.total > 0) {
@@ -338,7 +326,7 @@ function useStatsData() {
         })
       }
     },
-    [checkAuth, lastFetchTime, lastEtag, stats.total, safeSetState],
+    [status, lastFetchTime, lastEtag, stats.total, safeSetState],
   )
 
   const formatTimeRemaining = useCallback(() => {
@@ -352,9 +340,16 @@ function useStatsData() {
   useEffect(() => {
     isMounted.current = true
 
+    if (status !== "authenticated") {
+      console.log("⏸️ Waiting for session to be authenticated...")
+      setLoading(false)
+      return
+    }
+
+    console.log("✅ Session authenticated, loading initial data...")
+
     const loadInitialData = async () => {
       try {
-        // Load from cache first
         const cachedData = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
         const lastFetch = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH)
 
@@ -370,9 +365,13 @@ function useStatsData() {
           setNextAllowedFetchTime(parsedTime + MIN_FETCH_INTERVAL)
         }
 
-        // Always fetch fresh data on mount
+        await new Promise((resolve) => setTimeout(resolve, 500))
         await forceRefreshData(fetchStats)
       } catch (error) {
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+          console.log("⏭️ Initial load was canceled, ignoring...")
+          return
+        }
         console.error("Error loading initial data:", error)
         await forceRefreshData(fetchStats)
       }
@@ -385,12 +384,9 @@ function useStatsData() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
       clearTimeout(timer)
     }
-  }, [])
+  }, [status, fetchStats])
 
   return {
     stats,
@@ -405,12 +401,13 @@ function useStatsData() {
     updateStatsImmediately,
     clearError,
     setError,
-    setRateLimitHit, // Add this line
+    setRateLimitHit,
   }
 }
 
 const Dashboard = () => {
   const router = useRouter()
+  const { status } = useSession()
   const [isClient, setIsClient] = useState(false)
   const [showRateLimitModal, setShowRateLimitModal] = useState(false)
   const [showForceRefreshModal, setShowForceRefreshModal] = useState(false)
@@ -418,9 +415,11 @@ const Dashboard = () => {
   const [toasts, setToasts] = useState([])
 
   const pollingIntervalRef = useRef(null)
-  const POLLING_INTERVAL = 15000 // 15 seconds
+  const updateDebounceRef = useRef(null)
+  // SOLUTION 3: Prevent overlapping polls
+  const pollingInProgressRef = useRef(false)
+  const POLLING_INTERVAL = 15000
 
-  // Use custom hook for stats data
   const {
     stats,
     loading,
@@ -432,12 +431,11 @@ const Dashboard = () => {
     fetchStats,
     formatTimeRemaining,
     updateStatsImmediately,
-    clearError, // Now available from the hook
-    setError, // Now available from the hook
+    clearError,
+    setError,
     setRateLimitHit,
   } = useStatsData()
 
-  // Toast helper
   const addToast = useCallback((message, type = "success", duration = 5000) => {
     const id = Date.now()
     const toast = { id, message, type, duration }
@@ -448,28 +446,43 @@ const Dashboard = () => {
     }, duration)
   }, [])
 
-  // Polling functions
+  // SOLUTION 3: Improved polling with overlap prevention
   const startPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
     }
 
-    const poll = () => {
-      if (!rateLimitHit) {
-        fetchStats(false)
+    const poll = async () => {
+      if (pollingInProgressRef.current) {
+        console.log("⏭️ Poll already in progress, skipping...")
+        return
+      }
+
+      if (!rateLimitHit && status === "authenticated") {
+        pollingInProgressRef.current = true
+        try {
+          await fetchStats(false)
+        } catch (error) {
+          console.error("Error during polling:", error)
+        } finally {
+          pollingInProgressRef.current = false
+        }
       }
     }
 
     pollingIntervalRef.current = setInterval(poll, POLLING_INTERVAL)
     setPollingActive(true)
-  }, [fetchStats, rateLimitHit])
+    console.log("✅ Auto-refresh started with interval:", POLLING_INTERVAL)
+  }, [fetchStats, rateLimitHit, status])
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
       pollingIntervalRef.current = null
     }
+    pollingInProgressRef.current = false
     setPollingActive(false)
+    console.log("⏸️ Auto-refresh stopped")
   }, [])
 
   const togglePolling = useCallback(() => {
@@ -485,10 +498,28 @@ const Dashboard = () => {
   useEffect(() => {
     setIsClient(true)
 
-    // Event handlers for real-time updates
+    if (status !== "authenticated") {
+      return
+    }
+
     const handleDataUpdate = async (event) => {
-      console.log("Data update event received:", event.type)
-      await forceRefreshData(fetchStats)
+      console.log("📢 Data update event received:", event.type)
+
+      if (updateDebounceRef.current) {
+        clearTimeout(updateDebounceRef.current)
+      }
+
+      updateDebounceRef.current = setTimeout(async () => {
+        try {
+          await forceRefreshData(fetchStats)
+        } catch (error) {
+          if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+            console.log("⏭️ Data update refresh was canceled, ignoring...")
+            return
+          }
+          console.error("Error during data update:", error)
+        }
+      }, 300)
     }
 
     const handlePinGenerated = (event) => {
@@ -509,13 +540,6 @@ const Dashboard = () => {
       addToast(`${count} PIN telah diproses`, "success")
     }
 
-    const handlePinRedeemed = (event) => {
-      const count = event.detail?.count || 1
-      updateStatsImmediately("redeem", count)
-      addToast(`${count} PIN telah diredeem`, "info")
-    }
-
-    // Add event listeners
     window.addEventListener("pin-data-updated", handleDataUpdate)
     window.addEventListener("cache-invalidated", handleDataUpdate)
     window.addEventListener("pin-status-changed", handleDataUpdate)
@@ -525,15 +549,20 @@ const Dashboard = () => {
     window.addEventListener("pin-processed", handlePinProcessed)
     window.addEventListener("pins-batch-deleted", handlePinDeleted)
 
-    // Start polling after initial load
-    setTimeout(() => {
-      if (!rateLimitHit) {
-        startPolling()
-      }
-    }, 3000)
+    // SOLUTION 5: Make auto-refresh opt-in (disabled by default)
+    // User must manually enable it by clicking the button
+    // Comment out or remove the auto-start:
+    // setTimeout(() => {
+    //   if (!rateLimitHit && status === "authenticated") {
+    //     startPolling()
+    //   }
+    // }, 3000)
 
     return () => {
-      // Remove event listeners
+      if (updateDebounceRef.current) {
+        clearTimeout(updateDebounceRef.current)
+      }
+
       window.removeEventListener("pin-data-updated", handleDataUpdate)
       window.removeEventListener("cache-invalidated", handleDataUpdate)
       window.removeEventListener("pin-status-changed", handleDataUpdate)
@@ -545,7 +574,7 @@ const Dashboard = () => {
 
       stopPolling()
     }
-  }, [fetchStats, updateStatsImmediately, addToast, startPolling, stopPolling, rateLimitHit])
+  }, [status, fetchStats, updateStatsImmediately, addToast, stopPolling, rateLimitHit])
 
   const handleRefresh = async () => {
     const now = Date.now()
@@ -555,31 +584,49 @@ const Dashboard = () => {
       return
     }
 
-    invalidateAllCaches()
-    const result = await forceRefreshData(fetchStats)
-    if (result?.showRateLimitModal) {
-      setShowRateLimitModal(true)
-    } else if (result?.authError) {
-      router.push("/admin/login")
-    } else {
-      addToast("Data berhasil diperbarui", "success")
+    try {
+      invalidateAllCaches()
+      const result = await forceRefreshData(fetchStats)
+      if (result?.showRateLimitModal) {
+        setShowRateLimitModal(true)
+      } else if (result?.authError) {
+        router.push("/admin/login")
+      } else if (!result?.canceled && !result?.aborted) {
+        addToast("Data berhasil diperbarui", "success")
+      }
+    } catch (error) {
+      if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+        console.log("⏭️ Refresh was canceled")
+        return
+      }
+      console.error("Error during refresh:", error)
+      addToast("Gagal memperbarui data", "error")
     }
   }
 
   const handleForceRefresh = async () => {
     setShowForceRefreshModal(false)
-    invalidateAllCaches()
-    const result = await forceRefreshData(fetchStats)
-    if (result?.showRateLimitModal) {
-      setShowRateLimitModal(true)
-    } else if (result?.authError) {
-      router.push("/admin/login")
-    } else {
-      addToast("Data berhasil diperbarui", "success")
+
+    try {
+      invalidateAllCaches()
+      const result = await forceRefreshData(fetchStats)
+      if (result?.showRateLimitModal) {
+        setShowRateLimitModal(true)
+      } else if (result?.authError) {
+        router.push("/admin/login")
+      } else if (!result?.canceled && !result?.aborted) {
+        addToast("Data berhasil diperbarui", "success")
+      }
+    } catch (error) {
+      if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+        console.log("⏭️ Force refresh was canceled")
+        return
+      }
+      console.error("Error during force refresh:", error)
+      addToast("Gagal memperbarui data", "error")
     }
   }
 
-  // Connection status indicator
   const getConnectionStatusBadge = () => {
     switch (connectionStatus) {
       case "connected":
@@ -593,7 +640,6 @@ const Dashboard = () => {
     }
   }
 
-  // Custom chart colors - futuristic theme
   const chartColors = useMemo(
     () => ({
       primary: ["#6c63ff", "#4facfe"],
@@ -607,7 +653,6 @@ const Dashboard = () => {
     [],
   )
 
-  // Common chart options
   const commonOptions = useMemo(
     () => ({
       plugins: {
@@ -646,7 +691,6 @@ const Dashboard = () => {
     [chartColors],
   )
 
-  // Data untuk pie chart - updated to include pending
   const pieData = useMemo(
     () => ({
       labels: ["Digunakan & Diproses", "Pending", "Belum Digunakan"],
@@ -663,7 +707,6 @@ const Dashboard = () => {
     [stats, chartColors],
   )
 
-  // Options for pie chart
   const pieChartOptions = useMemo(
     () => ({
       ...commonOptions,
@@ -684,7 +727,6 @@ const Dashboard = () => {
     [commonOptions, chartColors],
   )
 
-  // Data untuk bar chart
   const barData = useMemo(
     () => ({
       labels: stats.batches?.map((batch) => batch.name || `Batch ${batch.id}`) || [],
@@ -709,7 +751,6 @@ const Dashboard = () => {
     [stats.batches, chartColors],
   )
 
-  // Options for bar chart
   const barOptions = useMemo(
     () => ({
       ...commonOptions,
@@ -777,6 +818,19 @@ const Dashboard = () => {
     [commonOptions, chartColors],
   )
 
+  if (status === "loading") {
+    return (
+      <div className="adminpaneldashboardpage">
+        <div className="text-center my-5">
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </Spinner>
+          <p className="mt-2">Memuat sesi...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="adminpaneldashboardpage">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -800,7 +854,7 @@ const Dashboard = () => {
             variant={pollingActive && !rateLimitHit ? "success" : "outline-secondary"}
             size="sm"
             onClick={togglePolling}
-            disabled={rateLimitHit}
+            disabled={rateLimitHit || status !== "authenticated"}
           >
             {pollingActive ? (
               <>
@@ -814,7 +868,12 @@ const Dashboard = () => {
               </>
             )}
           </Button>
-          <Button variant="outline-primary" size="sm" onClick={handleRefresh} disabled={loading || isRefreshing}>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading || isRefreshing || status !== "authenticated"}
+          >
             <FaSync className={`me-1 ${isRefreshing ? "fa-spin" : ""}`} />
             {isRefreshing ? "Memuat..." : "Refresh"}
           </Button>
@@ -926,7 +985,6 @@ const Dashboard = () => {
             </Row>
           )}
 
-          {/* Recent Activity */}
           {stats.recentActivity && stats.recentActivity.length > 0 && (
             <Row>
               <Col md={12}>
@@ -967,7 +1025,6 @@ const Dashboard = () => {
             </Row>
           )}
 
-          {/* Auto-refresh status */}
           <div className="mt-3 d-flex justify-content-between align-items-center">
             <div className="text-muted">
               Statistik PIN - Total: {stats.total.toLocaleString("id-ID")} | Tersedia:{" "}
@@ -984,7 +1041,6 @@ const Dashboard = () => {
         </>
       )}
 
-      {/* Toast Notifications */}
       <ToastContainer position="top-end" className="p-3">
         {toasts.map((toast) => (
           <Toast
@@ -1009,7 +1065,6 @@ const Dashboard = () => {
         ))}
       </ToastContainer>
 
-      {/* Rate Limit Warning Modal */}
       <Modal show={showRateLimitModal} onHide={() => setShowRateLimitModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -1031,7 +1086,6 @@ const Dashboard = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Force Refresh Confirmation Modal */}
       <Modal show={showForceRefreshModal} onHide={() => setShowForceRefreshModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>

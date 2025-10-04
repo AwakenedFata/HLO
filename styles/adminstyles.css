@@ -40,6 +40,7 @@
 .sidebar {
   width: var(--admin-sidebar-width);
   min-height: 100vh;
+  max-height: 100vh;
   position: fixed;
   background-color: var(--admin-secondary);
   background-image: linear-gradient(180deg, var(--admin-secondary) 0%, var(--admin-dark) 100%);
@@ -47,7 +48,7 @@
   box-shadow: var(--admin-shadow);
   z-index: 1000;
   transition: var(--admin-transition);
-  overflow-y: auto;
+  overflow: hidden;
   backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;

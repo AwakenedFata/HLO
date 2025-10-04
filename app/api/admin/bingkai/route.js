@@ -1,62 +1,45 @@
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
+import connectDB from "@/lib/db"
 import Frame from "@/lib/models/frame"
 import Gallery from "@/lib/models/galleryItems"
-import { authorizeRequest } from "@/lib/utils/auth-server"
+import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
 import { validateRequest, frameCreationSchema, frameQuerySchema } from "@/lib/utils/validation"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
-// Rate limiter for GET endpoint
-const getLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute
-})
+const getLimiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 100, limit: 30 })
+const postLimiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 100, limit: 10 })
 
-// Rate limiter for POST endpoint
-const postLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 100,
-  limit: 10, // 10 requests per minute
-})
-
-// GET all frames with pagination and filtering
 export async function GET(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await getLimiter.check(identifier, 30)
-
-    if (!rateLimitResult.success) {
+    const rate = await getLimiter.check(identifier, 30)
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
-    await connectToDatabase()
-
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    // Authenticate via requireAdminSession before DB work
+    try {
+      await requireAdminSession(request)
+    } catch (err) {
+      return NextResponse.json({ error: err?.message || "Unauthorized" }, { status: err?.statusCode || 401 })
     }
 
-    const { searchParams } = new URL(request.url)
+    await connectDB()
 
-    // Extract and clean query parameters
+    const { searchParams } = new URL(request.url)
     const queryParams = {
       page: searchParams.get("page") || undefined,
       limit: searchParams.get("limit") || undefined,
@@ -65,19 +48,13 @@ export async function GET(request) {
       sortOrder: searchParams.get("sortOrder") || undefined,
       status: searchParams.get("status") || undefined,
     }
-
-    // Remove null/empty string values
-    Object.keys(queryParams).forEach((key) => {
-      if (queryParams[key] === null || queryParams[key] === "") {
-        delete queryParams[key]
-      }
+    Object.keys(queryParams).forEach((k) => {
+      if (queryParams[k] === null || queryParams[k] === "") delete queryParams[k]
     })
 
-    // Validate query parameters
     const queryValidation = await validateRequest(frameQuerySchema, queryParams)
-
     if (!queryValidation.success) {
-      logger.warn(`Frame query validation failed:`, queryValidation.error)
+      logger.warn("Frame query validation failed:", queryValidation.error)
       return NextResponse.json(queryValidation.error, { status: 400 })
     }
 
@@ -94,19 +71,11 @@ export async function GET(request) {
     const limitNum = Number.parseInt(limit, 10)
     const skip = (pageNum - 1) * limitNum
 
-    // Build query filter based on status and gallery
     const query = {}
-    if (status === "active") {
-      query.isActive = true
-    } else if (status === "inactive") {
-      query.isActive = false
-    }
+    if (status === "active") query.isActive = true
+    else if (status === "inactive") query.isActive = false
+    if (relatedGallery) query.relatedGallery = relatedGallery
 
-    if (relatedGallery) {
-      query.relatedGallery = relatedGallery
-    }
-
-    // Build sort object
     const sort = {}
     sort[sortBy] = sortOrder === "asc" ? 1 : -1
 
@@ -121,26 +90,17 @@ export async function GET(request) {
       .limit(limitNum)
       .lean()
 
-    // Calculate statistics
-    const [totalAll, activeAll] = await Promise.all([
+    const [totalAll, activeAll, thisMonth] = await Promise.all([
       Frame.countDocuments({}),
       Frame.countDocuments({ isActive: true }),
+      Frame.countDocuments({
+        createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+      }),
     ])
 
-    const stats = {
-      total: totalAll,
-      active: activeAll,
-      inactive: totalAll - activeAll,
-      thisMonth: await Frame.countDocuments({
-        createdAt: {
-          $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        },
-      }),
-    }
+    const stats = { total: totalAll, active: activeAll, inactive: totalAll - activeAll, thisMonth }
 
-    logger.info(
-      `Frames fetched by ${authResult.user.username}, page: ${pageNum}, limit: ${limitNum}, total: ${totalFiltered}`,
-    )
+    logger.info(`[admin] Frames fetched: page ${pageNum}, limit ${limitNum}, total ${totalFiltered}`)
 
     return NextResponse.json(
       {
@@ -167,42 +127,36 @@ export async function GET(request) {
   }
 }
 
-// POST create new frame
 export async function POST(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await postLimiter.check(identifier, 10)
-
-    if (!rateLimitResult.success) {
+    const rate = await postLimiter.check(identifier, 10)
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
-    await connectToDatabase()
+    await connectDB()
 
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    let session
+    try {
+      // Pass request into requireAdmin for consistency
+      session = await requireAdmin(request)
+    } catch (err) {
+      return NextResponse.json({ error: err.message || "Unauthorized" }, { status: err?.statusCode || 401 })
     }
 
     const body = await request.json()
-
-    // Validate request
     const validation = await validateRequest(frameCreationSchema, body)
     if (!validation.success) {
       return NextResponse.json(validation.error, { status: 400 })
@@ -210,13 +164,13 @@ export async function POST(request) {
 
     const { imageUrl, imageKey, relatedGallery, originalName, fileSize, mimeType } = validation.data
 
-    // Verify that the gallery exists
     const gallery = await Gallery.findById(relatedGallery)
     if (!gallery) {
       return NextResponse.json({ error: "Gallery tidak ditemukan" }, { status: 404 })
     }
 
-    // Create frame
+    const adminId = await resolveAdminIdFromSession(session)
+
     const frame = await Frame.create({
       imageUrl,
       imageKey,
@@ -224,8 +178,8 @@ export async function POST(request) {
       originalName,
       fileSize,
       mimeType,
-      createdBy: authResult.user._id,
       isActive: true,
+      createdBy: adminId,
     })
 
     await frame.populate([
@@ -233,14 +187,10 @@ export async function POST(request) {
       { path: "createdBy", select: "username" },
     ])
 
-    logger.info(`Frame created by ${authResult.user.username} for gallery: ${gallery.title}`)
+    logger.info(`[admin] Frame created for gallery: ${gallery.title}`)
 
     return NextResponse.json(
-      {
-        success: true,
-        frame,
-        message: "Frame berhasil ditambahkan",
-      },
+      { success: true, frame, message: "Frame berhasil ditambahkan" },
       {
         status: 201,
         headers: {

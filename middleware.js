@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { getToken } from "next-auth/jwt"
 import { rateLimit } from "@/lib/utils/rate-limit"
 import logger from "@/lib/utils/logger-edge"
 
@@ -6,32 +7,25 @@ import logger from "@/lib/utils/logger-edge"
 const RATE_LIMIT_WINDOW = Number.parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000 || 15 * 60 * 1000
 const RATE_LIMIT_MAX = Number.parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100
 
-// Rate limiter configurations using your env vars
+// Rate limiter configurations
 const apiLimiter = rateLimit({
-  interval: 60 * 60 * 1000, // 1 hour
+  interval: 60 * 60 * 1000,
   uniqueTokenPerInterval: 500,
   limit: RATE_LIMIT_MAX,
   identifier: "api-general",
 })
 
-const authLimiter = rateLimit({
-  interval: RATE_LIMIT_WINDOW,
-  uniqueTokenPerInterval: 500,
-  limit: 10, // Keep auth strict
-  identifier: "api-auth",
-})
-
 const redeemLimiter = rateLimit({
   interval: 60 * 60 * 1000,
   uniqueTokenPerInterval: 500,
-  limit: 5, // Keep redeem very strict
+  limit: 5,
   identifier: "api-redeem",
 })
 
 const adminLimiter = rateLimit({
   interval: 60 * 60 * 1000,
   uniqueTokenPerInterval: 500,
-  limit: Math.floor(RATE_LIMIT_MAX / 2), // Half of general limit for admin
+  limit: Math.floor(RATE_LIMIT_MAX / 2),
   identifier: "api-admin",
 })
 
@@ -42,14 +36,11 @@ const sseLimiter = rateLimit({
   identifier: "api-sse",
 })
 
-// Enhanced client identifier for Vercel deployment
 function getClientIdentifier(request) {
-  // Vercel provides these headers
   const cfConnectingIp = request.headers.get("cf-connecting-ip")
   const xForwardedFor = request.headers.get("x-forwarded-for")
   const xRealIp = request.headers.get("x-real-ip")
 
-  // Priority: Cloudflare > X-Real-IP > X-Forwarded-For
   const ip = cfConnectingIp || xRealIp || xForwardedFor?.split(",")[0]?.trim() || "unknown"
   const userAgent = request.headers.get("user-agent") || "unknown"
 
@@ -86,25 +77,38 @@ export async function middleware(request) {
   const ip = getClientIdentifier(request).split(":")[0]
   const method = request.method
 
-  // Admin route protection (your existing logic)
+  // Admin route protection with NextAuth
   if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
-    const token = request.cookies.get("jwt")?.value
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    })
 
     if (!token) {
       logger.warn(`Unauthorized admin access: ${path} from IP: ${ip}`)
+      return NextResponse.redirect(new URL("/admin/login", request.url))
+    }
+
+    // Check if user email matches admin email
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    if (token.email !== adminEmail) {
+      logger.warn(`Unauthorized admin access attempt: ${token.email} from IP: ${ip}`)
       return NextResponse.redirect(new URL("/admin/login", request.url))
     }
   }
 
   // Rate limiting for API routes
   if (path.startsWith("/api/")) {
+    // Skip rate limiting for NextAuth routes
+    if (path.startsWith("/api/auth/")) {
+      return NextResponse.next()
+    }
+
     try {
       const tokenKey = getClientIdentifier(request)
       let limitResult
 
-      if (path.startsWith("/api/auth/")) {
-        limitResult = await authLimiter.check(tokenKey)
-      } else if (path.startsWith("/api/pin/redeem")) {
+      if (path.startsWith("/api/pin/redeem")) {
         limitResult = await redeemLimiter.check(tokenKey)
       } else if (path.startsWith("/api/admin/")) {
         limitResult = await adminLimiter.check(tokenKey)
@@ -131,7 +135,6 @@ export async function middleware(request) {
     const response = NextResponse.next()
     const origin = request.headers.get("origin") || ""
 
-    // Your production domains
     const allowedOrigins = [
       process.env.FRONTEND_URL,
       process.env.NEXT_PUBLIC_APP_URL,
@@ -152,13 +155,11 @@ export async function middleware(request) {
     response.headers.set("Access-Control-Allow-Credentials", "true")
     response.headers.set("Access-Control-Max-Age", "86400")
 
-    // Security headers for production
     response.headers.set("X-Content-Type-Options", "nosniff")
     response.headers.set("X-Frame-Options", "DENY")
     response.headers.set("X-XSS-Protection", "1; mode=block")
     response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-    // Production CSP
     if (process.env.NODE_ENV === "production") {
       response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
       response.headers.set(
@@ -171,7 +172,6 @@ export async function middleware(request) {
       return new NextResponse(null, { status: 200, headers: response.headers })
     }
 
-    // Log API requests only if enabled
     if (process.env.LOG_API_REQUESTS === "true") {
       logger.info(`API: ${method} ${path} from ${ip}`)
     }

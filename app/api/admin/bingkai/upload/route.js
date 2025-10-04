@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
-import { authorizeRequest } from "@/lib/utils/auth-server"
 import { imageUploadSchema } from "@/lib/utils/validation"
 import { uploadToS3 } from "@/lib/utils/s3"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdmin } from "@/lib/utils/auth"
 
 // Rate limiter for upload endpoint
 const uploadLimiter = rateLimit({
@@ -12,13 +12,11 @@ const uploadLimiter = rateLimit({
   limit: 10, // 10 uploads per minute
 })
 
-// POST upload frame image to S3
 export async function POST(request) {
   try {
     // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await uploadLimiter.check(identifier, 10)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -37,37 +35,26 @@ export async function POST(request) {
       )
     }
 
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    let adminUser
+    try {
+      adminUser = await requireAdmin(request)
+    } catch (err) {
+      const status = err?.statusCode || 401
+      return NextResponse.json({ status: "error", message: err?.message || "Unauthorized" }, { status })
     }
 
     const formData = await request.formData()
     const file = formData.get("file")
 
-    // Validate file
-    try {
-      const validationResult = imageUploadSchema.safeParse({ file })
-
-      if (!validationResult.success) {
-        return NextResponse.json(
-          {
-            message: "Validation failed",
-            errors: validationResult.error.errors,
-          },
-          { status: 400 },
-        )
-      }
-    } catch (zodError) {
-      return NextResponse.json({ error: "File validation failed", message: zodError.message }, { status: 400 })
+    // Direct Zod validation for File objects
+    const validationResult = imageUploadSchema.safeParse({ file })
+    if (!validationResult.success) {
+      return NextResponse.json({ message: "Validation failed", errors: validationResult.error.errors }, { status: 400 })
     }
 
-    // Convert file to buffer for S3 upload
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // Create file object for S3 upload
     const fileForUpload = {
       name: file.name,
       type: file.type,
@@ -75,10 +62,8 @@ export async function POST(request) {
       buffer,
     }
 
-    // Upload to S3 with frames folder
     const uploadResult = await uploadToS3(fileForUpload, "frames")
-
-    logger.info(`Frame image uploaded to S3 by ${authResult.user.username}: ${uploadResult.key}`)
+    logger.info(`Frame image uploaded to S3 by ${adminUser?.email || "admin"}: ${uploadResult.key}`)
 
     return NextResponse.json(
       {
@@ -90,12 +75,7 @@ export async function POST(request) {
         mimeType: file.type,
         message: "Frame berhasil diupload",
       },
-      {
-        status: 201,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
-      },
+      { status: 201, headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
     )
   } catch (error) {
     logger.error("Error uploading frame image:", error)

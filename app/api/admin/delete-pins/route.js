@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import connectToDatabase from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
-import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import { validateRequest, deletePinSchema } from "@/lib/utils/validation"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdmin } from "@/lib/utils/auth"
 import { pinUpdateEmitter } from "../pins/[id]/route"
 
 // Rate limiter for delete pins endpoint
@@ -38,17 +38,18 @@ export async function POST(request) {
       )
     }
 
-    await connectToDatabase()
-
-    // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    let adminUser
+    try {
+      adminUser = await requireAdmin(request)
+    } catch (err) {
+      const status = err?.statusCode || 401
+      return NextResponse.json({ status: "error", message: err?.message || "Unauthorized" }, { status })
     }
+
+    await connectToDatabase()
 
     const body = await request.json()
     const validation = await validateRequest(deletePinSchema, body)
-
     if (!validation.success) {
       return NextResponse.json(validation.error, { status: 400 })
     }
@@ -64,7 +65,6 @@ export async function POST(request) {
 
     // Check if all PINs exist and haven't been used
     const pins = await PinCode.find({ _id: { $in: pinIds } })
-
     if (pins.length !== pinIds.length) {
       return NextResponse.json({ error: "Beberapa PIN tidak ditemukan" }, { status: 400 })
     }
@@ -85,20 +85,17 @@ export async function POST(request) {
     const pinCodes = pins.map((pin) => ({ id: pin._id.toString(), code: pin.code }))
 
     // Delete PINs
-    const result = await PinCode.deleteMany({
-      _id: { $in: pinIds },
-      used: false,
-    })
+    const result = await PinCode.deleteMany({ _id: { $in: pinIds }, used: false })
 
-    logger.info(`${result.deletedCount} PIN dihapus oleh ${authResult.user.username}`)
+    logger.info(`${result.deletedCount} PIN dihapus oleh ${adminUser?.email || "admin"}`)
 
     // Emit event for batch deletion
     pinUpdateEmitter.emit("pins-batch-deleted", {
       count: result.deletedCount,
       pins: pinCodes,
       deletedBy: {
-        id: authResult.user._id.toString(),
-        username: authResult.user.username,
+        id: adminUser?.email || "admin",
+        username: adminUser?.email || "admin",
       },
       deletedAt: new Date(),
     })

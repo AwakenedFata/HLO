@@ -1,173 +1,100 @@
 import { NextResponse } from "next/server"
 import connectToDatabase from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
-import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
-import { EventEmitter } from "events"
 import crypto from "crypto"
+import { EventEmitter } from "events"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
-// Create a global event emitter for pin updates
 export const pinUpdateEmitter = new EventEmitter()
-// Increase max listeners to avoid memory leak warnings
 pinUpdateEmitter.setMaxListeners(50)
 
-// Rate limiter for GET endpoint
-const getLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 100,
-  limit: 60, // 60 requests per minute
-})
+const getLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 100, limit: 60 })
+const deleteLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 100, limit: 30 })
+const patchLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 100, limit: 30 })
 
-// Rate limiter for DELETE endpoint
-const deleteLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute
-})
-
-// Rate limiter for PATCH endpoint
-const patchLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 100,
-  limit: 30, // 30 requests per minute
-})
-
-// GET endpoint for retrieving a single PIN
 export async function GET(request, { params }) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await getLimiter.check(identifier, 60, "get-pin")
-
-    if (!rateLimitResult.success) {
+    const rate = await getLimiter.check(identifier, 60, "get-pin")
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
+    const auth = await requireAdminSession()
+    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
+
     await connectToDatabase()
 
-    // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ error: authResult.message }, { status: 401 })
-    }
-
     const { id } = params
-
-    // Find pin by ID with lean() for better performance
     const pin = await PinCode.findById(id).lean()
+    if (!pin) return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
 
-    if (!pin) {
-      return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
-    }
-
-    logger.info(`PIN ${pin.code} diakses oleh ${authResult.user.username}`)
-
-    // Generate ETag based on pin data
     const pinHash = crypto.createHash("md5").update(JSON.stringify(pin)).digest("hex")
     const etag = `"pin-${pin._id}-${pinHash}"`
 
-    // Check if client has a valid cached version
-    const ifNoneMatch = request.headers.get("if-none-match")
-    if (ifNoneMatch === etag) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: etag,
-          "Cache-Control": "private, max-age=60",
-        },
-      })
+    if (request.headers.get("if-none-match") === etag) {
+      return new NextResponse(null, { status: 304, headers: { ETag: etag, "Cache-Control": "private, max-age=60" } })
     }
 
-    // Return response with caching headers
-    return NextResponse.json(pin, {
-      headers: {
-        ETag: etag,
-        "Cache-Control": "private, max-age=60",
-      },
-    })
+    return NextResponse.json(pin, { headers: { ETag: etag, "Cache-Control": "private, max-age=60" } })
   } catch (error) {
     logger.error("Error fetching pin:", error)
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }
 
-// DELETE endpoint for removing a PIN
 export async function DELETE(request, { params }) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await deleteLimiter.check(identifier, 30, "delete-pin")
-
-    if (!rateLimitResult.success) {
+    const rate = await deleteLimiter.check(identifier, 30, "delete-pin")
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
+    const session = await requireAdmin()
     await connectToDatabase()
-
-    // Autentikasi
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ error: authResult.message }, { status: 401 })
-    }
+    const adminId = await resolveAdminIdFromSession(session)
 
     const pinId = params.id
-
-    // Cari PIN
     const pin = await PinCode.findById(pinId)
-
-    if (!pin) {
-      return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
-    }
-
-    if (pin.used) {
-      return NextResponse.json({ error: "PIN sudah digunakan dan tidak bisa dihapus" }, { status: 400 })
-    }
+    if (!pin) return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
+    if (pin.used) return NextResponse.json({ error: "PIN sudah digunakan dan tidak bisa dihapus" }, { status: 400 })
 
     await PinCode.findByIdAndDelete(pinId)
+    logger.info(`PIN ${pin.code} dihapus oleh ${session.user.email}`)
 
-    logger.info(`PIN ${pin.code} dihapus oleh ${authResult.user.username}`)
-
-    // Emit event for pin deletion with enhanced data
     pinUpdateEmitter.emit("pin-deleted", {
       pinId,
       code: pin.code,
-      deletedBy: {
-        id: authResult.user._id,
-        username: authResult.user.username,
-      },
+      deletedBy: { id: adminId, email: session.user.email },
       deletedAt: new Date(),
     })
 
-    // Return response with cache control headers
     return NextResponse.json(
       { message: "PIN berhasil dihapus" },
       {
@@ -184,96 +111,67 @@ export async function DELETE(request, { params }) {
   }
 }
 
-// PATCH endpoint for updating a PIN
 export async function PATCH(request, { params }) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await patchLimiter.check(identifier, 30, "update-pin")
-
-    if (!rateLimitResult.success) {
+    const rate = await patchLimiter.check(identifier, 30, "update-pin")
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
+    const session = await requireAdmin()
     await connectToDatabase()
-
-    // Autentikasi
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ error: authResult.message }, { status: 401 })
-    }
+    const adminId = await resolveAdminIdFromSession(session)
 
     const pinId = params.id
     const data = await request.json()
     const now = new Date()
 
-    // Cari PIN
     const pin = await PinCode.findById(pinId)
+    if (!pin) return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
 
-    if (!pin) {
-      return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
-    }
-
-    // Validate update data
     if (data.processed !== undefined && typeof data.processed !== "boolean") {
       return NextResponse.json({ error: "Invalid processed value" }, { status: 400 })
     }
 
-    // Prepare update data
     const updateData = { ...data }
-
-    // Add processedAt and processedBy if setting processed to true
     if (data.processed === true) {
       updateData.processedAt = now
-      updateData.processedBy = authResult.user._id
+      updateData.processedBy = adminId // record Admin._id
     }
 
-    // Update PIN
     const updatedPin = await PinCode.findByIdAndUpdate(pinId, updateData, { new: true })
+    logger.info(`PIN ${pin.code} diupdate oleh ${session.user.email}`)
 
-    logger.info(`PIN ${pin.code} diupdate oleh ${authResult.user.username}`)
-
-    // Emit event for pin update with enhanced data
     if (data.processed !== undefined) {
       pinUpdateEmitter.emit("pin-processed", {
         pinId,
         code: pin.code,
         processed: data.processed,
         processedAt: now,
-        processedBy: {
-          id: authResult.user._id,
-          username: authResult.user.username,
-        },
+        processedBy: { id: adminId, email: session.user.email },
       })
     } else {
-      // Generic update event
       pinUpdateEmitter.emit("pin-updated", {
         pinId,
         code: pin.code,
         updates: data,
-        updatedBy: {
-          id: authResult.user._id,
-          username: authResult.user.username,
-        },
+        updatedBy: { id: adminId, email: session.user.email },
         updatedAt: now,
       })
     }
 
-    // Return response with cache control headers
     return NextResponse.json(
       {
         message: "PIN berhasil diupdate",

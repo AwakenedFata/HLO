@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import connectToDatabase from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
-import { authorizeRequest } from "@/lib/utils/auth-server"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdmin } from "@/lib/utils/auth"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
 // Rate limiter for process pin endpoint
 const limiter = rateLimit({
@@ -12,13 +13,11 @@ const limiter = rateLimit({
   limit: 30, // 30 requests per minute
 })
 
-// Endpoint for processing individual pins with optimized performance
 export async function POST(request) {
   try {
     // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await limiter.check(identifier, 30, "process-pin")
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
         {
@@ -37,30 +36,32 @@ export async function POST(request) {
       )
     }
 
-    await connectToDatabase()
-
-    // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ error: authResult.message }, { status: 401 })
+    // Authenticate first
+    let session
+    try {
+      session = await requireAdmin(request)
+    } catch (err) {
+      const status = err?.statusCode || 401
+      return NextResponse.json({ error: err?.message || "Unauthorized" }, { status })
     }
 
-    const { pinId } = await request.json()
+    await connectToDatabase()
 
+    const { pinId } = await request.json()
     if (!pinId) {
       return NextResponse.json({ error: "PIN ID is required" }, { status: 400 })
     }
 
     const now = new Date()
+    const adminId = await resolveAdminIdFromSession(session)
 
-    // Find and update the pin in a single operation with better error handling
     const updatedPin = await PinCode.findOneAndUpdate(
       { _id: pinId, used: true, processed: false },
       {
         $set: {
           processed: true,
           processedAt: now,
-          processedBy: authResult.user._id,
+          processedBy: adminId, // Store actor for audit
         },
       },
       { new: true, runValidators: true },
@@ -73,27 +74,20 @@ export async function POST(request) {
       if (!existingPin) {
         return NextResponse.json({ error: "PIN tidak ditemukan" }, { status: 404 })
       }
-
       if (existingPin.processed) {
         return NextResponse.json(
-          {
-            error: "PIN sudah diproses sebelumnya",
-            processedAt: existingPin.processedAt,
-          },
+          { error: "PIN sudah diproses sebelumnya", processedAt: existingPin.processedAt },
           { status: 400 },
         )
       }
-
       if (!existingPin.used) {
         return NextResponse.json({ error: "PIN belum digunakan" }, { status: 400 })
       }
-
       return NextResponse.json({ error: "PIN tidak dapat diproses" }, { status: 400 })
     }
 
-    logger.info(`PIN ${updatedPin.code} ditandai sebagai diproses oleh ${authResult.user.username}`)
+    logger.info(`PIN ${updatedPin.code} ditandai sebagai diproses oleh ${session?.user?.email || "admin"}`)
 
-    // Return response with cache invalidation headers
     return NextResponse.json(
       {
         success: true,
@@ -119,12 +113,6 @@ export async function POST(request) {
     )
   } catch (error) {
     logger.error("Error processing pin:", error)
-    return NextResponse.json(
-      {
-        error: "Server error",
-        message: error.message,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }

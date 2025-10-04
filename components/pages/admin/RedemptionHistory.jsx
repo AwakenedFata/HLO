@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import {
   Row,
   Col,
@@ -86,6 +87,7 @@ api.interceptors.request.use((config) => {
 })
 
 function RedemptionHistory() {
+  const { status } = useSession()
   const router = useRouter()
   const isMountedRef = useRef(false)
   const pollingIntervalRef = useRef(null)
@@ -152,18 +154,19 @@ function RedemptionHistory() {
     }
   }, [])
 
-  // Check authentication
   const checkAuth = useCallback(() => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      safeSetState(() => {
-        setAuthError(true)
-      })
-      router.push("/admin/login")
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication..., current status:", status)
+      if (status === "unauthenticated") {
+        safeSetState(() => {
+          setAuthError(true)
+        })
+        router.push("/admin/login")
+      }
       return null
     }
-    return token
-  }, [router, safeSetState])
+    return true
+  }, [status, router, safeSetState])
 
   // Enhanced fetch redemptions function
   const fetchRedemptions = useCallback(
@@ -177,6 +180,11 @@ function RedemptionHistory() {
       currentSortDirection = "desc",
       options = {},
     ) => {
+      if (status !== "authenticated") {
+        console.log("⏳ Waiting for authentication..., current status:", status)
+        return { waitingAuth: true }
+      }
+
       if (requestInProgressRef.current && !force) {
         return
       }
@@ -310,7 +318,6 @@ function RedemptionHistory() {
           setConnectionStatus("error")
 
           if (error.response?.status === 401) {
-            sessionStorage.removeItem("adminToken")
             setAuthError(true)
             router.push("/admin/login")
           } else if (error.response?.status === 429) {
@@ -327,7 +334,7 @@ function RedemptionHistory() {
         })
       }
     },
-    [checkAuth, lastRefreshTime, lastEtag, router, safeSetState, addToast],
+    [checkAuth, lastRefreshTime, lastEtag, router, safeSetState, addToast, status],
   )
 
   // Enhanced manual refresh
@@ -339,19 +346,34 @@ function RedemptionHistory() {
 
   // Improved polling with better error handling
   const startPolling = useCallback(() => {
+    if (status !== "authenticated") {
+      console.log("⏳ Cannot start polling, not authenticated")
+      return
+    }
+
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
     }
 
     const poll = () => {
-      if (isMountedRef.current && !rateLimitHit && !requestInProgressRef.current) {
+      if (isMountedRef.current && !rateLimitHit && !requestInProgressRef.current && status === "authenticated") {
         fetchRedemptions(currentPage, itemsPerPage, false, searchTerm, dateRange, sortField, sortDirection)
       }
     }
 
     pollingIntervalRef.current = setInterval(poll, POLLING_INTERVAL)
     setPollingActive(true)
-  }, [fetchRedemptions, currentPage, itemsPerPage, searchTerm, dateRange, sortField, sortDirection, rateLimitHit])
+  }, [
+    fetchRedemptions,
+    currentPage,
+    itemsPerPage,
+    searchTerm,
+    dateRange,
+    sortField,
+    sortDirection,
+    rateLimitHit,
+    status,
+  ])
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
@@ -501,10 +523,14 @@ function RedemptionHistory() {
     addToast(`Export berhasil! ${redemptions.length} redemption telah diunduh`, "success")
   }, [redemptions, addToast])
 
-  // Initialize component
   useEffect(() => {
     isMountedRef.current = true
     setIsClient(true)
+
+    if (status === "loading") {
+      console.log("⏳ Waiting for session to load...")
+      return
+    }
 
     const token = checkAuth()
     if (!token) {
@@ -515,7 +541,7 @@ function RedemptionHistory() {
       try {
         await forceRefreshData(fetchRedemptions, 1, 50, true, "", { startDate: "", endDate: "" }, "redeemedAt", "desc")
         setTimeout(() => {
-          if (isMountedRef.current && !rateLimitHit) {
+          if (isMountedRef.current && !rateLimitHit && status === "authenticated") {
             startPolling()
           }
         }, 3000)
@@ -560,7 +586,7 @@ function RedemptionHistory() {
       window.removeEventListener("pin-processed", handleDataUpdate)
       window.removeEventListener("pins-batch-processed", handleDataUpdate)
     }
-  }, [])
+  }, [status])
 
   // Connection status indicator
   const getConnectionStatusBadge = () => {
@@ -669,6 +695,19 @@ function RedemptionHistory() {
     )
   }
 
+  if (status === "loading") {
+    return (
+      <div className="adminpanelredemptionpage">
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+          <div className="text-center">
+            <Spinner animation="border" variant="primary" />
+            <p className="mt-3 text-muted">Memuat sesi...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Show loading while not client-side
   if (!isClient) {
     return (
@@ -713,7 +752,7 @@ function RedemptionHistory() {
               onClick={() =>
                 forceRefreshData(fetchRedemptions, 1, itemsPerPage, true, "", { startDate: "", endDate: "" })
               }
-              disabled={loading}
+              disabled={loading || status !== "authenticated"}
               className="mt-2"
             >
               {loading ? "Memuat ulang..." : "Muat Ulang Data"}
@@ -794,6 +833,7 @@ function RedemptionHistory() {
                       placeholder="PIN, Nama, atau ID Game"
                       value={searchTerm}
                       onChange={(e) => handleSearchChange(e.target.value)}
+                      disabled={status !== "authenticated"}
                     />
                     {searchLoading && (
                       <InputGroup.Text>
@@ -801,7 +841,11 @@ function RedemptionHistory() {
                       </InputGroup.Text>
                     )}
                     {searchTerm && (
-                      <Button variant="outline-secondary" onClick={() => handleSearchChange("")}>
+                      <Button
+                        variant="outline-secondary"
+                        onClick={() => handleSearchChange("")}
+                        disabled={status !== "authenticated"}
+                      >
                         &times;
                       </Button>
                     )}
@@ -817,6 +861,7 @@ function RedemptionHistory() {
                     type="date"
                     value={dateRange.startDate}
                     onChange={(e) => handleDateRangeChange("startDate", e.target.value)}
+                    disabled={status !== "authenticated"}
                   />
                 </Form.Group>
               </Col>
@@ -829,18 +874,23 @@ function RedemptionHistory() {
                     type="date"
                     value={dateRange.endDate}
                     onChange={(e) => handleDateRangeChange("endDate", e.target.value)}
+                    disabled={status !== "authenticated"}
                   />
                 </Form.Group>
               </Col>
               <Col md={3} className="d-flex align-items-end">
                 <div className="d-flex flex-wrap gap-2 w-100">
-                  <Button variant="outline-secondary" onClick={clearFilters} disabled={loading}>
+                  <Button
+                    variant="outline-secondary"
+                    onClick={clearFilters}
+                    disabled={loading || status !== "authenticated"}
+                  >
                     Clear
                   </Button>
                   <Button
                     variant={pollingActive && !rateLimitHit ? "success" : "outline-secondary"}
                     onClick={togglePolling}
-                    disabled={rateLimitHit}
+                    disabled={rateLimitHit || status !== "authenticated"}
                   >
                     {pollingActive ? (
                       <>
@@ -854,7 +904,11 @@ function RedemptionHistory() {
                       </>
                     )}
                   </Button>
-                  <Button variant="outline-primary" onClick={handleRefresh} disabled={loading}>
+                  <Button
+                    variant="outline-primary"
+                    onClick={handleRefresh}
+                    disabled={loading || status !== "authenticated"}
+                  >
                     <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
                     {loading ? "Memuat..." : "Refresh"}
                   </Button>
@@ -876,7 +930,7 @@ function RedemptionHistory() {
                 variant="outline-success"
                 size="sm"
                 onClick={handleExportCSV}
-                disabled={loading || !redemptions.length}
+                disabled={loading || !redemptions.length || status !== "authenticated"}
               >
                 <FaFileDownload className="me-1" /> Export CSV
               </Button>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import ReactCrop, { centerCrop, makeAspectCrop, convertToPixelCrop } from "react-image-crop"
 import "react-image-crop/dist/ReactCrop.css"
 import {
@@ -26,8 +27,6 @@ import {
   ToastContainer,
   Image,
 } from "react-bootstrap"
-import { useRouter } from "next/navigation"
-import axios from "axios"
 import {
   FaPlus,
   FaSync,
@@ -55,7 +54,11 @@ import {
   FaQuoteLeft,
   FaCloudUploadAlt,
   FaExpand,
+  FaUpload,
 } from "react-icons/fa"
+
+import axios from "axios"
+import { useRouter } from "next/navigation"
 
 // Cache buster helper to avoid stale image URLs
 const withBuster = (url) => {
@@ -71,34 +74,25 @@ const withBuster = (url) => {
 // Timezone helper functions
 const formatDateForInput = (dateString) => {
   if (!dateString) return ""
-  
-  // Create date object from the input string
+
   const date = new Date(dateString)
-  
-  // Check if date is valid
+
   if (isNaN(date.getTime())) return ""
-  
-  // Get timezone offset in minutes and convert to milliseconds
+
   const timezoneOffset = date.getTimezoneOffset() * 60000
-  
-  // Adjust for local timezone
+
   const localTime = new Date(date.getTime() - timezoneOffset)
-  
-  // Format to YYYY-MM-DDTHH:mm format for datetime-local input
+
   return localTime.toISOString().slice(0, 16)
 }
 
 const formatDateForSubmission = (inputValue) => {
   if (!inputValue) return null
-  
-  // Create date object from datetime-local input
-  // datetime-local returns YYYY-MM-DDTHH:mm format in local timezone
+
   const date = new Date(inputValue)
-  
-  // Check if date is valid
+
   if (isNaN(date.getTime())) return null
-  
-  // Return ISO string (UTC)
+
   return date.toISOString()
 }
 
@@ -110,10 +104,11 @@ const getCurrentLocalDateTime = () => {
 }
 
 const api = axios.create({
-  timeout: 180000, // 3 minutes for file uploads
+  timeout: 180000,
 })
 
 function ArticleManagement() {
+  const { status } = useSession()
   const router = useRouter()
   const fileInputRef = useRef(null)
   const contentImagesInputRef = useRef(null)
@@ -190,6 +185,9 @@ function ArticleManagement() {
   const [aspectRatio, setAspectRatio] = useState(16 / 9)
   const [imgRef, setImgRef] = useState()
 
+  const [noCrop, setNoCrop] = useState(false)
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState("16-9")
+
   // Enhanced content images handling
   const [uploadingContentImages, setUploadingContentImages] = useState(false)
   const [contentImagesPreviews, setContentImagesPreviews] = useState([])
@@ -213,32 +211,27 @@ function ArticleManagement() {
     }, duration)
   }, [])
 
-  // Check authentication
   const checkAuth = useCallback(() => {
-    const token = sessionStorage.getItem("adminToken")
-    if (!token) {
-      setAuthError(true)
-      router.push("/admin/login")
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication..., current status:", status)
       return null
     }
-    return token
-  }, [router])
+    return true
+  }, [status])
 
-  // Logout function
   const logout = useCallback(() => {
-    sessionStorage.removeItem("adminToken")
     setAuthError(true)
     router.push("/admin/login")
   }, [router])
 
-  // Fetch galleries for dropdown
   const fetchGalleries = useCallback(async () => {
-    try {
-      const token = checkAuth()
-      if (!token) return
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication before fetching galleries, current status:", status)
+      return
+    }
 
+    try {
       const response = await api.get("/api/admin/galeri", {
-        headers: { Authorization: `Bearer ${token}` },
         params: { limit: 100, status: "active" },
       })
 
@@ -248,22 +241,23 @@ function ArticleManagement() {
     } catch (error) {
       console.error("Error fetching galleries:", error)
     }
-  }, [checkAuth])
+  }, [status])
 
-  // Fetch articles
   const fetchArticles = useCallback(
     async (page = 1, limit = 20) => {
       if (!isMountedRef.current) return
 
+      if (status !== "authenticated") {
+        console.log("⏳ Waiting for authentication before fetching articles, current status:", status)
+        return
+      }
+
       setLoading(true)
       try {
-        const token = checkAuth()
-        if (!token) return
-
         const params = {
           page: page.toString(),
           limit: limit.toString(),
-          _t: Date.now(), // Cache busting
+          _t: Date.now(),
         }
 
         if (searchTerm.trim()) {
@@ -280,7 +274,6 @@ function ArticleManagement() {
 
         const response = await api.get("/api/admin/artikel", {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Cache-Control": "no-cache",
           },
           params,
@@ -306,17 +299,18 @@ function ArticleManagement() {
         setLoading(false)
       }
     },
-    [checkAuth, logout, searchTerm, filterStatus, filterGallery, addToast],
+    [status, logout, searchTerm, filterStatus, filterGallery, addToast],
   )
 
-  // Initialize component
   useEffect(() => {
     setIsClient(true)
     isMountedRef.current = true
 
     const initializeData = async () => {
-      await fetchGalleries()
-      await fetchArticles(1, itemsPerPage)
+      if (status === "authenticated") {
+        await fetchGalleries()
+        await fetchArticles(1, itemsPerPage)
+      }
     }
 
     initializeData()
@@ -324,49 +318,275 @@ function ArticleManagement() {
     return () => {
       isMountedRef.current = false
     }
-  }, [fetchArticles, fetchGalleries, itemsPerPage])
+  }, [status, fetchArticles, fetchGalleries, itemsPerPage])
 
-  // Handle search changes
   const handleSearchChange = useCallback((value) => {
     setSearchTerm(value)
     setCurrentPage(1)
   }, [])
 
-  // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && status === "authenticated") {
         fetchArticles(1, itemsPerPage)
       }
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [searchTerm, filterStatus, filterGallery, fetchArticles, itemsPerPage])
+  }, [searchTerm, filterStatus, filterGallery, fetchArticles, itemsPerPage, status])
 
   useEffect(() => {
-    if (dataLoaded) {
+    if (dataLoaded && status === "authenticated") {
       fetchArticles(1, itemsPerPage)
       setCurrentPage(1)
     }
-  }, [filterStatus, filterGallery, searchTerm, itemsPerPage, fetchArticles, dataLoaded])
+  }, [filterStatus, filterGallery, searchTerm, itemsPerPage, fetchArticles, dataLoaded, status])
 
-  // Handle file selection for cover image
-  const handleFileSelect = (file) => {
-    if (!file) return
+  const handleFileSelect = useCallback(
+    (file) => {
+      if (!file) return
 
-    setSelectedFile(file)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setPreviewImage(e.target.result)
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+      const allowedExts = [".jpg", ".jpeg", ".png", ".webp"]
+
+      const isValidType = allowedTypes.includes(file.type)
+      const isValidExt = allowedExts.some((ext) => file.name?.toLowerCase().endsWith(ext))
+
+      if (!isValidType && !isValidExt) {
+        addToast("Format file harus JPG, PNG, atau WebP", "error")
+        return
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        addToast("Ukuran file maksimal 10MB", "error")
+        return
+      }
+
+      setSelectedFile(file)
+
+      if (noCrop) {
+        setSelectedAspectRatio("no-crop")
+        setAspectRatio(undefined)
+        setShowCropModal(false)
+        handleDirectUpload(file)
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setPreviewImage(e.target.result)
+        setShowCropModal(true)
+      }
+      reader.readAsDataURL(file)
+    },
+    [noCrop, addToast],
+  )
+
+  const onImageLoad = useCallback(
+    (e) => {
+      const { width, height } = e.currentTarget
+      if (aspectRatio) {
+        setCrop(
+          centerCrop(
+            makeAspectCrop(
+              {
+                unit: "%",
+                width: 90,
+              },
+              aspectRatio,
+              width,
+              height,
+            ),
+            width,
+            height,
+          ),
+        )
+      }
+      try {
+        e.currentTarget.crossOrigin = "anonymous"
+      } catch {}
+      setImgRef(e.currentTarget)
+    },
+    [aspectRatio],
+  )
+
+  const getCroppedImg = useCallback((image, completedCrop) => {
+    return new Promise((resolve, reject) => {
+      try {
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")
+
+        if (!ctx) {
+          reject(new Error("No 2d context"))
+          return
+        }
+
+        const pixelRatio = window.devicePixelRatio || 1
+        const pixelCrop = convertToPixelCrop(completedCrop, image.naturalWidth, image.naturalHeight)
+
+        const scaleX = image.naturalWidth / image.width
+        const scaleY = image.naturalHeight / image.height
+
+        canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio)
+        canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio)
+
+        ctx.scale(pixelRatio, pixelRatio)
+        ctx.imageSmoothingQuality = "high"
+
+        const cropX = pixelCrop.x * scaleX
+        const cropY = pixelCrop.y * scaleY
+
+        ctx.drawImage(
+          image,
+          cropX,
+          cropY,
+          pixelCrop.width * scaleX,
+          pixelCrop.height * scaleY,
+          0,
+          0,
+          pixelCrop.width * scaleX,
+          pixelCrop.height * scaleY,
+        )
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error("Canvas is empty"))
+            }
+          },
+          "image/jpeg",
+          0.95,
+        )
+      } catch (error) {
+        reject(error)
+      }
+    })
+  }, [])
+
+  const handleCoverUpload = useCallback(
+    async (file) => {
+      if (!file) {
+        addToast("Pilih file cover terlebih dahulu", "error")
+        return
+      }
+
+      if (status !== "authenticated") {
+        addToast("Anda harus login terlebih dahulu", "error")
+        return
+      }
+
+      setUploading(true)
+      try {
+        const fd = new FormData()
+        fd.append("file", file)
+
+        const response = await api.post("/api/admin/artikel/upload", fd, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 180000,
+        })
+
+        if (response.data?.success) {
+          setFormData((prev) => ({
+            ...prev,
+            coverImage: response.data.imageUrl,
+            coverImageKey: response.data.imageKey,
+          }))
+          addToast("Cover image berhasil diupload", "success")
+        } else {
+          throw new Error(response.data?.message || "Upload gagal")
+        }
+
+        setPreviewImage(null)
+        setSelectedFile(null)
+        setShowCropModal(false)
+        setCrop(undefined)
+        setCompletedCrop(undefined)
+        setImgRef(undefined)
+        setNoCrop(false)
+        setAspectRatio(16 / 9)
+      } catch (error) {
+        console.error("Cover upload error:", error)
+        addToast("Gagal upload cover: " + (error.response?.data?.error || error.message), "error")
+        setFormData((prev) => ({ ...prev, coverImage: "", coverImageKey: "" }))
+      } finally {
+        setUploading(false)
+      }
+    },
+    [status, addToast],
+  )
+
+  const handleCropAndUpload = useCallback(async () => {
+    if (!selectedFile || !previewImage || !completedCrop || !imgRef) return
+    try {
+      setUploading(true)
+      const croppedBlob = await getCroppedImg(imgRef, completedCrop)
+      const croppedFile = new File([croppedBlob], selectedFile.name, { type: selectedFile.type })
+      await handleCoverUpload(croppedFile)
+    } catch (error) {
+      console.error("Error cropping cover:", error)
+      addToast("Gagal memproses gambar", "error")
+      setUploading(false)
+    }
+  }, [selectedFile, previewImage, completedCrop, imgRef, getCroppedImg, handleCoverUpload, addToast])
+
+  const handleDirectUpload = useCallback(
+    async (fileParam) => {
+      const file = fileParam || selectedFile
+      if (!file) {
+        addToast("Pilih file cover terlebih dahulu", "error")
+        return
+      }
+
+      try {
+        setUploading(true)
+        await handleCoverUpload(file)
+      } catch (error) {
+        console.error("Error uploading cover directly:", error)
+        addToast("Gagal mengupload cover", "error")
+      } finally {
+        setUploading(false)
+      }
+    },
+    [selectedFile, handleCoverUpload, addToast],
+  )
+
+  const handlePreviewClick = useCallback(() => {
+    if (previewImage) {
       setShowCropModal(true)
     }
-    reader.readAsDataURL(file)
-  }
+  }, [previewImage])
 
-  // Enhanced multiple content images upload with immediate preview
+  const handleReplaceCover = useCallback(() => {
+    setSelectedFile(null)
+    setPreviewImage(null)
+    setShowCropModal(false)
+    setCrop(undefined)
+    setCompletedCrop(undefined)
+    setNoCrop(false)
+    setSelectedAspectRatio("16-9")
+    setAspectRatio(16 / 9)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+    setFormData((prev) => ({
+      ...prev,
+      coverImage: "",
+      coverImageKey: "",
+    }))
+  }, [])
+
   const handleContentImagesUpload = async (event) => {
     const files = event.target?.files
     if (!files || files.length === 0) return
+
+    if (status !== "authenticated") {
+      addToast("Anda harus login terlebih dahulu", "error")
+      return
+    }
 
     console.log("[v0] Upload attempt - files selected:", files.length)
     console.log(
@@ -377,30 +597,23 @@ function ArticleManagement() {
     setUploadingContentImages(true)
 
     try {
-      const token = checkAuth()
-      if (!token) return
-
-      // Create FormData for multiple files
       const formData = new FormData()
       for (const file of files) {
-        formData.append("files", file) // Changed to "files" to match backend expectation for multiple
+        formData.append("files", file)
       }
 
       console.log("[v0] FormData created, uploading to /api/admin/artikel/upload-multiple")
 
-      // Upload all files at once
       const response = await api.post("/api/admin/artikel/upload-multiple", formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
-        timeout: 300000, // 5 minutes for large file uploads
+        timeout: 300000,
       })
 
       console.log("[v0] Upload response:", response.data)
 
       if (response.data?.success && response.data.images) {
-        // Add new images to existing content images
         setFormData((prev) => ({
           ...prev,
           contentImages: [...prev.contentImages, ...response.data.images],
@@ -421,7 +634,6 @@ function ArticleManagement() {
     }
   }
 
-  // Update content images order (drag & drop functionality)
   const updateContentImagesOrder = (newOrder) => {
     setFormData((prev) => ({
       ...prev,
@@ -429,7 +641,6 @@ function ArticleManagement() {
     }))
   }
 
-  // Remove content image
   const removeContentImage = (indexToRemove) => {
     setFormData((prev) => ({
       ...prev,
@@ -438,16 +649,17 @@ function ArticleManagement() {
     addToast("Gambar berhasil dihapus", "info")
   }
 
-  // Handle crop save
   const handleCropSave = useCallback(async () => {
     if (!completedCrop || !imgRef || !selectedFile) return
 
+    if (status !== "authenticated") {
+      addToast("Anda harus login terlebih dahulu", "error")
+      return
+    }
+
     try {
       setUploading(true)
-      const token = checkAuth()
-      if (!token) return
 
-      // Create canvas for cropped image
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
 
@@ -468,7 +680,6 @@ function ArticleManagement() {
         pixelCrop.height,
       )
 
-      // Convert to blob and upload
       canvas.toBlob(
         async (blob) => {
           const formData = new FormData()
@@ -477,7 +688,6 @@ function ArticleManagement() {
           try {
             const response = await api.post("/api/admin/artikel/upload", formData, {
               headers: {
-                Authorization: `Bearer ${token}`,
                 "Content-Type": "multipart/form-data",
               },
             })
@@ -506,35 +716,30 @@ function ArticleManagement() {
       addToast("Gagal memproses gambar", "error")
       setUploading(false)
     }
-  }, [completedCrop, imgRef, selectedFile, checkAuth, addToast])
+  }, [completedCrop, imgRef, selectedFile, status, addToast])
 
-  // Parse tags from input text - handles multiple formats
   const parseTagsFromInput = (input) => {
     if (!input || typeof input !== "string") return []
 
-    // Remove extra spaces and split by various delimiters
     const tags = input
       .trim()
-      .split(/[\s,#]+/) // Split by spaces, commas, or hash symbols
-      .map((tag) => tag.trim()) // Trim each tag
-      .filter((tag) => tag.length > 0) // Remove empty tags
-      .map((tag) => (tag.startsWith("#") ? tag.slice(1) : tag)) // Remove # prefix if exists
-      .filter((tag) => tag.length > 0) // Remove empty tags again after # removal
+      .split(/[\s,#]+/)
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0)
+      .map((tag) => (tag.startsWith("#") ? tag.slice(1) : tag))
+      .filter((tag) => tag.length > 0)
 
-    return [...new Set(tags)] // Remove duplicates
+    return [...new Set(tags)]
   }
 
-  // Handle tag addition
   const handleAddTag = () => {
     if (!tagInput.trim()) return
 
     const newTags = parseTagsFromInput(tagInput)
     const currentTags = formData.tags || []
 
-    // Combine existing tags with new tags, remove duplicates
     const combinedTags = [...new Set([...currentTags, ...newTags])]
 
-    // Limit to maximum 10 tags
     const finalTags = combinedTags.slice(0, 10)
 
     setFormData((prev) => ({
@@ -548,7 +753,6 @@ function ArticleManagement() {
     }
   }
 
-  // Handle tag removal
   const handleRemoveTag = (tagToRemove) => {
     setFormData((prev) => ({
       ...prev,
@@ -590,57 +794,58 @@ function ArticleManagement() {
     if (contentImagesInputRef.current) contentImagesInputRef.current.value = ""
     setEditingArticle(null)
     setShowEditModal(false)
+    setPreviewImage(null)
+    setSelectedFile(null)
+    setCrop(undefined)
+    setCompletedCrop(undefined)
+    setImgRef(undefined)
+    setNoCrop(false)
+    setSelectedAspectRatio("16-9")
+    setAspectRatio(16 / 9)
   }
 
-  // Process final tags before submission
   const processFinalTags = () => {
     let finalTags = [...(formData.tags || [])]
 
-    // If there's remaining input in tagInput, parse and add it
     if (tagInput.trim()) {
       const remainingTags = parseTagsFromInput(tagInput)
       finalTags = [...new Set([...finalTags, ...remainingTags])]
     }
 
-    // Clean up tags: remove empty strings, limit to 10
     return finalTags
       .filter((tag) => tag && typeof tag === "string" && tag.trim().length > 0)
       .map((tag) => tag.trim())
       .slice(0, 10)
   }
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) return
 
+    if (status !== "authenticated") {
+      addToast("Anda harus login terlebih dahulu", "error")
+      return
+    }
+
     setSubmitting(true)
     try {
-      const token = checkAuth()
-      if (!token) return
-
-      // Process final tags including any remaining input
       const finalTags = processFinalTags()
 
-      // Handle publishedAt field with proper timezone handling
       let publishedAtValue = formData.publishedAt
       if (formData.status === "published") {
         if (!formData.publishedAt) {
-          // If no publishedAt is provided for published articles, use current time
           publishedAtValue = new Date().toISOString()
         } else {
-          // Convert the datetime-local input to proper ISO string
           publishedAtValue = formatDateForSubmission(formData.publishedAt)
         }
       } else {
-        // For draft/archived articles, clear publishedAt
         publishedAtValue = null
       }
 
       const submitData = {
         ...formData,
-        tags: finalTags, // Use processed tags instead of formData.tags directly
-        status: formData.status || "draft", // Ensure status has a default value
+        tags: finalTags,
+        status: formData.status || "draft",
         publishedAt: publishedAtValue,
       }
 
@@ -651,13 +856,9 @@ function ArticleManagement() {
 
       let response
       if (editingArticle) {
-        response = await api.put(`/api/admin/artikel/${editingArticle._id}`, submitData, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        response = await api.put(`/api/admin/artikel/${editingArticle._id}`, submitData)
       } else {
-        response = await api.post("/api/admin/artikel", submitData, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        response = await api.post("/api/admin/artikel", submitData)
       }
 
       if (response.data?.success) {
@@ -680,19 +881,16 @@ function ArticleManagement() {
     }
   }
 
-  // Handle refresh
   const handleRefresh = () => {
     fetchArticles(currentPage, itemsPerPage)
   }
 
-  // Handle image view
   const handleImageView = (imageUrl, title) => {
     setSelectedImageUrl(imageUrl)
     setSelectedImageTitle(title)
     setShowImageModal(true)
   }
 
-  // Handle selection
   const handleSelectArticle = (articleId) => {
     setSelectedArticles((prev) =>
       prev.includes(articleId) ? prev.filter((id) => id !== articleId) : [...prev, articleId],
@@ -708,15 +906,14 @@ function ArticleManagement() {
     setSelectAll(!selectAll)
   }
 
-  // Handle delete
   const handleDelete = async (articleId) => {
-    try {
-      const token = checkAuth()
-      if (!token) return
+    if (status !== "authenticated") {
+      addToast("Anda harus login terlebih dahulu", "error")
+      return
+    }
 
-      const response = await api.delete(`/api/admin/artikel/${articleId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    try {
+      const response = await api.delete(`/api/admin/artikel/${articleId}`)
 
       if (response.data?.success) {
         addToast("Artikel berhasil dihapus", "success")
@@ -730,20 +927,17 @@ function ArticleManagement() {
     }
   }
 
-  // Handle bulk delete
   const handleBulkDelete = async () => {
     if (selectedArticles.length === 0) return
 
+    if (status !== "authenticated") {
+      addToast("Anda harus login terlebih dahulu", "error")
+      return
+    }
+
     setDeletingMultiple(true)
     try {
-      const token = checkAuth()
-      if (!token) return
-
-      const response = await api.post(
-        "/api/admin/artikel/bulk-delete",
-        { ids: selectedArticles },
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
+      const response = await api.post("/api/admin/artikel/bulk-delete", { ids: selectedArticles })
 
       if (response.data?.success) {
         addToast(`${response.data.deletedCount} artikel berhasil dihapus`, "success")
@@ -760,7 +954,6 @@ function ArticleManagement() {
     }
   }
 
-  // Stats cards configuration
   const statsCards = [
     {
       title: "Total Artikel",
@@ -788,7 +981,6 @@ function ArticleManagement() {
     },
   ]
 
-  // Status badge helper
   const getStatusBadge = (status) => {
     const statusConfig = {
       published: { variant: "success", text: "Published" },
@@ -799,7 +991,6 @@ function ArticleManagement() {
     return <Badge bg={config.variant}>{config.text}</Badge>
   }
 
-  // Pagination component
   const renderPagination = () => {
     if (totalPages <= 1) return null
 
@@ -812,7 +1003,6 @@ function ArticleManagement() {
       startPage = Math.max(1, endPage - maxVisible + 1)
     }
 
-    // First page
     if (startPage > 1) {
       items.push(
         <Pagination.Item key={1} onClick={() => fetchArticles(1, itemsPerPage)} disabled={loading}>
@@ -824,7 +1014,6 @@ function ArticleManagement() {
       }
     }
 
-    // Page numbers
     for (let page = startPage; page <= endPage; page++) {
       items.push(
         <Pagination.Item
@@ -838,7 +1027,6 @@ function ArticleManagement() {
       )
     }
 
-    // Last page
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) {
         items.push(<Pagination.Ellipsis key="end-ellipsis" />)
@@ -871,7 +1059,19 @@ function ArticleManagement() {
     )
   }
 
-  // Show loading while not client-side
+  if (status === "loading") {
+    return (
+      <div className="article-management-page">
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+          <div className="text-center">
+            <Spinner animation="border" variant="primary" />
+            <p className="mt-3 text-muted">Memuat sesi...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!isClient) {
     return (
       <div className="article-management-page">
@@ -885,7 +1085,6 @@ function ArticleManagement() {
     )
   }
 
-  // Show auth error
   if (authError) {
     return (
       <div className="article-management-page">
@@ -900,7 +1099,6 @@ function ArticleManagement() {
     )
   }
 
-  // Show loading while data hasn't loaded
   if (!dataLoaded) {
     return (
       <div className="article-management-page">
@@ -913,8 +1111,7 @@ function ArticleManagement() {
               variant="outline-primary"
               size="sm"
               onClick={() => fetchArticles(1, itemsPerPage)}
-              disabled={loading}
-              className="mt-2"
+              disabled={loading || status !== "authenticated"}
             >
               {loading ? "Memuat ulang..." : "Muat Ulang Data"}
             </Button>
@@ -930,7 +1127,6 @@ function ArticleManagement() {
     )
   }
 
-  // Handle edit article - populate form with existing data
   const handleEditArticle = (article) => {
     setFormData({
       title: article.title || "",
@@ -941,7 +1137,7 @@ function ArticleManagement() {
       relatedGallery: article.relatedGallery?._id || "",
       tags: article.tags || [],
       status: article.status || "draft",
-      publishedAt: formatDateForInput(article.publishedAt), // Use the timezone helper function
+      publishedAt: formatDateForInput(article.publishedAt),
       contentImages: article.contentImages || [],
     })
     setEditingArticle(article)
@@ -952,7 +1148,12 @@ function ArticleManagement() {
     <div className="article-management-page">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="mb-0">Manajemen Artikel</h1>
-        <Button variant="outline-primary" size="sm" onClick={handleRefresh} disabled={loading}>
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading || status !== "authenticated"}
+        >
           <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
           {loading ? "Memuat..." : "Refresh"}
         </Button>
@@ -965,7 +1166,6 @@ function ArticleManagement() {
         </Alert>
       )}
 
-      {/* Stats Cards */}
       <Row className="mb-4">
         {statsCards.map((stat, index) => (
           <Col md={3} key={index}>
@@ -982,7 +1182,6 @@ function ArticleManagement() {
         ))}
       </Row>
 
-      {/* Action Tabs */}
       <Card className="mb-4 shadow-sm">
         <Card.Header>
           <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="border-0" fill>
@@ -1015,6 +1214,7 @@ function ArticleManagement() {
                           }
                           placeholder="Masukkan judul artikel"
                           required
+                          disabled={status !== "authenticated"}
                         />
                       </Form.Group>
                     </Col>
@@ -1030,13 +1230,14 @@ function ArticleManagement() {
                             setFormData((prev) => ({
                               ...prev,
                               status: e.target.value,
-                              // Auto-set publishedAt when status changes to published
-                              publishedAt: e.target.value === "published" && !prev.publishedAt 
-                                ? getCurrentLocalDateTime() 
-                                : prev.publishedAt,
+                              publishedAt:
+                                e.target.value === "published" && !prev.publishedAt
+                                  ? getCurrentLocalDateTime()
+                                  : prev.publishedAt,
                             }))
                           }
-                          style={{ backgroundColor: "white", color: "black" }}   
+                          style={{ backgroundColor: "white", color: "black" }}
+                          disabled={status !== "authenticated"}
                         >
                           <option value="draft">Draft</option>
                           <option value="published">Published</option>
@@ -1063,6 +1264,7 @@ function ArticleManagement() {
                       }
                       placeholder="Masukkan ringkasan artikel (opsional, maks 300 karakter)"
                       maxLength={300}
+                      disabled={status !== "authenticated"}
                     />
                     <Form.Text muted>{formData.excerpt.length}/300 karakter</Form.Text>
                   </Form.Group>
@@ -1084,6 +1286,7 @@ function ArticleManagement() {
                       }
                       placeholder="Masukkan konten artikel (minimal 50 karakter)"
                       required
+                      disabled={status !== "authenticated"}
                     />
                     <Form.Text muted>{formData.content.length} karakter (minimal 50)</Form.Text>
                   </Form.Group>
@@ -1103,7 +1306,8 @@ function ArticleManagement() {
                               relatedGallery: e.target.value,
                             }))
                           }
-                          style={{ backgroundColor: "white", color: "black" }}  
+                          style={{ backgroundColor: "white", color: "black" }}
+                          disabled={status !== "authenticated"}
                         >
                           <option value="">Pilih Gallery (Opsional)</option>
                           {galleries.map((gallery) => (
@@ -1130,16 +1334,14 @@ function ArticleManagement() {
                                 publishedAt: e.target.value,
                               }))
                             }
+                            disabled={status !== "authenticated"}
                           />
-                          <Form.Text className="text-muted">
-                            Kosongkan untuk menggunakan waktu sekarang
-                          </Form.Text>
+                          <Form.Text className="text-muted">Kosongkan untuk menggunakan waktu sekarang</Form.Text>
                         </Form.Group>
                       )}
                     </Col>
                   </Row>
 
-                  {/* Enhanced Tags Section with Smart Parsing */}
                   <Form.Group className="mb-3">
                     <Form.Label>
                       <FaTag className="me-2" />
@@ -1158,18 +1360,21 @@ function ArticleManagement() {
                           }
                         }}
                         onBlur={() => {
-                          // Auto-add tags when user leaves the input field
                           if (tagInput.trim()) {
                             handleAddTag()
                           }
                         }}
+                        disabled={status !== "authenticated"}
                       />
-                      <Button variant="outline-secondary" onClick={handleAddTag} disabled={!tagInput.trim()}>
+                      <Button
+                        variant="outline-secondary"
+                        onClick={handleAddTag}
+                        disabled={!tagInput.trim() || status !== "authenticated"}
+                      >
                         <FaPlus />
                       </Button>
                     </InputGroup>
 
-                    {/* Live preview of tags that will be parsed */}
                     {tagInput.trim() && (
                       <div className="mt-2 p-2 bg-light border rounded">
                         <small className="text-muted">Tags yang akan ditambahkan: </small>
@@ -1181,7 +1386,6 @@ function ArticleManagement() {
                       </div>
                     )}
 
-                    {/* Current tags display */}
                     {formData.tags.length > 0 && (
                       <div className="mt-2">
                         <small className="text-muted d-block mb-1">Tags aktif ({formData.tags.length}/10):</small>
@@ -1190,8 +1394,8 @@ function ArticleManagement() {
                             key={index}
                             bg="primary"
                             className="me-2 mb-2"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => handleRemoveTag(tag)}
+                            style={{ cursor: status === "authenticated" ? "pointer" : "not-allowed" }}
+                            onClick={() => status === "authenticated" && handleRemoveTag(tag)}
                           >
                             {tag} <FaTimes className="ms-1" />
                           </Badge>
@@ -1206,7 +1410,6 @@ function ArticleManagement() {
                     </Form.Text>
                   </Form.Group>
 
-                  {/* Cover Image Section */}
                   <Form.Group className="mb-3">
                     <Form.Label>
                       <FaImage className="me-2" />
@@ -1219,12 +1422,38 @@ function ArticleManagement() {
                         ref={fileInputRef}
                         onChange={(e) => handleFileSelect(e.target.files[0])}
                         className="form-control-lg"
+                        required={!formData.coverImage}
+                        style={{
+                          display: formData.coverImage ? "none" : "block",
+                        }}
+                        disabled={status !== "authenticated"}
                       />
-                      {(selectedFile || previewImage) && (
+
+                      {formData.coverImage && (
+                        <div className="uploaded-image-container">
+                          <div className="d-flex justify-content-between align-items-center mb-2 gap-2">
+                            <small className="text-success">
+                              <FaCheckCircle className="me-1" />
+                              Cover image berhasil diupload
+                            </small>
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={handleReplaceCover}
+                              disabled={uploading || status !== "authenticated"}
+                            >
+                              <FaExpand className="me-1" />
+                              Ganti Gambar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {(selectedFile || previewImage) && !noCrop && (
                         <Button
                           variant="outline-info"
-                          onClick={() => setShowCropModal(true)}
-                          disabled={uploading}
+                          onClick={handlePreviewClick}
+                          disabled={uploading || status !== "authenticated"}
                           title="Preview & Crop Gambar"
                         >
                           <FaSearchPlus className="me-1" />
@@ -1233,18 +1462,16 @@ function ArticleManagement() {
                       )}
                     </div>
                     <Form.Text muted>Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB</Form.Text>
+
                     {uploading && (
                       <div className="mt-2">
                         <Spinner animation="border" size="sm" className="me-2" />
                         Mengupload cover image...
                       </div>
                     )}
+
                     {formData.coverImage && (
-                      <div className="mt-2">
-                        <div className="d-flex align-items-center gap-2 mb-2">
-                          <FaCheckCircle className="text-success" />
-                          <small className="text-success">Cover image berhasil diupload</small>
-                        </div>
+                      <div className="mt-3">
                         <div
                           className="preview-container"
                           style={{
@@ -1254,35 +1481,71 @@ function ArticleManagement() {
                             borderRadius: "8px",
                             overflow: "hidden",
                             backgroundColor: "#f8f9fa",
+                            position: "relative",
                             cursor: "pointer",
                           }}
                           onClick={() => handleImageView(formData.coverImage, "Cover Image")}
                         >
                           <Image
-                            src={formData.coverImage || "/placeholder.svg"}
+                            src={withBuster(formData.coverImage || "/placeholder.svg")}
                             alt="Cover Preview"
                             style={{
                               width: "100%",
-                              height: "200px",
-                              objectFit: "cover",
+                              height: "auto",
+                              maxHeight: "200px",
+                              objectFit: "contain",
                               display: "block",
                             }}
+                            onError={(e) => {
+                              console.warn("Cover preview load failed:", e.target.src)
+                              e.target.src = `data:image/svg+xml;base64,${btoa(`
+                                <svg width="400" height="200" xmlns="http://www.w3.org/2000/svg">
+                                  <rect width="400" height="200" fill="#f8f9fa"/>
+                                  <text x="200" y="100" textAnchor="middle" dy="0.3em" fontFamily="Arial" fontSize="14" fill="#6c757d">
+                                    Image Not Found
+                                  </text>
+                                </svg>
+                              `)}`
+                            }}
                           />
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "8px",
+                              right: "8px",
+                              backgroundColor: "rgba(0,0,0,0.7)",
+                              color: "white",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            {selectedAspectRatio === "no-crop"
+                              ? "Original"
+                              : !aspectRatio || selectedAspectRatio === "free"
+                                ? "Custom"
+                                : selectedAspectRatio.replace("-", ":")}
+                          </div>
                         </div>
+                        <small className="text-muted d-block mt-2 text-center">
+                          <FaLink className="me-1" />
+                          URL:{" "}
+                          {formData.coverImage.length > 50
+                            ? formData.coverImage.substring(0, 50) + "..."
+                            : formData.coverImage}
+                        </small>
                       </div>
                     )}
                   </Form.Group>
 
-                  {/* Enhanced Content Images Section */}
                   <Form.Group className="mb-3">
                     <Form.Label>
                       <FaImages className="me-2" />
                       Content Images
                     </Form.Label>
 
-                    {/* Image Grid with Drag & Drop Support */}
                     <div className="mb-3 d-flex flex-wrap gap-2">
-                      {/* Display existing content images */}
                       {formData.contentImages.map((image, index) => (
                         <div
                           key={image.key || index}
@@ -1306,7 +1569,6 @@ function ArticleManagement() {
                             onClick={() => handleImageView(image.url, `Content Image ${index + 1}`)}
                           />
 
-                          {/* Remove button */}
                           <Button
                             variant="danger"
                             size="sm"
@@ -1324,11 +1586,11 @@ function ArticleManagement() {
                             }}
                             onClick={() => removeContentImage(index)}
                             title="Hapus gambar"
+                            disabled={status !== "authenticated"}
                           >
                             <FaTimes size={10} />
                           </Button>
 
-                          {/* Expand button */}
                           <Button
                             variant="info"
                             size="sm"
@@ -1352,7 +1614,6 @@ function ArticleManagement() {
                         </div>
                       ))}
 
-                      {/* Upload indicator */}
                       {uploadingContentImages && (
                         <div
                           className="d-flex align-items-center justify-content-center bg-light border rounded"
@@ -1370,15 +1631,15 @@ function ArticleManagement() {
                         </div>
                       )}
 
-                      {/* Upload button */}
                       <label
                         className="d-flex align-items-center justify-content-center text-center bg-white shadow-sm border border-primary text-gray-500 rounded cursor-pointer position-relative"
                         style={{
                           width: "120px",
                           height: "120px",
-                          cursor: "pointer",
+                          cursor: status === "authenticated" ? "pointer" : "not-allowed",
                           borderStyle: "dashed",
                           borderWidth: "1px",
+                          opacity: status === "authenticated" ? 1 : 0.5,
                         }}
                       >
                         <div className="text-center">
@@ -1397,6 +1658,7 @@ function ArticleManagement() {
                           accept="image/*"
                           onChange={handleContentImagesUpload}
                           className="d-none"
+                          disabled={status !== "authenticated"}
                         />
                       </label>
                     </div>
@@ -1413,7 +1675,7 @@ function ArticleManagement() {
                     type="submit"
                     variant="primary"
                     size="lg"
-                    disabled={submitting || uploading || uploadingContentImages}
+                    disabled={submitting || uploading || uploadingContentImages || status !== "authenticated"}
                   >
                     {submitting ? (
                       <>
@@ -1450,7 +1712,7 @@ function ArticleManagement() {
                           variant="danger"
                           size="sm"
                           onClick={() => setShowDeleteMultipleModal(true)}
-                          disabled={deletingMultiple}
+                          disabled={deletingMultiple || status !== "authenticated"}
                         >
                           <FaTrash className="me-1" />
                           {deletingMultiple ? "Menghapus..." : `Hapus (${selectedArticles.length})`}
@@ -1460,7 +1722,6 @@ function ArticleManagement() {
                   </div>
                 </Card.Header>
                 <Card.Body>
-                  {/* Search and Filter */}
                   <Row className="mb-3">
                     <Col md={6}>
                       <InputGroup>
@@ -1471,9 +1732,14 @@ function ArticleManagement() {
                           placeholder="Cari judul, konten, atau tags..."
                           value={searchTerm}
                           onChange={(e) => handleSearchChange(e.target.value)}
+                          disabled={status !== "authenticated"}
                         />
                         {searchTerm && (
-                          <Button variant="outline-secondary" onClick={() => handleSearchChange("")}>
+                          <Button
+                            variant="outline-secondary"
+                            onClick={() => handleSearchChange("")}
+                            disabled={status !== "authenticated"}
+                          >
                             &times;
                           </Button>
                         )}
@@ -1493,6 +1759,7 @@ function ArticleManagement() {
                         variant="outline-secondary"
                         className="w-100"
                         style={{ backgroundColor: "white" }}
+                        disabled={status !== "authenticated"}
                       >
                         <Dropdown.Item
                           active={filterStatus === "all"}
@@ -1553,6 +1820,7 @@ function ArticleManagement() {
                         variant="outline-secondary"
                         className="w-100"
                         style={{ backgroundColor: "white" }}
+                        disabled={status !== "authenticated"}
                       >
                         <Dropdown.Item
                           active={filterGallery === "all"}
@@ -1582,13 +1850,17 @@ function ArticleManagement() {
                     </Col>
                   </Row>
 
-                  {/* Articles Table */}
                   <div className="table-responsive">
                     <Table striped bordered hover>
                       <thead>
                         <tr>
                           <th style={{ width: "50px" }}>
-                            <Form.Check type="checkbox" checked={selectAll} onChange={handleSelectAll} />
+                            <Form.Check
+                              type="checkbox"
+                              checked={selectAll}
+                              onChange={handleSelectAll}
+                              disabled={status !== "authenticated"}
+                            />
                           </th>
                           <th>Judul</th>
                           <th>Status</th>
@@ -1616,6 +1888,7 @@ function ArticleManagement() {
                                   type="checkbox"
                                   checked={selectedArticles.includes(article._id)}
                                   onChange={() => handleSelectArticle(article._id)}
+                                  disabled={status !== "authenticated"}
                                 />
                               </td>
                               <td>
@@ -1673,6 +1946,7 @@ function ArticleManagement() {
                                       variant="outline-primary"
                                       size="sm"
                                       onClick={() => handleEditArticle(article)}
+                                      disabled={status !== "authenticated"}
                                     >
                                       <FaEdit />
                                     </Button>
@@ -1685,6 +1959,7 @@ function ArticleManagement() {
                                         setArticleToDelete(article)
                                         setShowDeleteModal(true)
                                       }}
+                                      disabled={status !== "authenticated"}
                                     >
                                       <FaTrash />
                                     </Button>
@@ -1698,7 +1973,6 @@ function ArticleManagement() {
                     </Table>
                   </div>
 
-                  {/* Pagination */}
                   {renderPagination()}
                 </Card.Body>
               </Card>
@@ -1707,7 +1981,6 @@ function ArticleManagement() {
         </Card.Header>
       </Card>
 
-      {/* Toast Container */}
       <ToastContainer position="top-end" className="p-3">
         {toasts.map((toast) => (
           <Toast
@@ -1723,104 +1996,248 @@ function ArticleManagement() {
         ))}
       </ToastContainer>
 
-      {/* Crop Modal */}
-      <Modal
-        show={showCropModal}
-        onHide={() => {
-          return false
-        }}
-        size="lg"
-        centered
-        backdrop="static"
-        keyboard={false}
-      >
-        <Modal.Header closeButton>
+      <Modal show={showCropModal} onHide={() => false} centered size="lg" backdrop="static" keyboard={false}>
+        <Modal.Header>
           <Modal.Title>
-            <FaCrop className="me-2" />
-            Crop Cover Image
+            <FaCrop className="me-2 text-primary" />
+            Crop Gambar
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="mb-3">
-            <label className="form-label fw-bold">Aspect Ratio:</label>
-            <div className="d-flex gap-2 flex-wrap">
-              <Button
-                variant={aspectRatio === 16 / 9 ? "primary" : "outline-primary"}
-                size="sm"
-                onClick={() => setAspectRatio(16 / 9)}
-              >
-                16:9
-              </Button>
-              <Button
-                variant={aspectRatio === 4 / 3 ? "primary" : "outline-primary"}
-                size="sm"
-                onClick={() => setAspectRatio(4 / 3)}
-              >
-                4:3
-              </Button>
-              <Button
-                variant={aspectRatio === 1 ? "primary" : "outline-primary"}
-                size="sm"
-                onClick={() => setAspectRatio(1)}
-              >
-                1:1
-              </Button>
-              <Button
-                variant={aspectRatio === 3 / 4 ? "primary" : "outline-primary"}
-                size="sm"
-                onClick={() => setAspectRatio(3 / 4)}
-              >
-                3:4
-              </Button>
-              <Button
-                variant={aspectRatio === undefined ? "primary" : "outline-primary"}
-                size="sm"
-                onClick={() => setAspectRatio(undefined)}
-              >
-                Free
-              </Button>
-            </div>
-          </div>
           {previewImage && (
-            <ReactCrop
-              crop={crop}
-              onChange={(_, percentCrop) => setCrop(percentCrop)}
-              onComplete={(c) => setCompletedCrop(c)}
-              aspect={aspectRatio}
-              minWidth={50}
-              minHeight={50}
-              keepSelection
-            >
-              <img
-                ref={setImgRef}
-                alt="Crop me"
-                src={previewImage || "/placeholder.svg"}
-                style={{ maxHeight: "400px", width: "100%" }}
-                onLoad={(e) => {
-                  const { width, height } = e.currentTarget
-                  setCrop(
-                    centerCrop(
-                      makeAspectCrop(
-                        {
-                          unit: "%",
-                          width: 90,
-                        },
-                        aspectRatio || 16 / 9,
-                        width,
-                        height,
-                      ),
-                      width,
-                      height,
-                    ),
-                  )
-                }}
-              />
-            </ReactCrop>
+            <>
+              {!noCrop && (
+                <div className="mb-3">
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(_, percentCrop) => setCrop(percentCrop)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    aspect={aspectRatio}
+                    minWidth={50}
+                    minHeight={50}
+                    keepSelection
+                    style={{ maxWidth: "100%", maxHeight: "400px" }}
+                  >
+                    <img
+                      ref={setImgRef}
+                      alt="Crop me"
+                      src={previewImage || "/placeholder.svg"}
+                      style={{ maxWidth: "100%", maxHeight: "400px", display: "block" }}
+                      onLoad={onImageLoad}
+                    />
+                  </ReactCrop>
+                </div>
+              )}
+
+              {noCrop && (
+                <div className="mb-3 text-center">
+                  <img
+                    alt="Original image preview"
+                    src={previewImage || "/placeholder.svg"}
+                    style={{
+                      maxWidth: "300px",
+                      maxHeight: "250px",
+                      height: "auto",
+                      display: "block",
+                      margin: "0 auto",
+                      border: "2px solid #dee2e6",
+                      borderRadius: "8px",
+                      objectFit: "contain",
+                    }}
+                  />
+                  <small className="text-muted mt-2 d-block">
+                    Preview gambar original - akan diupload tanpa cropping
+                  </small>
+                </div>
+              )}
+
+              <div className="mb-3">
+                <Form.Label>Aspect Ratio:</Form.Label>
+                <div className="d-flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant={noCrop ? "success" : "outline-success"}
+                    onClick={() => {
+                      setNoCrop(true)
+                      setAspectRatio(undefined)
+                      setCrop(undefined)
+                      setCompletedCrop(undefined)
+                      setSelectedAspectRatio("no-crop")
+                    }}
+                  >
+                    <FaUpload className="me-1" />
+                    No Crop
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={aspectRatio === 16 / 9 && !noCrop ? "primary" : "outline-primary"}
+                    onClick={() => {
+                      setNoCrop(false)
+                      setAspectRatio(16 / 9)
+                      setCrop(undefined)
+                      setCompletedCrop(undefined)
+                      setSelectedAspectRatio("16-9")
+                      setTimeout(() => {
+                        if (imgRef) {
+                          const { width, height } = imgRef
+                          const ar = 16 / 9
+                          let cw, ch
+                          if (width / height > ar) {
+                            ch = height * 0.8
+                            cw = ch * ar
+                          } else {
+                            cw = width * 0.8
+                            ch = cw / ar
+                          }
+                          setCrop({
+                            unit: "%",
+                            x: (100 - (cw / width) * 100) / 2,
+                            y: (100 - (ch / height) * 100) / 2,
+                            width: (cw / width) * 100,
+                            height: (ch / height) * 100,
+                          })
+                        }
+                      }, 100)
+                    }}
+                  >
+                    16:9
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={aspectRatio === 4 / 3 && !noCrop ? "primary" : "outline-primary"}
+                    onClick={() => {
+                      setNoCrop(false)
+                      setAspectRatio(4 / 3)
+                      setCrop(undefined)
+                      setCompletedCrop(undefined)
+                      setSelectedAspectRatio("4-3")
+                      setTimeout(() => {
+                        if (imgRef) {
+                          const { width, height } = imgRef
+                          const ar = 4 / 3
+                          let cw, ch
+                          if (width / height > ar) {
+                            ch = height * 0.8
+                            cw = ch * ar
+                          } else {
+                            cw = width * 0.8
+                            ch = cw / ar
+                          }
+                          setCrop({
+                            unit: "%",
+                            x: (100 - (cw / width) * 100) / 2,
+                            y: (100 - (ch / height) * 100) / 2,
+                            width: (cw / width) * 100,
+                            height: (ch / height) * 100,
+                          })
+                        }
+                      }, 100)
+                    }}
+                  >
+                    4:3
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={aspectRatio === 1 && !noCrop ? "primary" : "outline-primary"}
+                    onClick={() => {
+                      setNoCrop(false)
+                      setAspectRatio(1)
+                      setCrop(undefined)
+                      setCompletedCrop(undefined)
+                      setSelectedAspectRatio("1-1")
+                      setTimeout(() => {
+                        if (imgRef) {
+                          const { width, height } = imgRef
+                          const size = Math.min(width, height) * 0.8
+                          setCrop({
+                            unit: "%",
+                            x: (100 - (size / width) * 100) / 2,
+                            y: (100 - (size / height) * 100) / 2,
+                            width: (size / width) * 100,
+                            height: (size / height) * 100,
+                          })
+                        }
+                      }, 100)
+                    }}
+                  >
+                    1:1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={aspectRatio === 3 / 4 && !noCrop ? "primary" : "outline-primary"}
+                    onClick={() => {
+                      setNoCrop(false)
+                      setAspectRatio(3 / 4)
+                      setCrop(undefined)
+                      setCompletedCrop(undefined)
+                      setSelectedAspectRatio("3-4")
+                      setTimeout(() => {
+                        if (imgRef) {
+                          const { width, height } = imgRef
+                          const ar = 3 / 4
+                          let cw, ch
+                          if (width / height > ar) {
+                            ch = height * 0.8
+                            cw = ch * ar
+                          } else {
+                            cw = width * 0.8
+                            ch = cw / ar
+                          }
+                          setCrop({
+                            unit: "%",
+                            x: (100 - (cw / width) * 100) / 2,
+                            y: (100 - (ch / height) * 100) / 2,
+                            width: (cw / width) * 100,
+                            height: (ch / height) * 100,
+                          })
+                        }
+                      }, 100)
+                    }}
+                  >
+                    3:4
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={!aspectRatio && !noCrop ? "primary" : "outline-primary"}
+                    onClick={() => {
+                      setNoCrop(false)
+                      setAspectRatio(undefined)
+                      setCrop(undefined)
+                      setCompletedCrop(undefined)
+                      setSelectedAspectRatio("free")
+                      setTimeout(() => {
+                        if (imgRef) {
+                          const { width, height } = imgRef
+                          setCrop({
+                            unit: "%",
+                            x: 10,
+                            y: 10,
+                            width: 80,
+                            height: 80,
+                          })
+                        }
+                      }, 100)
+                    }}
+                  >
+                    Free
+                  </Button>
+                </div>
+                {noCrop && (
+                  <Alert variant="info" className="mt-2">
+                    <FaInfoCircle className="me-2" />
+                    Mode "No Crop": Gambar akan diupload dalam ukuran original.
+                  </Alert>
+                )}
+              </div>
+
+              {!noCrop && (
+                <Alert variant="info" className="mt-3">
+                  <FaInfoCircle className="me-2" />
+                  Drag sudut atau sisi crop area untuk mengubah ukuran. Drag bagian tengah untuk memindahkan posisi.
+                </Alert>
+              )}
+            </>
           )}
-          <Alert variant="info" className="mt-3">
-            <FaInfoCircle className="me-2" />
-            Drag sudut atau sisi crop area untuk mengubah ukuran. Drag bagian tengah untuk memindahkan posisi.
-          </Alert>
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -1831,25 +2248,43 @@ function ArticleManagement() {
               setSelectedFile(null)
               setCrop(undefined)
               setCompletedCrop(undefined)
+              setNoCrop(false)
+              setSelectedAspectRatio("16-9")
+              if (fileInputRef.current) {
+                fileInputRef.current.value = ""
+              }
             }}
             disabled={uploading}
           >
+            <FaTimes className="me-2" />
             Batal
           </Button>
-          <Button variant="primary" onClick={handleCropSave} disabled={!completedCrop || uploading}>
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (noCrop) {
+                handleDirectUpload()
+              } else {
+                handleCropAndUpload()
+              }
+            }}
+            disabled={uploading || (!completedCrop && !noCrop)}
+          >
             {uploading ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
                 Mengupload...
               </>
             ) : (
-              "Simpan & Upload"
+              <>
+                <FaUpload className="me-2" />
+                {noCrop ? "Upload Gambar" : "Crop & Upload"}
+              </>
             )}
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Image Viewer Modal */}
       <Modal show={showImageModal} onHide={() => setShowImageModal(false)} size="lg" centered>
         <Modal.Header closeButton>
           <Modal.Title>{selectedImageTitle}</Modal.Title>
@@ -1863,7 +2298,6 @@ function ArticleManagement() {
         </Modal.Body>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -1891,7 +2325,6 @@ function ArticleManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Bulk Delete Confirmation Modal */}
       <Modal show={showDeleteMultipleModal} onHide={() => setShowDeleteMultipleModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -1927,8 +2360,7 @@ function ArticleManagement() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
-      {/* Edit Modal */}
+
       <Modal
         show={showEditModal}
         onHide={() => {
@@ -1965,6 +2397,7 @@ function ArticleManagement() {
                     }
                     placeholder="Masukkan judul artikel"
                     required
+                    disabled={status !== "authenticated"}
                   />
                 </Form.Group>
               </Col>
@@ -1980,13 +2413,14 @@ function ArticleManagement() {
                       setFormData((prev) => ({
                         ...prev,
                         status: e.target.value,
-                        // Auto-set publishedAt when status changes to published (only if not already set)
-                        publishedAt: e.target.value === "published" && !prev.publishedAt 
-                          ? getCurrentLocalDateTime() 
-                          : prev.publishedAt,
+                        publishedAt:
+                          e.target.value === "published" && !prev.publishedAt
+                            ? getCurrentLocalDateTime()
+                            : prev.publishedAt,
                       }))
                     }
                     style={{ backgroundColor: "white", color: "black" }}
+                    disabled={status !== "authenticated"}
                   >
                     <option value="draft">Draft</option>
                     <option value="published">Published</option>
@@ -2013,6 +2447,7 @@ function ArticleManagement() {
                 }
                 placeholder="Masukkan ringkasan artikel (opsional, maks 300 karakter)"
                 maxLength={300}
+                disabled={status !== "authenticated"}
               />
               <Form.Text muted>{formData.excerpt.length}/300 karakter</Form.Text>
             </Form.Group>
@@ -2034,6 +2469,7 @@ function ArticleManagement() {
                 }
                 placeholder="Masukkan konten artikel (minimal 50 karakter)"
                 required
+                disabled={status !== "authenticated"}
               />
               <Form.Text muted>{formData.content.length} karakter (minimal 50)</Form.Text>
             </Form.Group>
@@ -2054,6 +2490,7 @@ function ArticleManagement() {
                       }))
                     }
                     style={{ backgroundColor: "white", color: "black" }}
+                    disabled={status !== "authenticated"}
                   >
                     <option value="">Pilih Gallery (Opsional)</option>
                     {galleries.map((gallery) => (
@@ -2080,16 +2517,14 @@ function ArticleManagement() {
                           publishedAt: e.target.value,
                         }))
                       }
+                      disabled={status !== "authenticated"}
                     />
-                    <Form.Text className="text-muted">
-                      Kosongkan untuk menggunakan waktu sekarang
-                    </Form.Text>
+                    <Form.Text className="text-muted">Kosongkan untuk menggunakan waktu sekarang</Form.Text>
                   </Form.Group>
                 )}
               </Col>
             </Row>
 
-            {/* Tags Section */}
             <Form.Group className="mb-3">
               <Form.Label>
                 <FaTag className="me-2" />
@@ -2112,8 +2547,13 @@ function ArticleManagement() {
                       handleAddTag()
                     }
                   }}
+                  disabled={status !== "authenticated"}
                 />
-                <Button variant="outline-secondary" onClick={handleAddTag} disabled={!tagInput.trim()}>
+                <Button
+                  variant="outline-secondary"
+                  onClick={handleAddTag}
+                  disabled={!tagInput.trim() || status !== "authenticated"}
+                >
                   <FaPlus />
                 </Button>
               </InputGroup>
@@ -2137,8 +2577,8 @@ function ArticleManagement() {
                       key={index}
                       bg="primary"
                       className="me-2 mb-2"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleRemoveTag(tag)}
+                      style={{ cursor: status === "authenticated" ? "pointer" : "not-allowed" }}
+                      onClick={() => status === "authenticated" && handleRemoveTag(tag)}
                     >
                       {tag} <FaTimes className="ms-1" />
                     </Badge>
@@ -2147,7 +2587,6 @@ function ArticleManagement() {
               )}
             </Form.Group>
 
-            {/* Cover Image Section */}
             <Form.Group className="mb-3">
               <Form.Label>
                 <FaImage className="me-2" />
@@ -2160,19 +2599,32 @@ function ArticleManagement() {
                   ref={fileInputRef}
                   onChange={(e) => handleFileSelect(e.target.files[0])}
                   className="form-control-lg"
+                  disabled={status !== "authenticated"}
                 />
                 {(selectedFile || previewImage) && (
                   <Button
                     variant="outline-info"
-                    onClick={() => setShowCropModal(true)}
-                    disabled={uploading}
+                    onClick={handlePreviewClick}
+                    disabled={uploading || status !== "authenticated"}
                     title="Preview & Crop Gambar"
                   >
                     <FaSearchPlus className="me-1" />
                     Preview
                   </Button>
                 )}
+                {formData.coverImage && (
+                  <Button
+                    variant="outline-danger"
+                    onClick={handleReplaceCover}
+                    disabled={uploading || status !== "authenticated"}
+                    title="Ganti Cover Image"
+                  >
+                    <FaTrash className="me-1" />
+                    Ganti
+                  </Button>
+                )}
               </div>
+              <Form.Text muted>Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB</Form.Text>
               {uploading && (
                 <div className="mt-2">
                   <Spinner animation="border" size="sm" className="me-2" />
@@ -2212,7 +2664,6 @@ function ArticleManagement() {
               )}
             </Form.Group>
 
-            {/* Content Images Section */}
             <Form.Group className="mb-3">
               <Form.Label>
                 <FaImages className="me-2" />
@@ -2258,6 +2709,7 @@ function ArticleManagement() {
                       }}
                       onClick={() => removeContentImage(index)}
                       title="Hapus gambar"
+                      disabled={status !== "authenticated"}
                     >
                       <FaTimes size={8} />
                     </Button>
@@ -2281,9 +2733,10 @@ function ArticleManagement() {
                   style={{
                     width: "100px",
                     height: "100px",
-                    cursor: "pointer",
+                    cursor: status === "authenticated" ? "pointer" : "not-allowed",
                     borderStyle: "dashed",
                     borderWidth: "1px",
+                    opacity: status === "authenticated" ? 1 : 0.5,
                   }}
                 >
                   <div className="text-center">
@@ -2299,6 +2752,7 @@ function ArticleManagement() {
                     accept="image/*"
                     onChange={handleContentImagesUpload}
                     className="d-none"
+                    disabled={status !== "authenticated"}
                   />
                 </label>
               </div>
@@ -2315,7 +2769,11 @@ function ArticleManagement() {
           >
             Batal
           </Button>
-          <Button variant="primary" onClick={handleSubmit} disabled={submitting || uploading || uploadingContentImages}>
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={submitting || uploading || uploadingContentImages || status !== "authenticated"}
+          >
             {submitting ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />

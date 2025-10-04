@@ -1,33 +1,21 @@
 import { NextResponse } from "next/server"
 import connectToDatabase from "@/lib/db"
 import Article from "@/lib/models/article"
-import { authorizeRequest } from "@/lib/utils/auth-server"
-import { validateRequest } from "@/lib/utils/validation"
-import { articleBulkDeleteSchema } from "@/lib/utils/validation"
+import { validateRequest, articleBulkDeleteSchema } from "@/lib/utils/validation"
 import { deleteFromS3 } from "@/lib/utils/s3"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { requireAdminSession } from "@/lib/utils/auth"
 
-// Rate limiter for bulk delete endpoint
-const bulkDeleteLimiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
-  uniqueTokenPerInterval: 50,
-  limit: 5, // 5 bulk delete requests per minute
-})
+const bulkDeleteLimiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 50, limit: 5 })
 
-// POST bulk delete articles
 export async function POST(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
     const rateLimitResult = await bulkDeleteLimiter.check(identifier, 5)
-
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        {
-          error: "Too many bulk delete requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many bulk delete requests. Please try again later.", reset: rateLimitResult.reset },
         {
           status: 429,
           headers: {
@@ -42,49 +30,33 @@ export async function POST(request) {
 
     await connectToDatabase()
 
-    // Authentication and authorization
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ status: "error", message: authResult.message }, { status: 401 })
+    const auth = await requireAdminSession()
+    if (!auth.ok) {
+      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
     }
 
     const body = await request.json()
-
-    // Validate request
     const validation = await validateRequest(articleBulkDeleteSchema, body)
     if (!validation.success) {
       return NextResponse.json(validation.error, { status: 400 })
     }
 
     const { ids } = validation.data
-
-    // Find articles to delete
     const articles = await Article.find({ _id: { $in: ids } })
-
     if (articles.length === 0) {
       return NextResponse.json({ error: "No articles found" }, { status: 404 })
     }
 
-    // Collect all images to delete from S3
     const imagesToDelete = []
-
-    articles.forEach((article) => {
-      // Add cover image if exists
-      if (article.coverImageKey) {
-        imagesToDelete.push(article.coverImageKey)
+    for (const art of articles) {
+      if (art.coverImageKey) imagesToDelete.push(art.coverImageKey)
+      if (art.contentImages?.length) {
+        for (const img of art.contentImages) {
+          if (img?.key) imagesToDelete.push(img.key)
+        }
       }
+    }
 
-      // Add content images if exist
-      if (article.contentImages && article.contentImages.length > 0) {
-        article.contentImages.forEach((img) => {
-          if (img.key) {
-            imagesToDelete.push(img.key)
-          }
-        })
-      }
-    })
-
-    // Delete images from S3
     const s3DeletePromises = imagesToDelete.map(async (imageKey) => {
       try {
         await deleteFromS3(imageKey)
@@ -95,19 +67,17 @@ export async function POST(request) {
         return { success: false, key: imageKey, error: s3Error.message }
       }
     })
-
     const s3Results = await Promise.allSettled(s3DeletePromises)
 
-    // Delete from database
     const deleteResult = await Article.deleteMany({ _id: { $in: ids } })
 
-    logger.info(`${deleteResult.deletedCount} articles bulk deleted by ${authResult.user.username}`)
+    logger.info(`${deleteResult.deletedCount} articles bulk deleted by ${auth.session.user.email}`)
 
     return NextResponse.json(
       {
         success: true,
         deletedCount: deleteResult.deletedCount,
-        s3Results: s3Results.map((result) => result.value || result.reason),
+        s3Results: s3Results.map((r) => r.value || r.reason),
         message: `${deleteResult.deletedCount} artikel berhasil dihapus`,
       },
       {

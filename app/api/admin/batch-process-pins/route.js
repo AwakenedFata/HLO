@@ -1,48 +1,44 @@
 import { NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
+import connectDB from "@/lib/db"
 import PinCode from "@/lib/models/pinCode"
-import { authorizeRequest } from "@/lib/utils/auth-server"
+import { requireAdmin } from "@/lib/utils/auth"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
-// Rate limiter for batch processing endpoint
 const limiter = rateLimit({
-  interval: 60 * 1000, // 1 minute
+  interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 10, // 10 requests per minute
+  limit: 10,
 })
 
-// Endpoint for batch processing multiple pins at once
 export async function POST(request) {
   try {
-    // Apply rate limiting
     const identifier = request.headers.get("x-forwarded-for") || "anonymous"
-    const rateLimitResult = await limiter.check(identifier, 10, "batch-process-pins")
-
-    if (!rateLimitResult.success) {
+    const rate = await limiter.check(identifier, 10, "batch-process-pins")
+    if (!rate.success) {
       return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          reset: rateLimitResult.reset,
-        },
+        { error: "Too many requests. Please try again later.", reset: rate.reset },
         {
           status: 429,
           headers: {
-            "Retry-After": rateLimitResult.reset.toString(),
-            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
-            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
-            "X-RateLimit-Reset": rateLimitResult.reset.toString(),
+            "Retry-After": rate.reset.toString(),
+            "X-RateLimit-Limit": rate.limit.toString(),
+            "X-RateLimit-Remaining": rate.remaining.toString(),
+            "X-RateLimit-Reset": rate.reset.toString(),
           },
         },
       )
     }
 
-    await connectToDatabase()
+    await connectDB()
 
-    // Authenticate and authorize user
-    const authResult = await authorizeRequest(["admin", "super-admin"])(request)
-    if (authResult.error) {
-      return NextResponse.json({ error: authResult.message }, { status: 401 })
+    // Auth
+    let session
+    try {
+      session = await requireAdmin()
+    } catch (err) {
+      return NextResponse.json({ error: err.message || "Unauthorized" }, { status: err?.statusCode || 401 })
     }
 
     const { pinIds } = await request.json()
@@ -50,22 +46,21 @@ export async function POST(request) {
     if (!pinIds || !Array.isArray(pinIds) || pinIds.length === 0) {
       return NextResponse.json({ error: "Valid PIN IDs array is required" }, { status: 400 })
     }
-
-    // Limit batch size to prevent abuse
     if (pinIds.length > 100) {
       return NextResponse.json({ error: "Maximum batch size is 100 pins" }, { status: 400 })
     }
 
     const now = new Date()
 
-    // Batch update all pins in a single operation with processedAt and processedBy
+    const adminId = await resolveAdminIdFromSession(session)
+
     const result = await PinCode.updateMany(
       { _id: { $in: pinIds }, used: true, processed: false },
       {
         $set: {
           processed: true,
           processedAt: now,
-          processedBy: authResult.user._id,
+          processedBy: adminId, // set processedBy if schema supports it
         },
       },
     )
@@ -77,7 +72,6 @@ export async function POST(request) {
       })
     }
 
-    // Get the processed pins for logging and response
     const processedPins = await PinCode.find({
       _id: { $in: pinIds },
       processed: true,
@@ -86,9 +80,8 @@ export async function POST(request) {
       .select("_id code")
       .lean()
 
-    logger.info(`${result.modifiedCount} PINs ditandai sebagai diproses oleh ${authResult.user.username}`)
+    logger.info(`[admin] ${result.modifiedCount} PINs batch processed`)
 
-    // Return response with cache invalidation headers
     return NextResponse.json(
       {
         success: true,
@@ -111,12 +104,6 @@ export async function POST(request) {
     )
   } catch (error) {
     logger.error("Error batch processing pins:", error)
-    return NextResponse.json(
-      {
-        error: "Server error",
-        message: error.message,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
   }
 }
