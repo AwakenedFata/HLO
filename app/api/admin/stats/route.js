@@ -4,44 +4,46 @@ import PinCode from "@/lib/models/pinCode"
 import logger from "@/lib/utils/logger-server"
 import crypto from "crypto"
 import { rateLimit } from "@/lib/utils/rate-limit"
-import { requireAdminSession } from "@/lib/utils/auth"
+import { requireAdmin } from "@/lib/utils/auth"
 
-// SOLUTION 2: Increased rate limit from 30 to 60 requests per minute
+// Increased rate limit from 30 to 60 requests per minute
 const limiter = rateLimit({
   interval: 60 * 1000,
   uniqueTokenPerInterval: 100,
-  limit: 60, // Increased from 30
+  limit: 60,
 })
 
 export async function GET(request) {
   try {
-    // Auth with NextAuth - moved before rate limit for better security
+    // ✅ FIX: Use requireAdmin() which directly returns session or throws
     let session
     try {
-      session = await requireAdminSession()
+      session = await requireAdmin()
     } catch (err) {
       const status = err?.statusCode || 401
-      return NextResponse.json({ error: err?.message || "Unauthorized" }, { status })
+      logger.warn(`Unauthorized stats access: ${err?.message}`)
+      return NextResponse.json(
+        { error: err?.message || "Unauthorized" }, 
+        { status }
+      )
     }
 
-    // SOLUTION 1: Rate limit check with proper error handling
+    // Rate limit check
     const identifier = request.headers.get("x-forwarded-for") || session.user?.email || "anonymous"
     const rateLimitResult = await limiter.check(identifier, 60, "dashboard-stats")
-    
+
     if (!rateLimitResult.success) {
-      // Log the rate limit error
       logger.error("Rate limit exceeded for dashboard stats", {
         identifier,
         rateLimitInfo: rateLimitResult,
         statusCode: 429,
       })
 
-      // Return immediately without proceeding to database query
       return NextResponse.json(
-        { 
-          error: "Too many requests. Please try again later.", 
+        {
+          error: "Too many requests. Please try again later.",
           reset: rateLimitResult.reset,
-          retryAfter: rateLimitResult.reset 
+          retryAfter: rateLimitResult.reset,
         },
         {
           status: 429,
@@ -58,7 +60,6 @@ export async function GET(request) {
     await connectDB()
 
     const { searchParams } = new URL(request.url)
-
     const cacheBuster = searchParams.get("_t")
     const bypassCache = !!cacheBuster || request.headers.get("cache-control")?.includes("no-cache")
 
@@ -155,7 +156,7 @@ export async function GET(request) {
       responseHeaders["Pragma"] = "no-cache"
       responseHeaders["Expires"] = "0"
     } else {
-      // SOLUTION 4: Better cache control - cache for 15 seconds instead of 30
+      // Cache for 15 seconds
       responseHeaders["Cache-Control"] = "private, max-age=15, stale-while-revalidate=30"
       const dataHash = crypto.createHash("md5").update(JSON.stringify(responseData)).digest("hex")
       responseHeaders["ETag"] = `"stats-${dataHash}"`
@@ -170,6 +171,9 @@ export async function GET(request) {
     return NextResponse.json(responseData, { headers: responseHeaders })
   } catch (error) {
     logger.error("Error fetching dashboard stats:", error)
-    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: "Server error", message: error.message }, 
+      { status: 500 }
+    )
   }
 }

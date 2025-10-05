@@ -52,6 +52,7 @@
   backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar .border-bottom {

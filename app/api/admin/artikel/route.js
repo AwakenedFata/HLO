@@ -4,8 +4,8 @@ import Article from "@/lib/models/article"
 import { validateRequest, articleCreationSchema, articleQuerySchema } from "@/lib/utils/validation"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
-import { requireAdminSession } from "@/lib/utils/auth"
-import { requireAdmin as requireAdminWithId, resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
+import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
 const getLimiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 100, limit: 30 })
 const postLimiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 100, limit: 10 })
@@ -178,12 +178,48 @@ export async function POST(request) {
 
     await connectToDatabase()
 
-    const auth = await requireAdminWithId()
-    if (!auth.ok) {
-      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
+    // PERUBAHAN: Gunakan pattern yang sama dengan Gallery
+    let session
+    try {
+      session = await requireAdmin()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      logger.error(`[POST ARTICLE] Auth failed: ${err?.message || "Unknown error"}`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: err?.message || "Unauthorized",
+          error: "Authentication failed"
+        }, 
+        { status }
+      )
+    }
+    
+    const adminId = await resolveAdminIdFromSession(session)
+    
+    if (!adminId) {
+      logger.error(`[POST ARTICLE] Failed to resolve admin ID from session`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: "Failed to identify admin user",
+          error: "Admin ID resolution failed"
+        }, 
+        { status: 401 }
+      )
     }
 
     const body = await request.json()
+    
+    logger.info(`[POST ARTICLE] Received data: ${JSON.stringify({
+      hasTitle: !!body.title,
+      hasContent: !!body.content,
+      hasContentImages: !!body.contentImages,
+      contentImagesCount: body.contentImages?.length || 0,
+      hasTags: !!body.tags,
+      tagsType: typeof body.tags,
+    })}`)
+    
     if (body.tags && typeof body.tags === "string") {
       body.tags = body.tags
         .split(" ")
@@ -193,10 +229,9 @@ export async function POST(request) {
 
     const validation = await validateRequest(articleCreationSchema, body)
     if (!validation.success) {
+      logger.error(`[POST ARTICLE] Validation failed: ${JSON.stringify(validation.error)}`)
       return NextResponse.json(validation.error, { status: 400 })
     }
-
-    const adminId = await resolveAdminIdFromSession(auth.session)
 
     const {
       title,
@@ -210,6 +245,8 @@ export async function POST(request) {
       publishedAt,
       contentImages,
     } = validation.data
+
+    logger.info(`[POST ARTICLE] Creating article: "${title}" by admin ID: ${adminId}`)
 
     const article = await Article.create({
       title,
@@ -231,7 +268,7 @@ export async function POST(request) {
       { path: "relatedGallery", select: "title label" },
     ])
 
-    logger.info(`Article created by ${auth.session.user.email}: ${title}`)
+    logger.info(`Article created by ${session.user.email}: ${title}`)
 
     return NextResponse.json(
       { success: true, article, message: "Artikel berhasil dibuat" },
@@ -248,6 +285,16 @@ export async function POST(request) {
     )
   } catch (error) {
     logger.error("Error creating article:", error)
-    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
+    logger.error("Error stack:", error.stack)
+    
+    return NextResponse.json(
+      { 
+        status: "error",
+        error: "Server error", 
+        message: error.message || "An unexpected error occurred",
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 
+      { status: 500 }
+    )
   }
 }

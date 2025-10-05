@@ -2,17 +2,14 @@
 
 import React from "react"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { Card, Row, Col, Alert, Spinner, Button, Modal, Badge, Toast, ToastContainer } from "react-bootstrap"
+import { Card, Row, Col, Alert, Spinner, Badge, Toast, ToastContainer } from "react-bootstrap"
 import { useSession } from "next-auth/react"
 import axios from "axios"
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js"
 import { Pie, Bar } from "react-chartjs-2"
 import { useRouter } from "next/navigation"
 import {
-  FaSync,
   FaExclamationTriangle,
-  FaWifi,
-  FaPlay,
   FaCheckCircle,
   FaTimesCircle,
   FaClock,
@@ -21,59 +18,11 @@ import {
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
-const CACHE_KEYS = {
-  DASHBOARD_STATS: "dashboard_stats",
-  DASHBOARD_STATS_LAST_FETCH: "dashboard_stats_last_fetch",
-}
-
-const invalidateAllCaches = () => {
-  Object.values(CACHE_KEYS).forEach((key) => {
-    localStorage.removeItem(key)
-  })
-  sessionStorage.removeItem("dashboard_etag")
-  sessionStorage.removeItem("stats_etag")
-}
-
-const forceRefreshData = async (fetchFunction, ...args) => {
-  invalidateAllCaches()
-  const timestamp = Date.now()
-  try {
-    return await fetchFunction(...args, {
-      force: true,
-      bypassCache: true,
-      cacheBuster: timestamp,
-    })
-  } catch (error) {
-    if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
-      console.log("⏭️ Request was canceled, ignoring...")
-      return { canceled: true }
-    }
-    throw error
-  }
-}
-
 const api = axios.create({
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
-})
-
-api.interceptors.request.use((config) => {
-  // SOLUTION 4: Only add cache-control headers for mutations, not GET requests
-  if (config.method === "post" || config.method === "delete" || config.method === "patch") {
-    config.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    config.headers["Pragma"] = "no-cache"
-    config.headers["Expires"] = "0"
-  }
-
-  // SOLUTION 4: Only bypass cache when explicitly forced
-  if (config.bypassCache) {
-    delete config.headers["If-None-Match"]
-    config.params = { ...config.params, _t: Date.now() }
-  }
-
-  return config
 })
 
 api.interceptors.response.use(
@@ -109,20 +58,10 @@ function useStatsData() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastFetchTime, setLastFetchTime] = useState(0)
-  const [nextAllowedFetchTime, setNextAllowedFetchTime] = useState(0)
-  const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState("connected")
-  const [lastEtag, setLastEtag] = useState(null)
-  const [rateLimitHit, setRateLimitHit] = useState(false)
 
   const isMounted = useRef(true)
   const abortControllerRef = useRef(null)
-  const requestInProgressRef = useRef(false)
-
-  const MIN_FETCH_INTERVAL = 2000
-  const POLLING_INTERVAL = 15000
 
   const updateStatsImmediately = useCallback((operation, count = 1) => {
     setStats((prevStats) => {
@@ -151,191 +90,88 @@ function useStatsData() {
           break
       }
 
-      localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(newStats))
       return newStats
     })
-  }, [])
-
-  const safeSetState = useCallback((updateFn) => {
-    if (isMounted.current) {
-      updateFn()
-    }
   }, [])
 
   const clearError = useCallback(() => {
     setError("")
   }, [])
 
-  const fetchStats = useCallback(
-    async (force = false, options = {}) => {
-      if (status !== "authenticated") {
-        console.log("⏳ Waiting for authentication..., current status:", status)
-        return { waitingAuth: true }
-      }
+  const fetchStats = useCallback(async () => {
+    if (status !== "authenticated") {
+      console.log("⏳ Waiting for authentication..., current status:", status)
+      return { waitingAuth: true }
+    }
 
-      if (requestInProgressRef.current && !force) {
-        console.log("⏭️ Request already in progress, skipping...")
-        return { alreadyInProgress: true }
-      }
+    if (!isMounted.current) {
+      return { componentUnmounted: true }
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    setLoading(true)
+    setError("")
+    setConnectionStatus("connecting")
+
+    try {
+      console.log("🚀 Fetching stats from API...")
+
+      const response = await api.get("/api/admin/stats", {
+        signal: abortControllerRef.current.signal,
+      })
+
+      console.log("✅ Stats API response received:", response.status)
 
       if (!isMounted.current) {
         return { componentUnmounted: true }
       }
 
-      const now = Date.now()
-      if (!force && lastFetchTime && now - lastFetchTime < MIN_FETCH_INTERVAL) {
-        const timeRemaining = Math.ceil((lastFetchTime + MIN_FETCH_INTERVAL - now) / 1000)
-        console.log(`⏱️ Rate limited: wait ${timeRemaining}s`)
-        return { rateLimited: true, timeRemaining }
+      setConnectionStatus("connected")
+      const responseData = response.data
+
+      setStats(responseData)
+      setError("")
+      setLoading(false)
+
+      console.log("✅ Stats updated successfully")
+      return { success: true }
+    } catch (error) {
+      if (!isMounted.current) {
+        return { componentUnmounted: true }
       }
 
-      requestInProgressRef.current = true
-
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+      if (error.name === "CanceledError" || error.name === "AbortError" || error.code === "ERR_CANCELED") {
+        console.log("⏭️ Request was canceled")
+        return { aborted: true }
       }
-      abortControllerRef.current = new AbortController()
 
-      safeSetState(() => {
-        setIsRefreshing(true)
-        if (!stats.total) setLoading(true)
-        setError("")
-        setConnectionStatus("connecting")
-      })
+      console.error("❌ Stats fetch error:", error)
 
-      try {
-        console.log("🚀 Fetching stats from API...", { force, bypassCache: options.bypassCache })
+      setConnectionStatus("error")
 
-        const headers = {}
-
-        // SOLUTION 4: Better cache strategy - only bypass when explicitly forced
-        if (force) {
-          headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-          headers["Pragma"] = "no-cache"
-          delete headers["If-None-Match"]
-        } else if (lastEtag) {
-          headers["If-None-Match"] = lastEtag
-        }
-
-        // SOLUTION 4: Only add cache buster when forcing
-        let queryParams = ""
-        if (force) {
-          queryParams = `?_t=${Date.now()}`
-        }
-
-        const response = await api.get(`/api/admin/stats${queryParams}`, {
-          headers,
-          signal: abortControllerRef.current.signal,
-          validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
-          bypassCache: force, // Changed: only bypass when force=true
-        })
-
-        console.log("✅ Stats API response received:", response.status)
-
-        if (!isMounted.current) {
-          return { componentUnmounted: true }
-        }
-
-        safeSetState(() => {
-          setConnectionStatus("connected")
-        })
-
-        if (response.status === 304) {
-          console.log("📦 Using cached data (304)")
-          safeSetState(() => {
-            setLastFetchTime(now)
-            setIsRefreshing(false)
-            if (!stats.total) setLoading(false)
-          })
-          return { notModified: true }
-        }
-
-        const newEtag = response.headers.etag
-        if (newEtag && !force) {
-          setLastEtag(newEtag)
-        } else {
-          setLastEtag(null)
-        }
-
-        const responseData = response.data
-
-        safeSetState(() => {
-          setStats(responseData)
-          setLastFetchTime(now)
-          setNextAllowedFetchTime(now + MIN_FETCH_INTERVAL)
-          setInitialLoadDone(true)
-          setError("")
-          setRateLimitHit(false)
-          setLoading(false)
-        })
-
-        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS, JSON.stringify(responseData))
-        localStorage.setItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH, now.toString())
-
-        console.log("✅ Stats updated successfully")
-        return { success: true }
-      } catch (error) {
-        if (!isMounted.current) {
-          return { componentUnmounted: true }
-        }
-
-        if (error.name === "CanceledError" || error.name === "AbortError" || error.code === "ERR_CANCELED") {
-          console.log("⏭️ Request was canceled")
-          return { aborted: true }
-        }
-
-        console.error("❌ Stats fetch error:", error)
-
-        safeSetState(() => {
-          setConnectionStatus("error")
-
-          if (error.response?.status === 401) {
-            setError("Sesi telah berakhir. Silakan login kembali.")
-            return { authError: true }
-          } else if (error.response?.status === 429) {
-            setRateLimitHit(true)
-            const retryAfter = error.response.headers["retry-after"] || 60
-            setError(`Rate limit tercapai. Coba lagi dalam ${retryAfter} detik. Auto-refresh dihentikan sementara.`)
-          } else if (error.response?.status === 404) {
-            setError("API endpoint tidak ditemukan. Periksa konfigurasi backend.")
-          } else if (error.response?.status >= 500) {
-            setError("Server error. Periksa backend server.")
-          } else if (error.code === "ECONNABORTED") {
-            setError("Request timeout. Periksa koneksi internet.")
-          } else if (error.code === "ERR_NETWORK") {
-            setError("Network error. Periksa koneksi internet dan backend server.")
-          } else {
-            setError("Gagal mengambil data statistik: " + (error.response?.data?.error || error.message))
-          }
-
-          if (!stats.total) {
-            const cachedData = JSON.parse(localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS) || "{}")
-            if (cachedData.total > 0) {
-              setStats(cachedData)
-              setLoading(false)
-            }
-          }
-        })
-
-        return { error: true }
-      } finally {
-        requestInProgressRef.current = false
-        safeSetState(() => {
-          setIsRefreshing(false)
-          if (!stats.total) setLoading(false)
-        })
+      if (error.response?.status === 401) {
+        setError("Sesi telah berakhir. Silakan login kembali.")
+        return { authError: true }
+      } else if (error.response?.status === 404) {
+        setError("API endpoint tidak ditemukan. Periksa konfigurasi backend.")
+      } else if (error.response?.status >= 500) {
+        setError("Server error. Periksa backend server.")
+      } else if (error.code === "ECONNABORTED") {
+        setError("Request timeout. Periksa koneksi internet.")
+      } else if (error.code === "ERR_NETWORK") {
+        setError("Network error. Periksa koneksi internet dan backend server.")
+      } else {
+        setError("Gagal mengambil data statistik: " + (error.response?.data?.error || error.message))
       }
-    },
-    [status, lastFetchTime, lastEtag, stats.total, safeSetState],
-  )
 
-  const formatTimeRemaining = useCallback(() => {
-    const now = Date.now()
-    const timeRemaining = Math.max(0, nextAllowedFetchTime - now)
-    const minutes = Math.floor(timeRemaining / 60000)
-    const seconds = Math.floor((timeRemaining % 60000) / 1000)
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`
-  }, [nextAllowedFetchTime])
+      setLoading(false)
+      return { error: true }
+    }
+  }, [status])
 
   useEffect(() => {
     isMounted.current = true
@@ -350,30 +186,13 @@ function useStatsData() {
 
     const loadInitialData = async () => {
       try {
-        const cachedData = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS)
-        const lastFetch = localStorage.getItem(CACHE_KEYS.DASHBOARD_STATS_LAST_FETCH)
-
-        if (cachedData) {
-          const parsed = JSON.parse(cachedData)
-          setStats(parsed)
-          if (parsed.total > 0) setLoading(false)
-        }
-
-        if (lastFetch) {
-          const parsedTime = Number.parseInt(lastFetch, 10)
-          setLastFetchTime(parsedTime)
-          setNextAllowedFetchTime(parsedTime + MIN_FETCH_INTERVAL)
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        await forceRefreshData(fetchStats)
+        await fetchStats()
       } catch (error) {
         if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
           console.log("⏭️ Initial load was canceled, ignoring...")
           return
         }
         console.error("Error loading initial data:", error)
-        await forceRefreshData(fetchStats)
       }
     }
 
@@ -392,16 +211,9 @@ function useStatsData() {
     stats,
     loading,
     error,
-    isRefreshing,
-    lastFetchTime,
     connectionStatus,
-    rateLimitHit,
-    fetchStats,
-    formatTimeRemaining,
     updateStatsImmediately,
     clearError,
-    setError,
-    setRateLimitHit,
   }
 }
 
@@ -409,31 +221,15 @@ const Dashboard = () => {
   const router = useRouter()
   const { status } = useSession()
   const [isClient, setIsClient] = useState(false)
-  const [showRateLimitModal, setShowRateLimitModal] = useState(false)
-  const [showForceRefreshModal, setShowForceRefreshModal] = useState(false)
-  const [pollingActive, setPollingActive] = useState(false)
   const [toasts, setToasts] = useState([])
-
-  const pollingIntervalRef = useRef(null)
-  const updateDebounceRef = useRef(null)
-  // SOLUTION 3: Prevent overlapping polls
-  const pollingInProgressRef = useRef(false)
-  const POLLING_INTERVAL = 15000
 
   const {
     stats,
     loading,
     error,
-    isRefreshing,
-    lastFetchTime,
     connectionStatus,
-    rateLimitHit,
-    fetchStats,
-    formatTimeRemaining,
     updateStatsImmediately,
     clearError,
-    setError,
-    setRateLimitHit,
   } = useStatsData()
 
   const addToast = useCallback((message, type = "success", duration = 5000) => {
@@ -446,80 +242,11 @@ const Dashboard = () => {
     }, duration)
   }, [])
 
-  // SOLUTION 3: Improved polling with overlap prevention
-  const startPolling = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-    }
-
-    const poll = async () => {
-      if (pollingInProgressRef.current) {
-        console.log("⏭️ Poll already in progress, skipping...")
-        return
-      }
-
-      if (!rateLimitHit && status === "authenticated") {
-        pollingInProgressRef.current = true
-        try {
-          await fetchStats(false)
-        } catch (error) {
-          console.error("Error during polling:", error)
-        } finally {
-          pollingInProgressRef.current = false
-        }
-      }
-    }
-
-    pollingIntervalRef.current = setInterval(poll, POLLING_INTERVAL)
-    setPollingActive(true)
-    console.log("✅ Auto-refresh started with interval:", POLLING_INTERVAL)
-  }, [fetchStats, rateLimitHit, status])
-
-  const stopPolling = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-      pollingIntervalRef.current = null
-    }
-    pollingInProgressRef.current = false
-    setPollingActive(false)
-    console.log("⏸️ Auto-refresh stopped")
-  }, [])
-
-  const togglePolling = useCallback(() => {
-    if (pollingActive) {
-      stopPolling()
-      addToast("Auto-refresh dimatikan", "info")
-    } else {
-      startPolling()
-      addToast("Auto-refresh diaktifkan", "success")
-    }
-  }, [pollingActive, startPolling, stopPolling, addToast])
-
   useEffect(() => {
     setIsClient(true)
 
     if (status !== "authenticated") {
       return
-    }
-
-    const handleDataUpdate = async (event) => {
-      console.log("📢 Data update event received:", event.type)
-
-      if (updateDebounceRef.current) {
-        clearTimeout(updateDebounceRef.current)
-      }
-
-      updateDebounceRef.current = setTimeout(async () => {
-        try {
-          await forceRefreshData(fetchStats)
-        } catch (error) {
-          if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
-            console.log("⏭️ Data update refresh was canceled, ignoring...")
-            return
-          }
-          console.error("Error during data update:", error)
-        }
-      }, 300)
     }
 
     const handlePinGenerated = (event) => {
@@ -540,92 +267,18 @@ const Dashboard = () => {
       addToast(`${count} PIN telah diproses`, "success")
     }
 
-    window.addEventListener("pin-data-updated", handleDataUpdate)
-    window.addEventListener("cache-invalidated", handleDataUpdate)
-    window.addEventListener("pin-status-changed", handleDataUpdate)
-    window.addEventListener("pin-redeemed", handleDataUpdate)
     window.addEventListener("pin-generated", handlePinGenerated)
     window.addEventListener("pin-deleted", handlePinDeleted)
     window.addEventListener("pin-processed", handlePinProcessed)
     window.addEventListener("pins-batch-deleted", handlePinDeleted)
 
-    // SOLUTION 5: Make auto-refresh opt-in (disabled by default)
-    // User must manually enable it by clicking the button
-    // Comment out or remove the auto-start:
-    // setTimeout(() => {
-    //   if (!rateLimitHit && status === "authenticated") {
-    //     startPolling()
-    //   }
-    // }, 3000)
-
     return () => {
-      if (updateDebounceRef.current) {
-        clearTimeout(updateDebounceRef.current)
-      }
-
-      window.removeEventListener("pin-data-updated", handleDataUpdate)
-      window.removeEventListener("cache-invalidated", handleDataUpdate)
-      window.removeEventListener("pin-status-changed", handleDataUpdate)
-      window.removeEventListener("pin-redeemed", handleDataUpdate)
       window.removeEventListener("pin-generated", handlePinGenerated)
       window.removeEventListener("pin-deleted", handlePinDeleted)
       window.removeEventListener("pin-processed", handlePinProcessed)
       window.removeEventListener("pins-batch-deleted", handlePinDeleted)
-
-      stopPolling()
     }
-  }, [status, fetchStats, updateStatsImmediately, addToast, stopPolling, rateLimitHit])
-
-  const handleRefresh = async () => {
-    const now = Date.now()
-    if (lastFetchTime && now - lastFetchTime < 2000) {
-      const timeRemaining = Math.ceil((lastFetchTime + 2000 - now) / 1000)
-      addToast(`Tunggu ${timeRemaining} detik sebelum refresh lagi`, "warning")
-      return
-    }
-
-    try {
-      invalidateAllCaches()
-      const result = await forceRefreshData(fetchStats)
-      if (result?.showRateLimitModal) {
-        setShowRateLimitModal(true)
-      } else if (result?.authError) {
-        router.push("/admin/login")
-      } else if (!result?.canceled && !result?.aborted) {
-        addToast("Data berhasil diperbarui", "success")
-      }
-    } catch (error) {
-      if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
-        console.log("⏭️ Refresh was canceled")
-        return
-      }
-      console.error("Error during refresh:", error)
-      addToast("Gagal memperbarui data", "error")
-    }
-  }
-
-  const handleForceRefresh = async () => {
-    setShowForceRefreshModal(false)
-
-    try {
-      invalidateAllCaches()
-      const result = await forceRefreshData(fetchStats)
-      if (result?.showRateLimitModal) {
-        setShowRateLimitModal(true)
-      } else if (result?.authError) {
-        router.push("/admin/login")
-      } else if (!result?.canceled && !result?.aborted) {
-        addToast("Data berhasil diperbarui", "success")
-      }
-    } catch (error) {
-      if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
-        console.log("⏭️ Force refresh was canceled")
-        return
-      }
-      console.error("Error during force refresh:", error)
-      addToast("Gagal memperbarui data", "error")
-    }
-  }
+  }, [status, updateStatsImmediately, addToast])
 
   const getConnectionStatusBadge = () => {
     switch (connectionStatus) {
@@ -837,46 +490,6 @@ const Dashboard = () => {
         <h1 className="mb-0">Dashboard</h1>
         <div className="d-flex align-items-center gap-2">
           {getConnectionStatusBadge()}
-          <small className="text-muted">
-            Update: {lastFetchTime > 0 ? new Date(lastFetchTime).toLocaleTimeString("id-ID") : "-"}
-          </small>
-        </div>
-      </div>
-
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          {lastFetchTime > 0 && (
-            <small className="text-muted">Terakhir diperbarui: {new Date(lastFetchTime).toLocaleString()}</small>
-          )}
-        </div>
-        <div className="d-flex gap-2">
-          <Button
-            variant={pollingActive && !rateLimitHit ? "success" : "outline-secondary"}
-            size="sm"
-            onClick={togglePolling}
-            disabled={rateLimitHit || status !== "authenticated"}
-          >
-            {pollingActive ? (
-              <>
-                <FaWifi className="me-1" />
-                Auto ON
-              </>
-            ) : (
-              <>
-                <FaPlay className="me-1" />
-                Auto OFF
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline-primary"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={loading || isRefreshing || status !== "authenticated"}
-          >
-            <FaSync className={`me-1 ${isRefreshing ? "fa-spin" : ""}`} />
-            {isRefreshing ? "Memuat..." : "Refresh"}
-          </Button>
         </div>
       </div>
 
@@ -884,15 +497,6 @@ const Dashboard = () => {
         <Alert variant="danger" dismissible onClose={clearError}>
           <FaExclamationTriangle className="me-2" />
           {error}
-        </Alert>
-      )}
-
-      {rateLimitHit && (
-        <Alert variant="warning" className="mb-4">
-          <strong>Rate Limit Tercapai!</strong> Auto-refresh telah dihentikan untuk mencegah spam request.
-          <Button variant="link" size="sm" onClick={() => setRateLimitHit(false)} className="ms-2">
-            Reset
-          </Button>
         </Alert>
       )}
 
@@ -1031,12 +635,6 @@ const Dashboard = () => {
               {stats.unused.toLocaleString("id-ID")} | Pending: {stats.pending.toLocaleString("id-ID")} | Diproses:{" "}
               {stats.processed.toLocaleString("id-ID")}
             </div>
-            {pollingActive && !rateLimitHit && (
-              <Badge bg="success" className="d-flex align-items-center">
-                <FaWifi className="me-1" />
-                Auto-refresh aktif
-              </Badge>
-            )}
           </div>
         </>
       )}
@@ -1064,51 +662,6 @@ const Dashboard = () => {
           </Toast>
         ))}
       </ToastContainer>
-
-      <Modal show={showRateLimitModal} onHide={() => setShowRateLimitModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FaExclamationTriangle className="text-warning me-2" />
-            Peringatan Rate Limit
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Untuk menghindari error rate limit (429), sistem membatasi frekuensi permintaan data.</p>
-          <p>
-            Anda dapat melakukan refresh data lagi dalam: <strong>{formatTimeRemaining()}</strong>
-          </p>
-          <Alert variant="info">Data yang ditampilkan saat ini adalah data yang tersimpan di cache lokal.</Alert>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowRateLimitModal(false)}>
-            Tutup
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal show={showForceRefreshModal} onHide={() => setShowForceRefreshModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FaExclamationTriangle className="text-warning me-2" />
-            Konfirmasi Force Refresh
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Melakukan refresh terlalu sering dapat menyebabkan error rate limit (429).</p>
-          <p>
-            Waktu yang disarankan untuk refresh berikutnya: <strong>{formatTimeRemaining()}</strong>
-          </p>
-          <Alert variant="warning">Apakah Anda yakin ingin memaksa refresh data sekarang?</Alert>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowForceRefreshModal(false)}>
-            Batal
-          </Button>
-          <Button variant="danger" onClick={handleForceRefresh}>
-            Force Refresh
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </div>
   )
 }

@@ -5,8 +5,8 @@ import { validateRequest, articleUpdateSchema } from "@/lib/utils/validation"
 import { deleteFromS3 } from "@/lib/utils/s3"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
-import { requireAdminSession } from "@/lib/utils/auth"
-import { requireAdmin as requireAdminWithId, resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
+import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
+import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
 const limiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 100, limit: 20 })
 
@@ -76,9 +76,35 @@ export async function PUT(request, { params }) {
 
     await connectToDatabase()
 
-    const auth = await requireAdminWithId()
-    if (!auth.ok) {
-      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
+    // PERUBAHAN: Gunakan pattern yang sama dengan Gallery
+    let session
+    try {
+      session = await requireAdmin()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      logger.error(`[PUT ARTICLE] Auth failed: ${err?.message || "Unknown error"}`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: err?.message || "Unauthorized",
+          error: "Authentication failed"
+        }, 
+        { status }
+      )
+    }
+    
+    const adminId = await resolveAdminIdFromSession(session)
+    
+    if (!adminId) {
+      logger.error(`[PUT ARTICLE] Failed to resolve admin ID from session`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: "Failed to identify admin user",
+          error: "Admin ID resolution failed"
+        }, 
+        { status: 401 }
+      )
     }
 
     const { id } = await params
@@ -94,6 +120,7 @@ export async function PUT(request, { params }) {
 
     const validation = await validateRequest(articleUpdateSchema, body)
     if (!validation.success) {
+      logger.error(`[PUT ARTICLE] Validation failed: ${JSON.stringify(validation.error)}`)
       return NextResponse.json(validation.error, { status: 400 })
     }
 
@@ -104,9 +131,10 @@ export async function PUT(request, { params }) {
       updateData.publishedAt = new Date(updateData.publishedAt)
     }
 
-    const adminId = await resolveAdminIdFromSession(auth.session)
     updateData.updatedBy = adminId
     updateData.updatedAt = new Date()
+
+    logger.info(`[PUT ARTICLE] Updating article ${id} by admin ID: ${adminId}`)
 
     const article = await Article.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
       .populate("createdBy", "username")
@@ -115,7 +143,7 @@ export async function PUT(request, { params }) {
 
     if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 })
 
-    logger.info(`Article ${id} updated by ${auth.session.user.email}`)
+    logger.info(`Article ${id} updated by ${session.user.email}`)
 
     return NextResponse.json(
       { success: true, article, message: "Artikel berhasil diupdate" },
@@ -131,7 +159,15 @@ export async function PUT(request, { params }) {
     )
   } catch (error) {
     logger.error("Error updating article:", error)
-    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
+    logger.error("Error stack:", error.stack)
+    return NextResponse.json(
+      { 
+        status: "error",
+        error: "Server error", 
+        message: error.message || "An unexpected error occurred"
+      }, 
+      { status: 500 }
+    )
   }
 }
 
@@ -156,9 +192,20 @@ export async function DELETE(request, { params }) {
 
     await connectToDatabase()
 
-    const auth = await requireAdminSession()
-    if (!auth.ok) {
-      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
+    // PERUBAHAN: Gunakan pattern yang sama dengan Gallery
+    try {
+      await requireAdmin()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      logger.error(`[DELETE ARTICLE] Auth failed: ${err?.message || "Unknown error"}`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: err?.message || "Unauthorized",
+          error: "Authentication failed"
+        }, 
+        { status }
+      )
     }
 
     const { id } = await params
@@ -186,7 +233,7 @@ export async function DELETE(request, { params }) {
 
     await Article.findByIdAndDelete(id)
 
-    logger.info(`Article ${id} deleted by ${auth.session.user.email}`)
+    logger.info(`Article ${id} deleted`)
 
     return NextResponse.json(
       { success: true, message: "Artikel berhasil dihapus" },
@@ -202,6 +249,14 @@ export async function DELETE(request, { params }) {
     )
   } catch (error) {
     logger.error("Error deleting article:", error)
-    return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
+    logger.error("Error stack:", error.stack)
+    return NextResponse.json(
+      { 
+        status: "error",
+        error: "Server error", 
+        message: error.message || "An unexpected error occurred"
+      }, 
+      { status: 500 }
+    )
   }
 }
