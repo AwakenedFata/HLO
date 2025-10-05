@@ -78,7 +78,9 @@ export async function middleware(request) {
   const method = request.method
 
   // Admin route protection with NextAuth
-  if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
+  if (path.startsWith("/admin") && 
+    !path.startsWith("/admin/login") && 
+    !path.startsWith("/api/admin")) {
     const token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET,

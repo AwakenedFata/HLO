@@ -28,13 +28,13 @@ export async function GET(request, { params }) {
       )
     }
 
-    await connectDB()
-
     try {
-      await requireAdminSession(request)
+      await requireAdminSession()
     } catch (err) {
       return NextResponse.json({ error: err.message || "Unauthorized" }, { status: err?.statusCode || 401 })
     }
+
+    await connectDB()
 
     const { id } = params
     if (!id) return NextResponse.json({ error: "Frame ID is required" }, { status: 400 })
@@ -76,7 +76,7 @@ export async function DELETE(request, { params }) {
     await connectDB()
 
     try {
-      await requireAdmin(request)
+      await requireAdmin()
     } catch (err) {
       return NextResponse.json({ error: err.message || "Unauthorized" }, { status: err?.statusCode || 401 })
     }
@@ -94,7 +94,6 @@ export async function DELETE(request, { params }) {
       }
     } catch (s3Error) {
       logger.warn(`[admin] Failed to delete frame image from S3: ${s3Error.message}`)
-      // Continue even if S3 deletion fails
     }
 
     await Frame.findByIdAndDelete(id)

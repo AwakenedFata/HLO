@@ -8,7 +8,11 @@ import { rateLimit } from "@/lib/utils/rate-limit"
 import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
 import { resolveAdminIdFromSession } from "@/lib/utils/admin-guard"
 
-const limiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 100, limit: 20 })
+const limiter = rateLimit({
+  interval: 60 * 1000,
+  uniqueTokenPerInterval: 100,
+  limit: 20,
+})
 
 export async function GET(request, { params }) {
   try {
@@ -29,15 +33,15 @@ export async function GET(request, { params }) {
       )
     }
 
-    await connectToDatabase()
-
-    const auth = await requireAdminSession()
-    if (!auth.ok) {
-      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
     }
 
-    const { id } = await params
+    const { id } = params
     if (!id) return NextResponse.json({ error: "Article ID is required" }, { status: 400 })
+
+    await connectToDatabase()
 
     const article = await Article.findById(id)
       .populate("createdBy", "username")
@@ -46,8 +50,7 @@ export async function GET(request, { params }) {
 
     if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 })
 
-    logger.info(`Article ${id} fetched by ${auth.session.user.email}`)
-
+    logger.info(`Article ${id} fetched`)
     return NextResponse.json({ success: true, article })
   } catch (error) {
     logger.error("Error fetching article:", error)
@@ -76,7 +79,6 @@ export async function PUT(request, { params }) {
 
     await connectToDatabase()
 
-    // PERUBAHAN: Gunakan pattern yang sama dengan Gallery
     let session
     try {
       session = await requireAdmin()
@@ -84,33 +86,34 @@ export async function PUT(request, { params }) {
       const status = err?.statusCode || 401
       logger.error(`[PUT ARTICLE] Auth failed: ${err?.message || "Unknown error"}`)
       return NextResponse.json(
-        { 
-          status: "error", 
+        {
+          status: "error",
           message: err?.message || "Unauthorized",
-          error: "Authentication failed"
-        }, 
-        { status }
+          error: "Authentication failed",
+        },
+        { status },
       )
     }
-    
+
     const adminId = await resolveAdminIdFromSession(session)
-    
     if (!adminId) {
       logger.error(`[PUT ARTICLE] Failed to resolve admin ID from session`)
       return NextResponse.json(
-        { 
-          status: "error", 
+        {
+          status: "error",
           message: "Failed to identify admin user",
-          error: "Admin ID resolution failed"
-        }, 
-        { status: 401 }
+          error: "Admin ID resolution failed",
+        },
+        { status: 401 },
       )
     }
 
-    const { id } = await params
-    const body = await request.json()
+    const { id } = params
     if (!id) return NextResponse.json({ error: "Article ID is required" }, { status: 400 })
 
+    const body = await request.json()
+
+    // Tetap dukung normalisasi tags (fitur sudah ada)
     if (body.tags && typeof body.tags === "string") {
       body.tags = body.tags
         .split(" ")
@@ -130,7 +133,6 @@ export async function PUT(request, { params }) {
     } else if (updateData.publishedAt) {
       updateData.publishedAt = new Date(updateData.publishedAt)
     }
-
     updateData.updatedBy = adminId
     updateData.updatedAt = new Date()
 
@@ -144,7 +146,6 @@ export async function PUT(request, { params }) {
     if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 })
 
     logger.info(`Article ${id} updated by ${session.user.email}`)
-
     return NextResponse.json(
       { success: true, article, message: "Artikel berhasil diupdate" },
       {
@@ -161,12 +162,12 @@ export async function PUT(request, { params }) {
     logger.error("Error updating article:", error)
     logger.error("Error stack:", error.stack)
     return NextResponse.json(
-      { 
+      {
         status: "error",
-        error: "Server error", 
-        message: error.message || "An unexpected error occurred"
-      }, 
-      { status: 500 }
+        error: "Server error",
+        message: error.message || "An unexpected error occurred",
+      },
+      { status: 500 },
     )
   }
 }
@@ -192,28 +193,28 @@ export async function DELETE(request, { params }) {
 
     await connectToDatabase()
 
-    // PERUBAHAN: Gunakan pattern yang sama dengan Gallery
     try {
       await requireAdmin()
     } catch (err) {
       const status = err?.statusCode || 401
       logger.error(`[DELETE ARTICLE] Auth failed: ${err?.message || "Unknown error"}`)
       return NextResponse.json(
-        { 
-          status: "error", 
+        {
+          status: "error",
           message: err?.message || "Unauthorized",
-          error: "Authentication failed"
-        }, 
-        { status }
+          error: "Authentication failed",
+        },
+        { status },
       )
     }
 
-    const { id } = await params
+    const { id } = params
     if (!id) return NextResponse.json({ error: "Article ID is required" }, { status: 400 })
 
     const article = await Article.findById(id)
     if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 })
 
+    // Hapus semua gambar terkait dari S3 (jika ada)
     const imagesToDelete = []
     if (article.coverImageKey) imagesToDelete.push(article.coverImageKey)
     if (article.contentImages?.length) {
@@ -232,7 +233,6 @@ export async function DELETE(request, { params }) {
     }
 
     await Article.findByIdAndDelete(id)
-
     logger.info(`Article ${id} deleted`)
 
     return NextResponse.json(
@@ -251,12 +251,12 @@ export async function DELETE(request, { params }) {
     logger.error("Error deleting article:", error)
     logger.error("Error stack:", error.stack)
     return NextResponse.json(
-      { 
+      {
         status: "error",
-        error: "Server error", 
-        message: error.message || "An unexpected error occurred"
-      }, 
-      { status: 500 }
+        error: "Server error",
+        message: error.message || "An unexpected error occurred",
+      },
+      { status: 500 },
     )
   }
 }

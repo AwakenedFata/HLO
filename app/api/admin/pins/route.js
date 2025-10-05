@@ -31,9 +31,12 @@ export async function GET(request) {
       )
     }
 
-    const auth = await requireAdminSession()
-    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
-    const session = auth.session
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
+    }
+    const session = guard.session
 
     await connectToDatabase()
 
@@ -150,8 +153,25 @@ export async function POST(request) {
       )
     }
 
-    const session = await requireAdmin()
     await connectToDatabase()
+
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
+    let session
+    try {
+      session = await requireAdmin()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      logger.error(`[POST PINS] Auth failed: ${err?.message || "Unknown error"}`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: err?.message || "Unauthorized",
+          error: "Authentication failed"
+        }, 
+        { status }
+      )
+    }
+    
     const adminId = await resolveAdminIdFromSession(session)
 
     const body = await request.json()

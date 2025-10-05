@@ -1,16 +1,18 @@
 import connectToDatabase from "@/lib/db"
 import Article from "@/lib/models/article"
 import { NextResponse } from "next/server"
-import { requireAdminSession } from "@/lib/utils/auth"
 
 export async function GET(request, { params }) {
   try {
-    const auth = await requireAdminSession()
-    if (!auth.ok) {
-      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
-    }
-
     const { galleryId } = await params
+    
+    if (!galleryId) {
+      return NextResponse.json(
+        { success: false, message: "Gallery ID is required" }, 
+        { status: 400 }
+      )
+    }
+    
     await connectToDatabase()
 
     const article = await Article.findOne({
@@ -23,11 +25,18 @@ export async function GET(request, { params }) {
       .lean()
 
     if (!article) {
-      return NextResponse.json({ success: false, message: "Artikel tidak ditemukan" }, { status: 404 })
+      return NextResponse.json(
+        { success: false, message: "Artikel tidak ditemukan" }, 
+        { status: 404 }
+      )
     }
 
     return NextResponse.json({ success: true, article })
   } catch (error) {
-    return NextResponse.json({ success: false, message: "Terjadi kesalahan server" }, { status: 500 })
+    console.error("[PUBLIC API] Error fetching article by gallery:", error)
+    return NextResponse.json(
+      { success: false, message: "Terjadi kesalahan server" }, 
+      { status: 500 }
+    )
   }
 }

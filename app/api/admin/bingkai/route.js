@@ -30,12 +30,12 @@ export async function GET(request) {
       )
     }
 
-    // Authenticate via requireAdminSession before DB work
-    try {
-      await requireAdminSession(request)
-    } catch (err) {
-      return NextResponse.json({ error: err?.message || "Unauthorized" }, { status: err?.statusCode || 401 })
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
     }
+    const { session } = guard
 
     await connectDB()
 
@@ -100,7 +100,9 @@ export async function GET(request) {
 
     const stats = { total: totalAll, active: activeAll, inactive: totalAll - activeAll, thisMonth }
 
-    logger.info(`[admin] Frames fetched: page ${pageNum}, limit ${limitNum}, total ${totalFiltered}`)
+    logger.info(
+      `Frames fetched by ${session.user.email}, page: ${pageNum}, limit: ${limitNum}, total: ${totalFiltered}`
+    )
 
     return NextResponse.json(
       {
@@ -148,13 +150,15 @@ export async function POST(request) {
 
     await connectDB()
 
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
     let session
     try {
-      // Pass request into requireAdmin for consistency
-      session = await requireAdmin(request)
+      session = await requireAdmin()
     } catch (err) {
-      return NextResponse.json({ error: err.message || "Unauthorized" }, { status: err?.statusCode || 401 })
+      const status = err?.statusCode || 401
+      return NextResponse.json({ status: "error", message: err?.message || "Unauthorized" }, { status })
     }
+    const adminId = await resolveAdminIdFromSession(session)
 
     const body = await request.json()
     const validation = await validateRequest(frameCreationSchema, body)
@@ -168,8 +172,6 @@ export async function POST(request) {
     if (!gallery) {
       return NextResponse.json({ error: "Gallery tidak ditemukan" }, { status: 404 })
     }
-
-    const adminId = await resolveAdminIdFromSession(session)
 
     const frame = await Frame.create({
       imageUrl,
@@ -187,7 +189,7 @@ export async function POST(request) {
       { path: "createdBy", select: "username" },
     ])
 
-    logger.info(`[admin] Frame created for gallery: ${gallery.title}`)
+    logger.info(`Frame created by ${session.user.email} for gallery: ${gallery.title}`)
 
     return NextResponse.json(
       { success: true, frame, message: "Frame berhasil ditambahkan" },

@@ -34,8 +34,11 @@ export async function GET(request, { params }) {
       )
     }
 
-    const auth = await requireAdminSession()
-    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
+    const guard = await requireAdminSession()
+    if (!guard.ok) {
+      return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
+    }
 
     await connectToDatabase()
 
@@ -76,8 +79,25 @@ export async function DELETE(request, { params }) {
       )
     }
 
-    const session = await requireAdmin()
     await connectToDatabase()
+
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
+    let session
+    try {
+      session = await requireAdmin()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      logger.error(`[DELETE PIN] Auth failed: ${err?.message || "Unknown error"}`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: err?.message || "Unauthorized",
+          error: "Authentication failed"
+        }, 
+        { status }
+      )
+    }
+    
     const adminId = await resolveAdminIdFromSession(session)
 
     const pinId = params.id
@@ -102,6 +122,8 @@ export async function DELETE(request, { params }) {
           "Cache-Control": "no-store, no-cache, must-revalidate",
           Pragma: "no-cache",
           Expires: "0",
+          "X-Data-Updated": "true",
+          "X-Update-Type": "pin-deleted",
         },
       },
     )
@@ -130,8 +152,25 @@ export async function PATCH(request, { params }) {
       )
     }
 
-    const session = await requireAdmin()
     await connectToDatabase()
+
+    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
+    let session
+    try {
+      session = await requireAdmin()
+    } catch (err) {
+      const status = err?.statusCode || 401
+      logger.error(`[PATCH PIN] Auth failed: ${err?.message || "Unknown error"}`)
+      return NextResponse.json(
+        { 
+          status: "error", 
+          message: err?.message || "Unauthorized",
+          error: "Authentication failed"
+        }, 
+        { status }
+      )
+    }
+    
     const adminId = await resolveAdminIdFromSession(session)
 
     const pinId = params.id
@@ -148,7 +187,7 @@ export async function PATCH(request, { params }) {
     const updateData = { ...data }
     if (data.processed === true) {
       updateData.processedAt = now
-      updateData.processedBy = adminId // record Admin._id
+      updateData.processedBy = adminId
     }
 
     const updatedPin = await PinCode.findByIdAndUpdate(pinId, updateData, { new: true })
@@ -182,6 +221,8 @@ export async function PATCH(request, { params }) {
           "Cache-Control": "no-store, no-cache, must-revalidate",
           Pragma: "no-cache",
           Expires: "0",
+          "X-Data-Updated": "true",
+          "X-Update-Type": "pin-updated",
         },
       },
     )

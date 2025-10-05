@@ -6,7 +6,8 @@
     },
     "jsx": "react-jsx",
     "checkJs": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true
   },
   "include": [
     "**/*.js",

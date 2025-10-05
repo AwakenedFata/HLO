@@ -31,10 +31,11 @@ export async function GET(request) {
 
     await connectToDatabase()
 
-    const auth = await requireAdminSession()
-    if (!auth.ok) {
-      return NextResponse.json({ status: "error", message: auth.message }, { status: auth.status })
-    }
+  const guard = await requireAdminSession()
+  if (!guard.ok) {
+    return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
+  }
+  const { session } = guard
 
     const { searchParams } = new URL(request.url)
     const rawParams = {
@@ -114,8 +115,8 @@ export async function GET(request) {
 
     const stats = { total: totalAll, published: publishedAll, draft: draftAll, archived: archivedAll, thisMonth }
 
-    logger.info(
-      `Articles fetched by ${auth.session.user.email}, page: ${pageNum}, limit: ${limitNum}, total: ${totalFiltered}`,
+    logger.info
+      (`Articles fetched by ${session.user.email}, page: ${pageNum}, limit: ${limitNum}, total: ${totalFiltered}`,
     )
 
     const responseHeaders = {
