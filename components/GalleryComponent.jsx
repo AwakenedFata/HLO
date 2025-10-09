@@ -354,7 +354,7 @@ function GalleryComponent() {
     <GallerySection>
       {/* Background */}
       <GalleryBgContainer>
-        <GalleryBg src="/assets/Gallery/Background.avif" alt="Background" />
+        <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
       </GalleryBgContainer>
 
       <Container>
