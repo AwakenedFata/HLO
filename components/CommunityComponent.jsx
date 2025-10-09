@@ -131,7 +131,7 @@ function CommunityComponent() {
             {/* Logo di atas */}
             <div className="logo-container">
               <img
-                src="/assets/aboutus/logo.avif"
+                src="/assets/aboutus/logo.png"
                 alt="Community Logo"
                 className="community-logo"
               />
