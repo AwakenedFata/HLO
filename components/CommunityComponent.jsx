@@ -120,7 +120,7 @@ function CommunityComponent() {
           {/* Kiri - About Us Card */}
           <Col lg={5} className="about-card-col">
             <img
-              src="/assets/aboutus/about us.png"
+              src="/assets/aboutus/about us.avif"
               alt="About Us Card"
               className="about-card img-fluid"
             />
@@ -131,7 +131,7 @@ function CommunityComponent() {
             {/* Logo di atas */}
             <div className="logo-container">
               <img
-                src="/assets/aboutus/logo.png"
+                src="/assets/aboutus/logo.avif"
                 alt="Community Logo"
                 className="community-logo"
               />
@@ -140,7 +140,7 @@ function CommunityComponent() {
             {/* Foto Member */}
             <div className="community-image-container">
               <img
-                src="/assets/aboutus/foto.png"
+                src="/assets/aboutus/foto.avif"
                 alt="Community Members"
                 className="community-image img-fluid"
               />
@@ -164,7 +164,7 @@ function CommunityComponent() {
                   onTouchEnd={handleTouchEnd}
                 >
                   <img
-                    src="/assets/aboutus/kiri 2.png"
+                    src="/assets/aboutus/kiri 2.avif"
                     alt="Stat 1"
                     className="statcard1 img-fluid"
                   />
@@ -190,7 +190,7 @@ function CommunityComponent() {
                   onTouchEnd={handleTouchEnd}
                 >
                   <img
-                    src="/assets/aboutus/tengah 2.png"
+                    src="/assets/aboutus/tengah 2.avif"
                     alt="Stat 2"
                     className="statcard2 img-fluid"
                   />
@@ -215,7 +215,7 @@ function CommunityComponent() {
                   onTouchEnd={handleTouchEnd}
                 >
                   <img
-                    src="/assets/aboutus/info kanan.png"
+                    src="/assets/aboutus/info kanan.avif"
                     alt="Stat 3"
                     className="statcard3 img-fluid"
                   />
