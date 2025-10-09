@@ -15,6 +15,8 @@ import {
   FaExclamationCircle,
 } from "react-icons/fa"
 import { RiArticleFill } from "react-icons/ri"
+import { AiFillProduct } from "react-icons/ai";
+import { MdConfirmationNumber } from "react-icons/md";
 import axios from "axios"
 import Image from "next/image"
 import "@/styles/adminstyles.css"
@@ -300,6 +302,16 @@ function AdminLayout({ children }) {
             <li className="nav-item">
               <Link href="/admin/article" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
                 <RiArticleFill className="me-2" /> Manajemen Artikel
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link href="/admin/product" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
+                <AiFillProduct className="me-2" /> Manajemen Produk
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link href="/admin/verifikasi-orisinal" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
+                <MdConfirmationNumber className="me-2" /> Serial Number
               </Link>
             </li>
           </ul>

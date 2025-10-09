@@ -622,7 +622,7 @@ function PinManagement() {
       updateStatsImmediately("delete", selectedPins.length)
 
       const response = await api.post(
-        `/api/admin/delete-pins`,
+        `/api/admin/pins/delete-pins`,
         { pinIds: selectedPins },
         {
           headers: {
@@ -971,7 +971,7 @@ function PinManagement() {
         const formData = new FormData()
         formData.append("file", file)
 
-        const response = await api.post(`/api/admin/import-pins`, formData, {
+        const response = await api.post(`/api/admin/pins/import-pins`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",

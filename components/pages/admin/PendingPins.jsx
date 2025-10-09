@@ -362,7 +362,7 @@ function PendingPins() {
         updateStatsImmediately("process", 1)
 
         const response = await api.post(
-          `/api/admin/process-pin`,
+          `/api/admin/pending-pins/process-pin`,
           { pinId: pin._id },
           {
             headers: {
@@ -443,7 +443,7 @@ function PendingPins() {
       updateStatsImmediately("process", selectedPins.length)
 
       const response = await api.post(
-        `/api/admin/batch-process-pins`,
+        `/api/admin/pending-pins/batch-process-pins`,
         { pinIds: selectedPins },
         {
           headers: {

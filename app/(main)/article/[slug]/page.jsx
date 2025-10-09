@@ -5,7 +5,6 @@ import GalleryArticlePage from "@/components/pages/GalleryArticlePage"
 import { notFound } from "next/navigation"
 
 export default async function ArticleDetailPage({ params }) {
-  // Await params before destructuring
   const { slug } = await params
 
   try {

@@ -57,7 +57,7 @@ const HeroComponent = () => {
         <Container>
           <Row className="header-box d-flex flex-lg-row flex-column align-items-center">
             <Col lg="6">
-              <Image src="/assets/Home/welcome.png" alt="#WELCOME" className="welcome" width={1000} height={1000} />
+              <Image src="/assets/Home/welcome.avif" alt="#WELCOME" className="welcome" width={1000} height={1000} />
               <div className="social-icons">
                 {socialLinks.map((link, idx) => (
                   <a
@@ -77,7 +77,7 @@ const HeroComponent = () => {
             </Col>
             <Col lg="6" className="pt-lg-0 pt-5 d-flex justify-content-center">
               <Image
-                src="/assets/Home/logo 3D.png"
+                src="/assets/Home/logo 3D.avif"
                 alt="LOGOHOK"
                 className="logo3d float-animation"
                 width={1000}

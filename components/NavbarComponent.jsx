@@ -117,7 +117,7 @@ function NavbarComponent() {
       <Container>
         <Link href="/" className="navbar-brand logo-navbar">
           <img
-            src="/assets/Home/logo.png"
+            src="/assets/Home/logo.avif"
             alt="Logo Komunitas HOK Lampung"
             width="100"
             height="31.3"

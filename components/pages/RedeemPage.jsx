@@ -69,7 +69,7 @@ function RedeemPage() {
 
     setIsLoading(true);
     try {
-      const response = await axios.post(`/api/pin/redeem`, {
+      const response = await axios.post(`/api/pin-public/redeem`, {
         pinCode,
         idGame,
         nama,
