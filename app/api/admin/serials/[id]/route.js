@@ -89,10 +89,18 @@ export async function PATCH(request, { params }) {
     }
 
     const update = {}
+    
+    // Handle isActive
     if (typeof parsed.data.isActive === "boolean") {
       update.isActive = parsed.data.isActive
     }
-    // accept either product object (schema) or productName shortcut in body
+    
+    // Handle issuedDate
+    if (parsed.data.issuedDate) {
+      update.issuedDate = new Date(parsed.data.issuedDate)
+    }
+    
+    // Handle product fields
     const productName = parsed.data.product?.name ?? (typeof raw.productName === "string" ? raw.productName : undefined)
     if (typeof productName === "string") {
       update["product.name"] = productName

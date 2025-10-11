@@ -21,8 +21,8 @@ function MerchanPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, [!isClient]);
 
-  const postermerchan = "/assets/Merchandise/comingsoon.png";
-  const postermerchanmobile = "/assets/Merchandise/comingsoonvertikal.png";
+  const postermerchan = "/assets/Merchandise/comingsoon.avif";
+  const postermerchanmobile = "/assets/Merchandise/comingsoonvertikal.avif";
 
   return (
     <div

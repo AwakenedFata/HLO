@@ -51,13 +51,17 @@ export async function POST(request) {
       startFrom: body.startFrom,
       digits: typeof body.digits === "string" ? Number.parseInt(body.digits, 10) : body.digits,
       productName: body.productName,
+      issuedDate: body.issuedDate,
       productionDate: body.productionDate,
     })
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { count, startFrom, digits, productName = "", productionDate = "" } = parsed.data
+    const { count, startFrom, digits, productName = "", issuedDate, productionDate = "" } = parsed.data
+
+    // Determine issuedDate value
+    const finalIssuedDate = issuedDate ? new Date(issuedDate) : new Date()
 
     let startNum
     if (startFrom && startFrom.length > 0) {
@@ -85,6 +89,7 @@ export async function POST(request) {
       .map((code) => ({
         code,
         product: { name: productName || "", productionDate: productionDate || "" },
+        issuedDate: finalIssuedDate,
       }))
 
     if (toInsert.length === 0) {

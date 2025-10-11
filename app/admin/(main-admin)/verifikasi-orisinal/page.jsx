@@ -1,3 +1,4 @@
+"use client"
 import VerifikasiOrisinalManagement from "@/components/pages/admin/VerifikasiOrisinalManagement";
 
 export const dynamic = "force-dynamic";

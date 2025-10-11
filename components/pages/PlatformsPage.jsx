@@ -92,7 +92,7 @@ const PlatformsPage = () => {
     <div
       className="platforms-page w-100 min-vh-100"
       style={{
-        backgroundImage: "url(/assets/platforms/background.png)",
+        backgroundImage: "url(/assets/platforms/platforms.avif)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",

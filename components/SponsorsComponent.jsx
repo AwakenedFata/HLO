@@ -5,7 +5,7 @@ import { partners } from "@/data/index.js"
 import { useMobileDetect } from "@/hooks/use-mobile"
 
 function SponsorsComponent() {
-  const isMobile = useMobileDetect() 
+  const isMobile = useMobileDetect()
 
   const handleTouchStart = (e) => {
     e.currentTarget.style.transform = "scale(1.05)"
@@ -37,7 +37,10 @@ function SponsorsComponent() {
   }
 
   return (
-    <div id="partners" className="sponsors-section w-100 min-vh-100 d-flex align-items-center position-relative overflow-container">
+    <div
+      id="partners"
+      className="sponsors-section w-100 min-vh-100 d-flex align-items-center position-relative overflow-container"
+    >
       <Container>
         {/* Title */}
         <div className="sponsors-title text-center" data-aos="fade-down" data-aos-duration="1000">
@@ -50,9 +53,17 @@ function SponsorsComponent() {
           <Row className="justify-content-center">
             {/* Top Row - max 3 Partners */}
             <Col xs={12}>
-              <Row className="justify-content-center top-row" data-aos="fade-up" data-aos-duration="1000">
+              <Row className="justify-content-center top-row g-0" data-aos="fade-up" data-aos-duration="1000">
                 {firstRow.map((partner) => (
-                  <Col key={partner.id} lg={4} md={4} sm={6} xs={12} className="partner-col">
+                  <Col
+                    key={partner.id}
+                    lg={4}
+                    md={4}
+                    sm={6}
+                    xs={12}
+                    className="partner-col mb-0 p-0"
+                    style={{ marginBottom: 0 }}
+                  >
                     <div className="partner-card-wrapper">
                       <div
                         className="partner-card"
@@ -69,7 +80,12 @@ function SponsorsComponent() {
                         <a href={partner.url} target="_blank" rel="noopener noreferrer">
                           <div className="partner-logo-container">
                             <img
-                              src={partner.image || "/placeholder.svg"}
+                              src={
+                                partner.image ||
+                                "/placeholder.svg?height=120&width=120&query=partner%20logo%20placeholder" ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg"
+                              }
                               alt={partner.name}
                               className={`partner-logo ${getPartnerClass(partner.id)}`}
                             />
@@ -85,9 +101,17 @@ function SponsorsComponent() {
             {/* Bottom Row - sisa Partners */}
             {secondRow.length > 0 && (
               <Col xs={12}>
-                <Row className="justify-content-center bottom-row" data-aos="fade-up" data-aos-duration="1000">
+                <Row className="justify-content-center bottom-row g-0" data-aos="fade-up" data-aos-duration="1000">
                   {secondRow.map((partner) => (
-                    <Col key={partner.id} lg={4} md={4} sm={6} xs={12} className="partner-col">
+                    <Col
+                      key={partner.id}
+                      lg={4}
+                      md={4}
+                      sm={6}
+                      xs={12}
+                      className="partner-col mb-0 p-0"
+                      style={{ marginBottom: 0 }}
+                    >
                       <div className="partner-card-wrapper">
                         <div
                           className="partner-card"
@@ -104,7 +128,12 @@ function SponsorsComponent() {
                           <a href={partner.url} target="_blank" rel="noopener noreferrer">
                             <div className="partner-logo-container">
                               <img
-                                src={partner.image || "/placeholder.svg"}
+                                src={
+                                  partner.image ||
+                                  "/placeholder.svg?height=120&width=120&query=partner%20logo%20placeholder" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg"
+                                }
                                 alt={partner.name}
                                 className={`partner-logo ${getPartnerClass(partner.id)}`}
                               />

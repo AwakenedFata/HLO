@@ -20,8 +20,8 @@ function RedeemPage() {
   const [isClient, setIsClient] = useState(false);
 
   // Path relatif untuk gambar
-  const bgRedeemFormAndLogo = "/assets/Redeem/1.png";
-  const bgRedeemMobile = "/assets/Redeem/2.png";
+  const bgRedeemFormAndLogo = "/assets/Redeem/1.avif";
+  const bgRedeemMobile = "/assets/Redeem/2.avif";
 
   // Tandai bahwa kita sudah di client-side
   useEffect(() => {
@@ -111,7 +111,7 @@ function RedeemPage() {
     <div
       className="redeem-page w-100 min-vh-100"
       style={{
-        backgroundImage: `url(/assets/Redeem/background.png)`,
+        backgroundImage: `url(/assets/Redeem/background.avif)`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         display: "flex",

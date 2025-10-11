@@ -58,6 +58,16 @@ import {
 const withBuster = (url) => {
   if (!url) return url
   try {
+    const lower = url.toLowerCase()
+    const isSigned =
+      lower.includes("x-amz-") ||
+      lower.includes("x-amz-signature") ||
+      lower.includes("x-amz-expires") ||
+      lower.includes("signature=") ||
+      lower.includes("x-goog-signature") ||
+      lower.includes("policy=") ||
+      lower.includes("expires=")
+    if (isSigned) return url // don't append anything for signed URLs to avoid 403
     const sep = url.includes("?") ? "&" : "?"
     return `${url}${sep}t=${Date.now()}`
   } catch {
@@ -279,12 +289,16 @@ function GalleryManagement() {
     }
 
     try {
-      const response = await api.get("/api/admin/banner/current")
+      const response = await api.get("/api/admin/banner/current", {
+        params: { _t: Date.now() },
+        headers: { "Cache-Control": "no-cache" },
+      })
 
       if (response.data.success && response.data.banner) {
         const banner = {
           ...response.data.banner,
-          imageUrl: withBuster(response.data.banner.imageUrl),
+          // gunakan URL asli (signed URL) tanpa menambah query agar tidak invalid
+          imageUrl: response.data.banner.imageUrl,
         }
         setCurrentBanner(banner)
         return banner
@@ -550,12 +564,15 @@ function GalleryManagement() {
           },
         })
 
+        // CHANGE: after saving banner, keep the raw imageUrl to avoid invalidating signed URL
         if (response.data.success) {
           addToast("Banner berhasil disimpan", "success")
 
           setCurrentBanner({
             ...response.data.banner,
-            imageUrl: withBuster(bannerData.imageUrl),
+            // imageUrl: withBuster(bannerData.imageUrl),
+            // CHANGE: use the original URL (server already returns fresh value)
+            imageUrl: bannerData.imageUrl,
             updatedAt: new Date().toISOString(),
           })
 
@@ -786,11 +803,20 @@ function GalleryManagement() {
     }
   }, [selectedFile, previewImage, completedCrop, imgRef, getCroppedImg, handleFileUpload, addToast])
 
-  const getPreviewObjectFit = () => {
+  const getPreviewHeight = () => {
     if (selectedAspectRatio === "no-crop") {
-      return "contain"
+      return "auto"
     }
-    return "cover"
+
+    const aspectRatios = {
+      "16-9": "225px",
+      "4-3": "300px",
+      "1-1": "400px",
+      "3-4": "533px",
+      free: "250px",
+    }
+
+    return aspectRatios[selectedAspectRatio] || "200px"
   }
 
   const resetImageUpload = useCallback(() => {
@@ -1001,38 +1027,6 @@ function GalleryManagement() {
     }
   }, [status, router])
 
-  const handleFrameFileSelect = useCallback(
-    (file) => {
-      if (!file) return
-
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-      const allowedExts = [".jpg", ".jpeg", ".png", ".webp"]
-
-      const isValidType = allowedTypes.includes(file.type)
-      const isValidExt = allowedExts.some((ext) => file.name?.toLowerCase().endsWith(ext))
-
-      if (!isValidType && !isValidExt) {
-        addToast("Format file harus JPG, PNG, atau WebP", "error")
-        return
-      }
-
-      if (file.size > 10 * 1024 * 1024) {
-        addToast("Ukuran file maksimal 10MB", "error")
-        return
-      }
-
-      setSelectedFrameFile(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setFramePreviewImage(e.target.result)
-      }
-      reader.readAsDataURL(file)
-
-      handleFrameUpload(file)
-    },
-    [addToast],
-  )
-
   const handleFrameUpload = useCallback(
     async (fileToUpload = null) => {
       const file = fileToUpload || selectedFrameFile
@@ -1077,6 +1071,49 @@ function GalleryManagement() {
       }
     },
     [selectedFrameFile, checkAuth, addToast],
+  )
+
+  const handleFrameFileSelect = useCallback(
+    (file) => {
+      if (!file) return
+
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+      const allowedExts = [".jpg", ".jpeg", ".png", ".webp"]
+
+      const isValidType = allowedTypes.includes(file.type)
+      const isValidExt = allowedExts.some((ext) => file.name?.toLowerCase().endsWith(ext))
+
+      if (!isValidType && !isValidExt) {
+        addToast("Format file harus JPG, PNG, atau WebP", "error")
+        return
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        addToast("Ukuran file maksimal 10MB", "error")
+        return
+      }
+
+      setFramePreviewImage(null) // Clear previous preview
+      setFrameFormData((prev) => ({
+        // Reset frame upload data
+        ...prev,
+        imageUrl: "",
+        imageKey: "",
+        originalName: "",
+        fileSize: 0,
+        mimeType: "",
+      }))
+
+      setSelectedFrameFile(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFramePreviewImage(e.target.result)
+      }
+      reader.readAsDataURL(file)
+
+      handleFrameUpload(file)
+    },
+    [addToast, handleFrameUpload],
   )
 
   const handleFrameSubmit = useCallback(
@@ -1334,21 +1371,7 @@ function GalleryManagement() {
     )
   }
 
-  const getPreviewHeight = () => {
-    if (selectedAspectRatio === "no-crop") {
-      return "auto"
-    }
-
-    const aspectRatios = {
-      "16-9": "225px",
-      "4-3": "300px",
-      "1-1": "400px",
-      "3-4": "533px",
-      free: "250px",
-    }
-
-    return aspectRatios[selectedAspectRatio] || "200px"
-  }
+  // Removed duplicate getPreviewHeight function here.
 
   return (
     <div className="gallery-management-page">
@@ -1741,7 +1764,6 @@ function GalleryManagement() {
                           borderRadius: "8px",
                           overflow: "hidden",
                           backgroundColor: "#f8f9fa",
-                          position: "relative",
                         }}
                       >
                         <Image
@@ -1812,14 +1834,10 @@ function GalleryManagement() {
                       type="button"
                       variant="outline-secondary"
                       onClick={() => {
-                        setBannerData({
-                          imageUrl: "",
-                          imageKey: "",
-                        })
+                        setBannerData({ imageUrl: "", imageKey: "" })
                         const currentPreview = bannerPreviewImage
                         setBannerPreviewImage(null)
                         setSelectedBannerFile(null)
-
                         if (currentPreview && currentPreview.startsWith("blob:")) {
                           try {
                             URL.revokeObjectURL(currentPreview)
@@ -1827,7 +1845,6 @@ function GalleryManagement() {
                             console.warn("Error revoking blob URL:", error)
                           }
                         }
-
                         if (bannerFileInputRef.current) {
                           bannerFileInputRef.current.value = ""
                         }
@@ -1837,6 +1854,21 @@ function GalleryManagement() {
                       <FaTimes className="me-2" />
                       Reset
                     </Button>
+
+                    {currentBanner && (
+                      <Button
+                        type="button"
+                        variant="outline-danger"
+                        onClick={() => {
+                          setBannerToDelete(currentBanner)
+                          setShowBannerDeleteModal(true)
+                        }}
+                        disabled={bannerSubmitting || status !== "authenticated"}
+                      >
+                        <FaTrash className="me-2" />
+                        Hapus Banner
+                      </Button>
+                    )}
                   </div>
                 </Form>
 
@@ -1861,7 +1893,9 @@ function GalleryManagement() {
                       }}
                       onClick={() => handleImageView(currentBanner.imageUrl, "Current Banner")}
                     >
+                      {/* CHANGE: force re-render image when banner updates, prevents stale render */}
                       <Image
+                        key={`${currentBanner._id || "cb"}-${currentBanner.updatedAt || ""}`}
                         src={currentBanner.imageUrl || "/placeholder.svg"}
                         alt="Current Banner"
                         style={{
@@ -2626,7 +2660,7 @@ function GalleryManagement() {
             bg={toast.type === "error" ? "danger" : toast.type}
             show={true}
             onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-            delay={toast.duration}
+            duration={toast.duration}
             autohide
           >
             <Toast.Header>
@@ -2968,6 +3002,198 @@ function GalleryManagement() {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          <div className="mb-3">
+            <label className="form-label fw-bold">Aspect Ratio:</label>
+            <div className="d-flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant={noCrop ? "success" : "outline-success"}
+                onClick={() => {
+                  setNoCrop(true)
+                  setAspectRatio(undefined)
+                  setCrop(undefined)
+                  setCompletedCrop(undefined)
+                  setSelectedAspectRatio("no-crop")
+                }}
+              >
+                <FaUpload className="me-1" />
+                No Crop
+              </Button>
+              <Button
+                size="sm"
+                variant={aspectRatio === 16 / 9 && !noCrop ? "primary" : "outline-primary"}
+                onClick={() => {
+                  setNoCrop(false)
+                  setAspectRatio(16 / 9)
+                  setCrop(undefined)
+                  setCompletedCrop(undefined)
+                  setSelectedAspectRatio("16-9")
+                  setTimeout(() => {
+                    if (imgRef) {
+                      const { width, height } = imgRef
+                      const aspectRatio = 16 / 9
+                      let cropWidth, cropHeight
+
+                      if (width / height > aspectRatio) {
+                        cropHeight = height * 0.8
+                        cropWidth = cropHeight * aspectRatio
+                      } else {
+                        cropWidth = width * 0.8
+                        cropHeight = cropWidth / aspectRatio
+                      }
+
+                      const newCrop = {
+                        unit: "%",
+                        x: (100 - (cropWidth / width) * 100) / 2,
+                        y: (100 - (cropHeight / height) * 100) / 2,
+                        width: (cropWidth / width) * 100,
+                        height: (cropHeight / height) * 100,
+                      }
+                      setCrop(newCrop)
+                    }
+                  }, 100)
+                }}
+              >
+                16:9
+              </Button>
+              <Button
+                size="sm"
+                variant={aspectRatio === 4 / 3 && !noCrop ? "primary" : "outline-primary"}
+                onClick={() => {
+                  setNoCrop(false)
+                  setAspectRatio(4 / 3)
+                  setCrop(undefined)
+                  setCompletedCrop(undefined)
+                  setSelectedAspectRatio("4-3")
+                  setTimeout(() => {
+                    if (imgRef) {
+                      const { width, height } = imgRef
+                      const aspectRatio = 4 / 3
+                      let cropWidth, cropHeight
+
+                      if (width / height > aspectRatio) {
+                        cropHeight = height * 0.8
+                        cropWidth = cropHeight * aspectRatio
+                      } else {
+                        cropWidth = width * 0.8
+                        cropHeight = cropWidth / aspectRatio
+                      }
+
+                      const newCrop = {
+                        unit: "%",
+                        x: (100 - (cropWidth / width) * 100) / 2,
+                        y: (100 - (cropHeight / height) * 100) / 2,
+                        width: (cropWidth / width) * 100,
+                        height: (cropHeight / height) * 100,
+                      }
+                      setCrop(newCrop)
+                    }
+                  }, 100)
+                }}
+              >
+                4:3
+              </Button>
+              <Button
+                size="sm"
+                variant={aspectRatio === 1 && !noCrop ? "primary" : "outline-primary"}
+                onClick={() => {
+                  setNoCrop(false)
+                  setAspectRatio(1)
+                  setCrop(undefined)
+                  setCompletedCrop(undefined)
+                  setSelectedAspectRatio("1-1")
+                  setTimeout(() => {
+                    if (imgRef) {
+                      const { width, height } = imgRef
+                      const size = Math.min(width, height) * 0.8
+
+                      const newCrop = {
+                        unit: "%",
+                        x: (100 - (size / width) * 100) / 2,
+                        y: (100 - (size / height) * 100) / 2,
+                        width: (size / width) * 100,
+                        height: (size / height) * 100,
+                      }
+                      setCrop(newCrop)
+                    }
+                  }, 100)
+                }}
+              >
+                1:1
+              </Button>
+              <Button
+                size="sm"
+                variant={aspectRatio === 3 / 4 && !noCrop ? "primary" : "outline-primary"}
+                onClick={() => {
+                  setNoCrop(false)
+                  setAspectRatio(3 / 4)
+                  setCrop(undefined)
+                  setCompletedCrop(undefined)
+                  setSelectedAspectRatio("3-4")
+                  setTimeout(() => {
+                    if (imgRef) {
+                      const { width, height } = imgRef
+                      const aspectRatio = 3 / 4
+                      let cropWidth, cropHeight
+
+                      if (width / height > aspectRatio) {
+                        cropHeight = height * 0.8
+                        cropWidth = cropHeight * aspectRatio
+                      } else {
+                        cropWidth = width * 0.8
+                        cropHeight = cropWidth / aspectRatio
+                      }
+
+                      const newCrop = {
+                        unit: "%",
+                        x: (100 - (cropWidth / width) * 100) / 2,
+                        y: (100 - (cropHeight / height) * 100) / 2,
+                        width: (cropWidth / width) * 100,
+                        height: (cropHeight / height) * 100,
+                      }
+                      setCrop(newCrop)
+                    }
+                  }, 100)
+                }}
+              >
+                3:4
+              </Button>
+              <Button
+                size="sm"
+                variant={!aspectRatio && !noCrop ? "primary" : "outline-primary"}
+                onClick={() => {
+                  setNoCrop(false)
+                  setAspectRatio(undefined)
+                  setCrop(undefined)
+                  setCompletedCrop(undefined)
+                  setSelectedAspectRatio("free")
+                  setTimeout(() => {
+                    if (imgRef) {
+                      const { width, height } = imgRef
+                      const newCrop = {
+                        unit: "%",
+                        x: 10,
+                        y: 10,
+                        width: 80,
+                        height: 80,
+                      }
+                      setCrop(newCrop)
+                    }
+                  }, 100)
+                }}
+              >
+                Free
+              </Button>
+            </div>
+            {noCrop && (
+              <Alert variant="info" className="mt-2">
+                <FaInfoCircle className="me-2" />
+                Mode "No Crop": Gambar akan diupload dalam ukuran original. Card gallery akan otomatis menyesuaikan
+                tampilan menggunakan CSS.
+              </Alert>
+            )}
+          </div>
+
           {previewImage && (
             <>
               {!noCrop && (
@@ -3021,206 +3247,14 @@ function GalleryManagement() {
                   </small>
                 </div>
               )}
-
-              <div className="mb-3">
-                <Form.Label>Aspect Ratio:</Form.Label>
-                <div className="d-flex gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    variant={noCrop ? "success" : "outline-success"}
-                    onClick={() => {
-                      setNoCrop(true)
-                      setAspectRatio(undefined)
-                      setCrop(undefined)
-                      setCompletedCrop(undefined)
-                      setSelectedAspectRatio("no-crop")
-                    }}
-                  >
-                    <FaUpload className="me-1" />
-                    No Crop
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={aspectRatio === 16 / 9 && !noCrop ? "primary" : "outline-primary"}
-                    onClick={() => {
-                      setNoCrop(false)
-                      setAspectRatio(16 / 9)
-                      setCrop(undefined)
-                      setCompletedCrop(undefined)
-                      setSelectedAspectRatio("16-9")
-                      setTimeout(() => {
-                        if (imgRef) {
-                          const { width, height } = imgRef
-                          const aspectRatio = 16 / 9
-                          let cropWidth, cropHeight
-
-                          if (width / height > aspectRatio) {
-                            cropHeight = height * 0.8
-                            cropWidth = cropHeight * aspectRatio
-                          } else {
-                            cropWidth = width * 0.8
-                            cropHeight = cropWidth / aspectRatio
-                          }
-
-                          const newCrop = {
-                            unit: "%",
-                            x: (100 - (cropWidth / width) * 100) / 2,
-                            y: (100 - (cropHeight / height) * 100) / 2,
-                            width: (cropWidth / width) * 100,
-                            height: (cropHeight / height) * 100,
-                          }
-                          setCrop(newCrop)
-                        }
-                      }, 100)
-                    }}
-                  >
-                    16:9
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={aspectRatio === 4 / 3 && !noCrop ? "primary" : "outline-primary"}
-                    onClick={() => {
-                      setNoCrop(false)
-                      setAspectRatio(4 / 3)
-                      setCrop(undefined)
-                      setCompletedCrop(undefined)
-                      setSelectedAspectRatio("4-3")
-                      setTimeout(() => {
-                        if (imgRef) {
-                          const { width, height } = imgRef
-                          const aspectRatio = 4 / 3
-                          let cropWidth, cropHeight
-
-                          if (width / height > aspectRatio) {
-                            cropHeight = height * 0.8
-                            cropWidth = cropHeight * aspectRatio
-                          } else {
-                            cropWidth = width * 0.8
-                            cropHeight = cropWidth / aspectRatio
-                          }
-
-                          const newCrop = {
-                            unit: "%",
-                            x: (100 - (cropWidth / width) * 100) / 2,
-                            y: (100 - (cropHeight / height) * 100) / 2,
-                            width: (cropWidth / width) * 100,
-                            height: (cropHeight / height) * 100,
-                          }
-                          setCrop(newCrop)
-                        }
-                      }, 100)
-                    }}
-                  >
-                    4:3
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={aspectRatio === 1 && !noCrop ? "primary" : "outline-primary"}
-                    onClick={() => {
-                      setNoCrop(false)
-                      setAspectRatio(1)
-                      setCrop(undefined)
-                      setCompletedCrop(undefined)
-                      setSelectedAspectRatio("1-1")
-                      setTimeout(() => {
-                        if (imgRef) {
-                          const { width, height } = imgRef
-                          const size = Math.min(width, height) * 0.8
-
-                          const newCrop = {
-                            unit: "%",
-                            x: (100 - (size / width) * 100) / 2,
-                            y: (100 - (size / height) * 100) / 2,
-                            width: (size / width) * 100,
-                            height: (size / height) * 100,
-                          }
-                          setCrop(newCrop)
-                        }
-                      }, 100)
-                    }}
-                  >
-                    1:1
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={aspectRatio === 3 / 4 && !noCrop ? "primary" : "outline-primary"}
-                    onClick={() => {
-                      setNoCrop(false)
-                      setAspectRatio(3 / 4)
-                      setCrop(undefined)
-                      setCompletedCrop(undefined)
-                      setSelectedAspectRatio("3-4")
-                      setTimeout(() => {
-                        if (imgRef) {
-                          const { width, height } = imgRef
-                          const aspectRatio = 3 / 4
-                          let cropWidth, cropHeight
-
-                          if (width / height > aspectRatio) {
-                            cropHeight = height * 0.8
-                            cropWidth = cropHeight * aspectRatio
-                          } else {
-                            cropWidth = width * 0.8
-                            cropHeight = cropWidth / aspectRatio
-                          }
-
-                          const newCrop = {
-                            unit: "%",
-                            x: (100 - (cropWidth / width) * 100) / 2,
-                            y: (100 - (cropHeight / height) * 100) / 2,
-                            width: (cropWidth / width) * 100,
-                            height: (cropHeight / height) * 100,
-                          }
-                          setCrop(newCrop)
-                        }
-                      }, 100)
-                    }}
-                  >
-                    3:4
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={!aspectRatio && !noCrop ? "primary" : "outline-primary"}
-                    onClick={() => {
-                      setNoCrop(false)
-                      setAspectRatio(undefined)
-                      setCrop(undefined)
-                      setCompletedCrop(undefined)
-                      setSelectedAspectRatio("free")
-                      setTimeout(() => {
-                        if (imgRef) {
-                          const { width, height } = imgRef
-                          const newCrop = {
-                            unit: "%",
-                            x: 10,
-                            y: 10,
-                            width: 80,
-                            height: 80,
-                          }
-                          setCrop(newCrop)
-                        }
-                      }, 100)
-                    }}
-                  >
-                    Free
-                  </Button>
-                </div>
-                {noCrop && (
-                  <Alert variant="info" className="mt-2">
-                    <FaInfoCircle className="me-2" />
-                    Mode "No Crop": Gambar akan diupload dalam ukuran original. Card gallery akan otomatis menyesuaikan
-                    tampilan menggunakan CSS.
-                  </Alert>
-                )}
-              </div>
-
-              {!noCrop && (
-                <Alert variant="info" className="mt-3">
-                  <FaInfoCircle className="me-2" />
-                  Drag sudut atau sisi crop area untuk mengubah ukuran. Drag bagian tengah untuk memindahkan posisi.
-                </Alert>
-              )}
             </>
+          )}
+
+          {!noCrop && (
+            <Alert variant="info" className="mt-3">
+              <FaInfoCircle className="me-2" />
+              Drag sudut atau sisi sisi crop area untuk mengubah ukuran. Drag bagian tengah untuk memindahkan posisi.
+            </Alert>
           )}
         </Modal.Body>
         <Modal.Footer>

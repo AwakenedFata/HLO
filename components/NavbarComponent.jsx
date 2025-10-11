@@ -121,7 +121,7 @@ function NavbarComponent() {
             alt="Logo Komunitas HOK Lampung"
             width="100"
             height="31.3"
-            className="d-inline-block align-top"
+            className="d-inline-block align-top logo-navbar"
           />
         </Link>
         <Navbar.Toggle aria-controls="basic-navbar-nav" className="custom-toggler" />

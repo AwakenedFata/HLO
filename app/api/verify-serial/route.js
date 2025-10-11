@@ -1,113 +1,66 @@
 import { NextResponse } from "next/server"
-import crypto from "crypto"
 import connectToDatabase from "@/lib/db"
 import SerialNumber from "@/lib/models/serialNumber"
-import { rateLimit } from "@/lib/utils/rate-limit"
-import { serialVerifySchema } from "@/lib/utils/validation"
-import logger from "@/lib/utils/logger-server"
 
-const limiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 5000, limit: 30 })
-
-function generateDeviceFingerprint(userAgent, acceptLanguage, acceptEncoding) {
-  const data = `${userAgent || ""}|${acceptLanguage || ""}|${acceptEncoding || ""}`
-  return crypto.createHash("sha256").update(data).digest("hex").substring(0, 32)
-}
+export const dynamic = "force-dynamic"
 
 export async function POST(request) {
   try {
-    // Rate limit per IP (first XFF)
-    const rawIpHeader = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "" // request.ip tidak selalu tersedia
+    const body = await request.json().catch(() => ({}))
+    const code = String(body?.code || "")
+      .toUpperCase()
+      .trim()
 
-    const limiterKey = (rawIpHeader || "").split(",")[0].trim() || "anonymous"
-    const rate = await limiter.check(limiterKey, 30, "verify-serial")
-    if (!rate.success) {
-      return NextResponse.json({ success: false, error: "Too many attempts", reset: rate.reset }, { status: 429 })
+    if (!/^\d{6}$/.test(code)) {
+      return NextResponse.json(
+        { success: false, message: "Kode verifikasi tidak valid (6 digit angka)" },
+        { status: 400 },
+      )
     }
 
     await connectToDatabase()
 
-    // Parse and validate input
-    let body = {}
-    try {
-      body = await request.json()
-    } catch {
-      body = {}
-    }
-    const parsed = serialVerifySchema.safeParse({
-      code: String(body?.code || "").toUpperCase(),
-    })
-    if (!parsed.success) {
-      return NextResponse.json({ success: false, message: "Kode verifikasi tidak valid" }, { status: 400 })
+    const found = await SerialNumber.findOne({ code }).exec()
+    if (!found || found.isActive === false) {
+      return NextResponse.json(
+        { success: false, message: "Kode verifikasi tidak ditemukan atau tidak aktif." },
+        { status: 404 },
+      )
     }
 
-    const code = parsed.data.code
-
-    // Server-side device fingerprint
-    const userAgent = request.headers.get("user-agent") || ""
-    const acceptLanguage = request.headers.get("accept-language") || ""
-    const acceptEncoding = request.headers.get("accept-encoding") || ""
-    const deviceFingerprint = generateDeviceFingerprint(userAgent, acceptLanguage, acceptEncoding)
-
-    const ip = limiterKey || "unknown"
-    const now = new Date()
-
-    // ATOMIC update: only mark as verified if not yet verified
-    const updated = await SerialNumber.findOneAndUpdate(
-      { code, isActive: true, isVerified: false },
-      {
-        $inc: { verificationCount: 1 },
-        $set: {
-          isVerified: true,
-          verifiedByIP: ip,
-          verifiedByDevice: deviceFingerprint,
-          verifiedAt: now,
-          lastVerifiedAt: now,
-          lastVerifiedIP: ip,
-          firstVerifiedAt: now,
+    if (found.isVerified) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Kode ini sudah pernah diverifikasi dan tidak dapat digunakan lagi.",
+          alreadyVerified: true,
+          verifiedAt: found.verifiedAt,
         },
-      },
-      { new: true },
-    )
-
-    if (!updated) {
-      // Determine reason
-      const current = await SerialNumber.findOne({ code }).lean()
-
-      if (!current || !current.isActive) {
-        return NextResponse.json(
-          { success: false, message: "Kode verifikasi tidak ditemukan atau tidak aktif." },
-          { status: 404 },
-        )
-      }
-      if (current.isVerified) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Kode ini sudah pernah diverifikasi dan tidak dapat digunakan lagi.",
-            alreadyVerified: true,
-            verifiedAt: current.verifiedAt,
-          },
-          { status: 403 },
-        )
-      }
-      // Fallback
-      return NextResponse.json({ success: false, message: "Terjadi kesalahan saat memverifikasi" }, { status: 500 })
+        { status: 403 },
+      )
     }
 
-    // Success
+    const now = new Date()
+    found.isVerified = true
+    found.verificationCount = (found.verificationCount || 0) + 1
+    found.firstVerifiedAt = found.firstVerifiedAt || now
+    found.lastVerifiedAt = now
+    found.verifiedAt = now
+    // Optionally capture IP/device here if needed
+    await found.save()
+
     return NextResponse.json({
       success: true,
       message: "Produk terverifikasi! Ini adalah produk asli.",
       product: {
-        name: updated.product?.name || "",
-        batch: updated.product?.batch || "",
-        productionDate: updated.product?.productionDate || "",
-        warrantyUntil: updated.product?.warrantyUntil || "",
+        name: found.product?.name || "",
+        batch: found.product?.batch || "",
+        productionDate: found.product?.productionDate || "",
+        warrantyUntil: found.product?.warrantyUntil || "",
       },
-      verifiedAt: updated.verifiedAt?.toISOString() || now.toISOString(),
+      verifiedAt: now.toISOString(),
     })
   } catch (err) {
-    logger.error("Verification error:", err)
     return NextResponse.json({ success: false, message: "Terjadi kesalahan server" }, { status: 500 })
   }
 }

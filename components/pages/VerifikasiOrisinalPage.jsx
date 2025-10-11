@@ -272,32 +272,14 @@ const CrossSvgStyled = styled.svg`
 
 const CheckSvg = () => (
   <CheckSvgStyled width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path 
-      d="M20 6L9 17l-5-5" 
-      stroke="#fff" 
-      strokeWidth="3" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
+    <path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
   </CheckSvgStyled>
 )
 
 const CrossSvg = () => (
   <CrossSvgStyled width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path 
-      d="M18 6L6 18" 
-      stroke="#fff" 
-      strokeWidth="3" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M6 6l12 12" 
-      stroke="#fff" 
-      strokeWidth="3" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
+    <path d="M18 6L6 18" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 6l12 12" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
   </CrossSvgStyled>
 )
 
@@ -407,6 +389,7 @@ export default function VerifikasiOrisinalPage() {
   const inputRefs = useRef([])
   const [fingerprint, setFingerprint] = useState("")
   const [locked, setLocked] = useState(false)
+  const cacheKey = "verificationCache" // Declared cacheKey variable
 
   useEffect(() => {
     if (inputRefs.current[0]) inputRefs.current[0].focus()
@@ -548,11 +531,7 @@ export default function VerifikasiOrisinalPage() {
   const showForm = !result
 
   const pdfHref = result?.success
-    ? `/api/verify-serial/verification-pdf?code=${encodeURIComponent(code.join("").toUpperCase())}` +
-      `&name=${encodeURIComponent(result?.product?.name || "-")}` +
-      `&batch=${encodeURIComponent(result?.product?.batch || "-")}` +
-      `&productionDate=${encodeURIComponent(result?.product?.productionDate || "-")}` +
-      `&warrantyUntil=${encodeURIComponent(result?.product?.warrantyUntil || "-")}`
+    ? `/api/verify-serial/verification-pdf?code=${encodeURIComponent(code.join("").toUpperCase())}`
     : "#"
 
   return (

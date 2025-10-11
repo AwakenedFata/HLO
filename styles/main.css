@@ -90,6 +90,13 @@
 .navbar .merch-button {
   font-family: "Overpass-Reguler", sans-serif !important;
 }
+@media (min-width: 1024px) {
+  .navbar,
+  .navbar .nav-link,
+  .navbar .merch-button {
+    font-size: 13.5px;
+  }
+}
 
 .navbar {
   position: fixed !important;
@@ -153,11 +160,12 @@
   background-color: var(--active-color) !important;
   color: var(--primary-color) !important;
   margin-top: 2px !important;
-  padding: 6px 24px !important;
-  font-weight: 700 !important;
+  padding: 6px 17px !important;
+  font-weight: 600 !important;
   border-radius: 6px !important;
   transition: background-color 0.3s ease, transform 0.3s ease !important;
   text-align: center !important;
+  font-size: 12px !important;
 }
 
 .navbar .merch-button:hover {
@@ -253,6 +261,18 @@
 .custom-toggler:hover .navbar-toggler-icon::after,
 .custom-toggler:hover .navbar-toggler-icon::after {
   background-color: var(--active-color) !important;
+}
+
+@media (min-width: 1024px) {
+  .logo-navbar {
+    position: absolute !important;
+    left: 78px !important;
+    top: 10px !important;
+    position: absolute !important;
+  }
+  .navbar .navbar-nav {
+    margin-left: 450px !important;
+  }
 }
 
 /* Add fadeInDown animation */
@@ -354,7 +374,7 @@
   display: flex;
   gap: 10px;
   justify-content: flex-start;
-  margin-top: 40px; /* Ganti translateY(78px) */
+  margin-top: 40px;
 }
 
 .social-icons a {
@@ -380,6 +400,23 @@
   margin-top: -80px; /* Ini bisa tetap atau kamu sesuaikan dengan posisi nav */
 }
 
+@media (min-width: 1024px) {
+  .welcome {
+    max-width: 90% !important;
+    margin: 130px auto 0 90px !important;
+  }
+  .logo3d {
+    width: 75%;
+    margin-top: 140px !important;
+  }
+  .social-icons {
+    margin-left: 90px !important; /* geser ke kanan */
+  }
+  .social-icons a {
+    width: 35px;
+    height: 35px;
+  }
+}
 @media screen and (max-width: 991.33px) {
   .header-box {
     flex-direction: column !important;
@@ -1018,7 +1055,7 @@ swiper-slide.swiper-slide-active {
     padding: 40px 0;
   }
 
-    .gallery-image {
+  .gallery-image {
     border-radius: 56px !important;
   }
 
@@ -2434,6 +2471,34 @@ textarea.contact-input {
   font-family: "Poppins-Semibold";
 }
 
+@media (min-width: 1024px) {
+  .redeem-container {
+    width: 60% !important;
+    max-width: 1000px;
+    height: 500px;
+  }
+  .form-side {
+    width: 37% !important;
+  }
+  .form-side input {
+    font-size: 0.8rem !important;
+    padding: 9px 16px !important;
+  }
+  .form-side h1 {
+    font-size: 1.7rem !important;
+    margin-top: 18px !important;
+  }
+  .form-side button {
+    padding: 10px 12px !important;
+    font-size: 0.8rem !important;
+  }
+  .form-side-note {
+    font-size: 0.8rem !important;
+  }
+  .error-message {
+    font-size: 0.7rem !important;
+  }
+}
 /* Medium devices (tablets, less than 992px) */
 @media (max-width: 992px) {
   .redeem-container {

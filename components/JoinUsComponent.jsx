@@ -29,7 +29,7 @@ function JoinUsComponent() {
           {/* Left Column - Logo, Text, QR */}
           <Col lg={6} className="left-content" data-aos="fade-right" data-aos-duration="1000">
             <div className="logo-container mb-4">
-              <img src="/assets/Join & Follow/logo hok 1.png" alt="HOK Logo" className="hok-logo" />
+              <img src="/assets/Join & Follow/logo_hok_1.avif" alt="HOK Logo" className="hok-logo" />
             </div>
 
             <div className="joinus-text">
@@ -39,7 +39,7 @@ function JoinUsComponent() {
 
             <div className="qr-container">
               <div className="button-container mb-3">
-                <img src="/assets/Join & Follow/click.png" alt="Click QR Here" className="click-button" />
+                <img src="/assets/Join & Follow/click.avif" alt="Click QR Here" className="click-button" />
               </div>
               <div
                 className="qr-code-container"
@@ -49,7 +49,7 @@ function JoinUsComponent() {
                 onTouchEnd={handleTouchEnd}
               >
                 <a href="https://chat.whatsapp.com/CDyNXvgyxwMG0c7idouoQR" target="_blank" rel="noopener noreferrer">
-                  <img src="/assets/Join & Follow/qr code.png" alt="QR Code" className="qr-code" />
+                  <img src="/assets/Join & Follow/qr_code.avif" alt="QR Code" className="qr-code" />
                 </a>
               </div>
             </div>
@@ -58,7 +58,7 @@ function JoinUsComponent() {
           {/* Right Column - Phone Images */}
           <Col lg={6} className="right-content" data-aos="fade-left" data-aos-duration="1000">
             <div className="phone-container float-animation">
-              <img src="/assets/Join & Follow/iphone.png" alt="Phone Preview" className="phone-image" />
+              <img src="/assets/Join & Follow/iphone.avif" alt="Phone Preview" className="phone-image" />
             </div>
           </Col>
         </Row>

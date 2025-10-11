@@ -2,9 +2,9 @@ const gallery1 = "/assets/Gallery/kiri.png"
 const gallery2 = "/assets/Gallery/tengah.png"
 const gallery3 = "/assets/Gallery/kanan.png"
 const partner1 = "/assets/Sponsor & Partner/ESI.png"
-const partner2 = "/assets/Sponsor & Partner/ACE.png"
+const partner2 = "/assets/Sponsor & Partner/Ace Logo Revamp PNG black.png"
 const partner3 = "/assets/Sponsor & Partner/VNX.png"
-const partner4 = "/assets/Sponsor & Partner/HLS.png"
+const partner4 = "/assets/serialnumber/HLO ID 2.png"
 const partner5 = "/assets/Sponsor & Partner/vincent production.png"
 
 const platformWhatsapp = "/assets/platforms/whatsapp-icon.png"
@@ -24,7 +24,7 @@ export const navLinks = [
   { id: 3, path: "/gallery", text: "Gallery" },
   { id: 5, path: "/platforms", text: "Platforms" },
   { id: 6, path: "/redeem", text: "Redeem" },
-  { id: 7, path: "/merchan", text: "Merchandise" },
+  { id: 7, path: "/merchan", text: "MERCHANDISE" },
 ]
 
 export const galleryItems = [

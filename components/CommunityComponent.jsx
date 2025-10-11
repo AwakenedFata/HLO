@@ -131,7 +131,7 @@ function CommunityComponent() {
             {/* Logo di atas */}
             <div className="logo-container">
               <img
-                src="/assets/aboutus/logo.avif"
+                src="/assets/aboutus/logobaru.avif"
                 alt="Community Logo"
                 className="community-logo"
               />
@@ -140,7 +140,7 @@ function CommunityComponent() {
             {/* Foto Member */}
             <div className="community-image-container">
               <img
-                src="/assets/aboutus/foto.avif"
+                src="/assets/aboutus/fotbar.avif"
                 alt="Community Members"
                 className="community-image img-fluid"
               />

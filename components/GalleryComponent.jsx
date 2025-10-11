@@ -6,7 +6,6 @@ import GalleryFrame from "@/components/GalleryFrame"
 import styled from "styled-components"
 import { useRouter } from "next/navigation"
 
-// Styled components based on main.css
 const GallerySection = styled.div`
   position: relative;
   padding: 20px 0;

@@ -26,7 +26,7 @@ const GalleryImage = styled.img`
   object-position: center; /* Center the image */
   transition: transform 0.3s ease;
   display: block;
-  border-radius: 42px;
+  border-radius: 50px;
   position: relative;
   z-index: 1;
 

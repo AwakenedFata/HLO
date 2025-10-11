@@ -132,25 +132,36 @@ export async function POST(request) {
     const parsed = serialManualCreateSchema.safeParse({
       code: body?.code,
       productName: body?.productName,
+      issuedDate: body?.issuedDate,
       productionDate: body?.productionDate,
     })
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { code, productName = "", productionDate = "" } = parsed.data
+    const { code, productName = "", issuedDate, productionDate = "" } = parsed.data
+    
     const exists = await SerialNumber.findOne({ code })
     if (exists) {
       return NextResponse.json({ error: `Serial ${code} sudah ada` }, { status: 409 })
     }
 
+    // Determine issuedDate value
+    const finalIssuedDate = issuedDate ? new Date(issuedDate) : new Date()
+
     const doc = await SerialNumber.create({
       code,
       product: { name: productName, productionDate },
+      issuedDate: finalIssuedDate,
     })
+    
     return NextResponse.json({
       success: true,
-      item: { code: doc.code, product: { name: doc.product.name, productionDate: doc.product.productionDate } },
+      item: { 
+        code: doc.code, 
+        product: { name: doc.product.name, productionDate: doc.product.productionDate },
+        issuedDate: doc.issuedDate,
+      },
     })
   } catch (error) {
     return NextResponse.json({ error: "Server error", message: error.message }, { status: 500 })
