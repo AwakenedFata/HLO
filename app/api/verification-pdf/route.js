@@ -3,6 +3,7 @@ import chromium from "@sparticuz/chromium"
 import { NextResponse } from "next/server"
 import os from "os"
 
+export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 function getPdfPageUrl(searchParams) {
@@ -38,13 +39,25 @@ export async function GET(request) {
     const browser = await puppeteer.launch({
       args: isDev ? [] : chromium.args,
       executablePath: isDev
-        ? getLocalChromePath() // pakai Chrome lokal saat dev
-        : await chromium.executablePath(), // pakai Chromium serverless saat production (Vercel)
+        ? getLocalChromePath() // Chrome lokal (dev)
+        : await chromium.executablePath(), // Chromium serverless (Vercel)
       headless: true,
+      defaultViewport: { width: 1200, height: 1754 }, // ukuran A4 @96dpi
     })
 
     const page = await browser.newPage()
-    await page.goto(pdfPageUrl, { waitUntil: "networkidle0" })
+
+    // Pastikan halaman betul-betul sudah selesai render
+    await page.goto(pdfPageUrl, {
+      waitUntil: ["domcontentloaded", "networkidle2"],
+      timeout: 60000,
+    })
+
+    // 🕐 Tambahkan delay kecil agar styled-components & font sempat load
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+
+    // Pastikan semua font sudah dimuat
+    await page.evaluateHandle("document.fonts.ready")
 
     const pdfBuffer = await page.pdf({
       format: "A4",
@@ -64,6 +77,9 @@ export async function GET(request) {
     })
   } catch (error) {
     console.error("❌ PDF generation error:", error)
-    return NextResponse.json({ error: "Failed to generate PDF", details: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to generate PDF", details: error.message },
+      { status: 500 },
+    )
   }
 }
