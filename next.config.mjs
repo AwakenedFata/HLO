@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['mongoose'],
+  compiler: {
+    styledComponents: true, 
+  },
+  serverExternalPackages: ["mongoose"],
 
   eslint: {
     ignoreDuringBuilds: true,
@@ -14,77 +17,78 @@ const nextConfig = {
   compress: true,
 
   images: {
-    domains: ['placeholder.com'],
+    domains: ["placeholder.com"],
     unoptimized: true,
   },
 
   env: {
-    NEXT_PUBLIC_FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+    NEXT_PUBLIC_FRONTEND_URL:
+      process.env.FRONTEND_URL || "http://localhost:3000",
   },
 
   async headers() {
     return [
       {
-        source: '/api/:path*',
+        source: "/api/:path*",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, proxy-revalidate",
           },
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: "X-Frame-Options",
+            value: "DENY",
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
           },
         ],
       },
       {
-        source: '/(.*)',
+        source: "/(.*)",
         headers: [
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: "X-Frame-Options",
+            value: "DENY",
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
           },
           {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
           },
         ],
       },
-    ]
+    ];
   },
 
   webpack(config) {
     config.module.rules.push({
       test: /\.(png|jpe?g|gif|svg|mp4|webp)$/i,
-      type: 'asset/resource',
+      type: "asset/resource",
       generator: {
-        filename: 'static/media/[hash][ext]',
+        filename: "static/media/[hash][ext]",
       },
-    })
+    });
 
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': '.',
-    }
+      "@": ".",
+    };
 
-    return config
+    return config;
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;

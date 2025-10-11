@@ -9,7 +9,7 @@ function getPdfPageUrl(searchParams) {
   const baseUrl =
     process.env.NODE_ENV === "development"
       ? process.env.PDF_PAGE_URL_DEV || "http://localhost:3000/pdfpage"
-      : process.env.PDF_PAGE_URL_PROD || "https://hoklampung.com/pdfpage"
+      : process.env.PDF_PAGE_URL_PROD || "https://hoklampung.vercel.app/pdfpage"
 
   const params = new URLSearchParams(searchParams)
   return `${baseUrl}?${params.toString()}`
