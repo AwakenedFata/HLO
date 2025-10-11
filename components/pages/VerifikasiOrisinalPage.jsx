@@ -389,7 +389,7 @@ export default function VerifikasiOrisinalPage() {
   const inputRefs = useRef([])
   const [fingerprint, setFingerprint] = useState("")
   const [locked, setLocked] = useState(false)
-  const cacheKey = "verificationCache" // Declared cacheKey variable
+  const cacheKey = "verificationCache"
 
   useEffect(() => {
     if (inputRefs.current[0]) inputRefs.current[0].focus()
@@ -505,7 +505,13 @@ export default function VerifikasiOrisinalPage() {
         })
         setLocked(true)
       } else {
-        setResult({ success: true, message: data.message, product: data.product })
+        // ✅ FIX: Simpan SELURUH data response termasuk issuedDate terbaru
+        setResult({ 
+          success: true, 
+          message: data.message, 
+          product: data.product,
+          data: data.data // 🔥 Simpan semua data dari API response
+        })
         setLocked(true)
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ fingerprint, at: Date.now() }))
@@ -530,8 +536,18 @@ export default function VerifikasiOrisinalPage() {
 
   const showForm = !result
 
-  const pdfHref = result?.success
-    ? `/api/verify-serial/verification-pdf?code=${encodeURIComponent(code.join("").toUpperCase())}`
+  // ✅ FIX: Gunakan data dari response API (data terbaru dari database)
+  const pdfHref = result?.success && result?.data
+    ? (() => {
+        const params = new URLSearchParams({
+          code: result.data.code || code.join("").toUpperCase(),
+          name: result.data.product?.name || "-",
+          productionDate: result.data.product?.productionDate || "-",
+          // 🔥 CRITICAL: Gunakan issuedDate dari database (sudah ter-update via admin)
+          issuedOn: result.data.issuedDate || new Date().toISOString(),
+        })
+        return `/api/verification-pdf?${params.toString()}`
+      })()
     : "#"
 
   return (

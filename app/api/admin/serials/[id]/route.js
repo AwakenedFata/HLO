@@ -95,7 +95,6 @@ export async function PATCH(request, { params }) {
       update.isActive = parsed.data.isActive
     }
     
-    // Handle issuedDate
     if (parsed.data.issuedDate) {
       update.issuedDate = new Date(parsed.data.issuedDate)
     }
@@ -105,14 +104,13 @@ export async function PATCH(request, { params }) {
     if (typeof productName === "string") {
       update["product.name"] = productName
     }
-    if (typeof parsed.data.product?.batch === "string") {
-      update["product.batch"] = parsed.data.product.batch
-    }
+    
     if (typeof parsed.data.product?.productionDate === "string") {
       update["product.productionDate"] = parsed.data.product.productionDate
-    }
-    if (typeof parsed.data.product?.warrantyUntil === "string") {
-      update["product.warrantyUntil"] = parsed.data.product.warrantyUntil
+      
+      if (!parsed.data.issuedDate && parsed.data.product.productionDate) {
+        update.issuedDate = new Date(parsed.data.product.productionDate)
+      }
     }
 
     const updated = await SerialNumber.findByIdAndUpdate(params.id, { $set: update }, { new: true })

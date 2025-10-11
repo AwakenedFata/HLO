@@ -1022,7 +1022,7 @@ export default function VerifikasiOrisinalManagement() {
         </Modal.Footer>
       </Modal>
 
-      {/* Edit Date Modal */}
+{/* Edit Date Modal */}
       <Modal show={showEditDateModal} onHide={() => setShowEditDateModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -1030,21 +1030,22 @@ export default function VerifikasiOrisinalManagement() {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="mb-2">
+          <p className="mb-3">
             Serial: <code className="bg-light px-2 py-1 rounded">{editingSerial?.code}</code>
           </p>
-          <Form.Group className="mb-2">
-            <Form.Label>Tanggal (opsional)</Form.Label>
+          <Form.Group className="mb-3">
+            <Form.Label>Tanggal Produksi (Production Date)</Form.Label>
             <Form.Control
               type="date"
               value={editDate || ""}
               onChange={(e) => setEditDate(e.target.value)}
               placeholder="YYYY-MM-DD"
             />
-            <Form.Text muted>Gunakan format YYYY-MM-DD</Form.Text>
+            <Form.Text muted>Tanggal pembuatan produk</Form.Text>
           </Form.Group>
-          <Alert variant="secondary" className="mb-0">
-            Kosongkan untuk menghapus tanggal.
+          <Alert variant="info" className="mb-0">
+            <FaCalendarAlt className="me-2" />
+            <strong>Issued Date (Tanggal Penerbitan Sertifikat)</strong> akan otomatis mengikuti tanggal produksi yang Anda masukkan.
           </Alert>
         </Modal.Body>
         <Modal.Footer>
@@ -1056,14 +1057,25 @@ export default function VerifikasiOrisinalManagement() {
             onClick={async () => {
               if (!editingSerial?._id) return
               try {
+                const payload = {}
+                
+                if (editDate) {
+                  payload.product = { productionDate: editDate }
+                  payload.issuedDate = editDate // Sync issuedDate with productionDate
+                } else {
+                  // If empty, set both to empty/null
+                  payload.product = { productionDate: "" }
+                  payload.issuedDate = new Date().toISOString() // Reset to current date
+                }
+                
                 const res = await fetch(`/api/admin/serials/${editingSerial._id}`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ product: { productionDate: editDate || "" } }),
+                  body: JSON.stringify(payload),
                 })
                 const data = await res.json()
                 if (!res.ok) throw new Error(data?.message || data?.error || "Gagal menyimpan tanggal")
-                addToast("Tanggal serial berhasil diperbarui", "success")
+                addToast("Tanggal serial berhasil diperbarui (production date + issued date)", "success")
                 setShowEditDateModal(false)
                 setEditingSerial(null)
                 setEditDate("")
