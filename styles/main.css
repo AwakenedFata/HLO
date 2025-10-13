@@ -165,7 +165,7 @@
   border-radius: 6px !important;
   transition: background-color 0.3s ease, transform 0.3s ease !important;
   text-align: center !important;
-  font-size: 12px !important;
+  font-size: 13.5px !important;
 }
 
 .navbar .merch-button:hover {
@@ -174,14 +174,14 @@
 }
 
 .navbar .merch-button.active {
-  color: var(--color-text) !important;
-  background-color: #e09400 !important;
+  color: var(--secondary-color) !important;
+  background-color: var(--used-color) !important;
 }
 
 /* Special styling for merchandise button when active */
 .navbar .merch-button.nav-active {
-  background-color: #e09400 !important;
-  color: var(--color-text) !important;
+  background-color:  var(--used-color)!important;
+  color: var(--secondary-color) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
@@ -1353,12 +1353,11 @@ swiper-slide.swiper-slide-active {
 
 /* Row Spacing */
 .top-row {
-  margin-bottom: 40px;
+  margin-bottom: 22px;
   row-gap: 40px;
 }
 
 .bottom-row {
-  margin-top: 20px;
   row-gap: 40px;
 }
 
@@ -1463,7 +1462,7 @@ swiper-slide.swiper-slide-active {
   }
 
   .top-row {
-    margin-bottom: 35px;
+    margin-bottom: 15px;
   }
 }
 
@@ -1559,7 +1558,7 @@ swiper-slide.swiper-slide-active {
   }
 
   .top-row {
-    margin-bottom: 25px;
+    margin-bottom: 15px;
   }
 }
 
@@ -1583,7 +1582,7 @@ swiper-slide.swiper-slide-active {
   }
 
   .top-row {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
   }
 }
 

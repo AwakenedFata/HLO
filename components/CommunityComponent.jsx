@@ -130,6 +130,7 @@ const MainTitle = styled.h2`
   }
   @media (max-width: 426px) {
     font-size: 1.3rem;
+    margin-bottom: -5px;
   }
   @media (max-width: 400px) {
     font-size: 1.3rem;
@@ -210,34 +211,34 @@ const Hashtag = styled.h4`
   margin: 0;
   letter-spacing: 0.05em;
   @media (min-width: 1024px) {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
   }
   @media (max-width: 1016px) {
-    font-size: 0.8rem;
-  }
-  @media (max-width: 992px) {
-    font-size: 1.1rem;
-  }
-  @media (max-width: 526px) {
     font-size: 1rem;
   }
+  @media (max-width: 992px) {
+    font-size: 1.3rem;
+  }
+  @media (max-width: 526px) {
+    font-size: 1.2rem;
+  }
   @media (max-width: 500px) {
-    font-size: 0.9rem;
+    font-size: 1.1rem;
   }
   @media (max-width: 475px) {
-    font-size: 0.8rem;
+    font-size: 1rem;
   }
   @media (max-width: 450px) {
-    font-size: 0.75rem;
+    font-size: 0.95rem;
   }
   @media (max-width: 426px) {
-    font-size: 0.8rem;
+    font-size: 1rem;
   }
   @media (max-width: 400px) {
-    font-size: 0.85rem;
+    font-size: 1.05rem;
   }
   @media (max-width: 380px) {
-    font-size: 0.55rem;
+    font-size: 0.75rem;
   }
 `;
 
