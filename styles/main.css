@@ -1246,7 +1246,6 @@ swiper-slide.swiper-slide-active {
     max-width: 100%;
   }
 }
-
 /* Sponsors Section Styles */
 .sponsors-section {
   position: relative;
@@ -1282,7 +1281,8 @@ swiper-slide.swiper-slide-active {
 .partner-col {
   display: flex;
   justify-content: center;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
+  padding: 0 15px;
 }
 
 .partner-card-wrapper {
@@ -1331,13 +1331,13 @@ swiper-slide.swiper-slide-active {
 
 /* Khusus partner 1 */
 .partner-logo-special1 {
-  max-width: 100%; /* Ukuran khusus untuk partner 1 */
+  max-width: 100%;
   max-height: 100%;
 }
 
 /* Khusus partner 2 */
 .partner-logo-special2 {
-  max-width: 100%; /* Ukuran khusus untuk partner 2 */
+  max-width: 100%;
   max-height: 100%;
 }
 
@@ -1345,6 +1345,7 @@ swiper-slide.swiper-slide-active {
   max-width: 90%;
   max-height: 70%;
 }
+
 .partner-logo-special5 {
   max-width: 75%;
   max-height: 55%;
@@ -1352,11 +1353,13 @@ swiper-slide.swiper-slide-active {
 
 /* Row Spacing */
 .top-row {
-  margin-bottom: 20px;
+  margin-bottom: 40px;
+  row-gap: 40px;
 }
 
 .bottom-row {
-  margin-top: 10px;
+  margin-top: 20px;
+  row-gap: 40px;
 }
 
 /* Responsive Styles */
@@ -1372,6 +1375,16 @@ swiper-slide.swiper-slide-active {
 
   .sponsors-title h1 {
     font-size: 3.2rem;
+  }
+
+  .partner-col {
+    margin-bottom: 35px;
+    padding: 0 12px;
+  }
+
+  .top-row,
+  .bottom-row {
+    row-gap: 35px;
   }
 }
 
@@ -1390,11 +1403,17 @@ swiper-slide.swiper-slide-active {
   }
 
   .partner-col {
-    margin-bottom: 25px;
+    margin-bottom: 30px;
+    padding: 0 10px;
   }
 
   .partner-card-wrapper {
     max-width: 300px;
+  }
+
+  .top-row,
+  .bottom-row {
+    row-gap: 30px;
   }
 }
 
@@ -1413,7 +1432,8 @@ swiper-slide.swiper-slide-active {
   }
 
   .partner-col {
-    margin-bottom: 20px;
+    margin-bottom: 25px;
+    padding: 0 10px;
   }
 
   .partner-card-wrapper {
@@ -1424,16 +1444,26 @@ swiper-slide.swiper-slide-active {
     max-width: 75%;
     max-height: 55%;
   }
+
   /* Khusus partner 1 */
   .partner-logo-special1 {
-    max-width: 100%; /* Ukuran khusus untuk partner 1 */
+    max-width: 100%;
     max-height: 100%;
   }
 
   /* Khusus partner 2 */
   .partner-logo-special2 {
-    max-width: 100%; /* Ukuran khusus untuk partner 2 */
+    max-width: 100%;
     max-height: 100%;
+  }
+
+  .top-row,
+  .bottom-row {
+    row-gap: 25px;
+  }
+
+  .top-row {
+    margin-bottom: 35px;
   }
 }
 
@@ -1458,23 +1488,31 @@ swiper-slide.swiper-slide-active {
   }
 
   .partner-col {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    padding: 0 8px;
   }
 
   .partner-card-wrapper {
     max-width: 250px;
   }
 
-  /* Adjust layout for mobile */
   .top-row,
   .bottom-row {
-    margin: 0;
+    row-gap: 10px;
+  }
+
+  .top-row {
+    margin-bottom: 15px;
+  }
+
+  .partners-container {
+    padding: 10px 0;
   }
 }
 
 @media (max-width: 480px) {
   .sponsors-section {
-    padding: 30px 0;
+    padding: 30px 0 20px;
   }
 
   .sponsors-title {
@@ -1488,6 +1526,11 @@ swiper-slide.swiper-slide-active {
 
   .partner-card-wrapper {
     max-width: 220px;
+  }
+
+  .partner-col {
+    margin-bottom: 18px;
+    padding: 0 8px;
   }
 
   .partner-logo {
@@ -1504,9 +1547,19 @@ swiper-slide.swiper-slide-active {
     max-width: 130%;
     max-height: 130%;
   }
+
   .partner-logo-special4 {
     max-width: 100%;
     max-height: 100%;
+  }
+
+  .top-row,
+  .bottom-row {
+    row-gap: 18px;
+  }
+
+  .top-row {
+    margin-bottom: 25px;
   }
 }
 
@@ -1518,9 +1571,23 @@ swiper-slide.swiper-slide-active {
   .partner-card-wrapper {
     max-width: 200px;
   }
+
+  .partner-col {
+    margin-bottom: 15px;
+    padding: 0 5px;
+  }
+
+  .top-row,
+  .bottom-row {
+    row-gap: 15px;
+  }
+
+  .top-row {
+    margin-bottom: 20px;
+  }
 }
 
-/* Fix for small height screens */
+/* Fix untuk layar dengan tinggi kecil */
 @media (max-height: 700px) {
   .sponsors-section {
     min-height: auto !important;
@@ -1533,7 +1600,12 @@ swiper-slide.swiper-slide-active {
   }
 
   .partner-col {
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+  }
+
+  .top-row,
+  .bottom-row {
+    row-gap: 15px;
   }
 }
 

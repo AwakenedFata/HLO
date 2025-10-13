@@ -245,7 +245,7 @@ const GalleryCard = ({ item }) => {
 
   const handleTitleClick = async () => {
     try {
-      const res = await fetch(`/api/admin/artikel/by-gallery/${item._id}`)
+      const res = await fetch(`/api/artikel-public/by-gallery/${item._id}`)
       const data = await res.json()
       if (data?.success && data?.article?.slug) {
         router.push(`/article/${data.article.slug}`)

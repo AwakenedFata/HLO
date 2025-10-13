@@ -53,8 +53,8 @@ function SponsorsComponent() {
           <Row className="justify-content-center">
             {/* Top Row - max 3 Partners */}
             <Col xs={12}>
-              <Row className="justify-content-center top-row g-0" data-aos="fade-up" data-aos-duration="1000">
-                {firstRow.map((partner) => (
+              <Row className="justify-content-center top-row g-0">
+                {firstRow.map((partner, index) => (
                   <Col
                     key={partner.id}
                     lg={4}
@@ -63,6 +63,9 @@ function SponsorsComponent() {
                     xs={12}
                     className="partner-col mb-0 p-0"
                     style={{ marginBottom: 0 }}
+                    data-aos="fade-up"
+                    data-aos-duration="800"
+                    data-aos-delay={index * 150}
                   >
                     <div className="partner-card-wrapper">
                       <div
@@ -101,8 +104,8 @@ function SponsorsComponent() {
             {/* Bottom Row - sisa Partners */}
             {secondRow.length > 0 && (
               <Col xs={12}>
-                <Row className="justify-content-center bottom-row g-0" data-aos="fade-up" data-aos-duration="1000">
-                  {secondRow.map((partner) => (
+                <Row className="justify-content-center bottom-row g-0">
+                  {secondRow.map((partner, index) => (
                     <Col
                       key={partner.id}
                       lg={4}
@@ -111,6 +114,9 @@ function SponsorsComponent() {
                       xs={12}
                       className="partner-col mb-0 p-0"
                       style={{ marginBottom: 0 }}
+                      data-aos="fade-up"
+                      data-aos-duration="800"
+                      data-aos-delay={450 + index * 150}
                     >
                       <div className="partner-card-wrapper">
                         <div

@@ -1,22 +1,19 @@
-const gallery1 = "/assets/Gallery/kiri.png"
-const gallery2 = "/assets/Gallery/tengah.png"
-const gallery3 = "/assets/Gallery/kanan.png"
-const partner1 = "/assets/Sponsor & Partner/ESI.png"
-const partner2 = "/assets/Sponsor & Partner/Ace Logo Revamp PNG black.png"
-const partner3 = "/assets/Sponsor & Partner/VNX.png"
-const partner4 = "/assets/serialnumber/HLO ID 2.png"
-const partner5 = "/assets/Sponsor & Partner/vincent production.png"
+const gallery1 = "/assets/Gallery/kiri.png";
+const gallery2 = "/assets/Gallery/tengah.png";
+const gallery3 = "/assets/Gallery/kanan.png";
+const partner1 = "/assets/Sponsor & Partner/ESI.png";
+const partner2 = "/assets/Sponsor & Partner/Ace Logo Revamp PNG black.png";
+const partner3 = "/assets/Sponsor & Partner/VNX.png";
+const partner4 = "/assets/serialnumber/HLO ID 2.png";
+const partner5 = "/assets/Sponsor & Partner/vincent production.png";
 
-const platformWhatsapp = "/assets/platforms/whatsapp-icon.png"
-const platformInstagram = "/assets/platforms/instagram-logo.png"
-const platformFacebook = "/assets/platforms/facebook-circle-logo.png"
-const platformYoutube = "/assets/platforms/youtube.png"
-const platformTiktok = "/assets/platforms/tiktok-logo.png"
-const platformDiscord = "/assets/platforms/discord-logo.png"
-const platformX = "/assets/platforms/logo-x-modern-2023.png"
-const platformShopee = "/assets/platforms/logo-shopee.png"
-const platformTokopedia = "/assets/platforms/tokopedia.png"
-const platformTiktokShop = "/assets/platforms/tiktok-shop-logo.png"
+const platformWhatsapp = "/assets/platforms/whatsapp-icon.png";
+const platformInstagram = "/assets/platforms/instagram-logo.png";
+const platformFacebook = "/assets/platforms/facebook-circle-logo.png";
+const platformYoutube = "/assets/platforms/youtube.png";
+const platformTiktok = "/assets/platforms/tiktok-logo.png";
+const platformDiscord = "/assets/platforms/discord-logo.png";
+const platformX = "/assets/platforms/logo-x-modern-2023.png";
 
 export const navLinks = [
   { id: 1, path: "/", text: "Home" },
@@ -26,7 +23,7 @@ export const navLinks = [
   { id: 6, path: "/redeem", text: "Redeem" },
   { id: 7, path: "/verifikasi-orisinal", text: "Serial Number" },
   { id: 8, path: "/merchan", text: "MERCHANDISE" },
-]
+];
 
 export const galleryItems = [
   {
@@ -38,16 +35,31 @@ export const galleryItems = [
   {
     image: gallery3,
   },
-]
+];
 
 export const partners = [
-  { id: 1, image: partner1, name: "ESI", url: "https://www.instagram.com/pbesi_official?igsh=MXdrMndtdzRlcnV2Yw==" },
-  { id: 2, image: partner2, name: "ACE", url: "https://www.instagram.com/hok.ace?igsh=Z3pvdXpnZmZkNnlz" },
-  { id: 3, image: partner3, name: "VNX", url: "https://www.instagram.com/vnx.esport?igsh=MWRrejd5dWFvZHBmZQ==" },
+  {
+    id: 1,
+    image: partner1,
+    name: "ESI",
+    url: "https://www.instagram.com/pbesi_official?igsh=MXdrMndtdzRlcnV2Yw==",
+  },
+  {
+    id: 2,
+    image: partner2,
+    name: "ACE",
+    url: "https://www.instagram.com/hok.ace?igsh=Z3pvdXpnZmZkNnlz",
+  },
+  {
+    id: 3,
+    image: partner3,
+    name: "VNX",
+    url: "https://www.instagram.com/vnx.esport?igsh=MWRrejd5dWFvZHBmZQ==",
+  },
   {
     id: 4,
     image: partner4,
-    name: "HLS",
+    name: "HLO",
     url: "https://www.instagram.com/hlostore.official?igsh=eGFqODh1enBwcXUzhttps://www.instagram.com/hlostore.official?igsh=eGFqODh1enBwcXUz",
   },
   {
@@ -56,7 +68,7 @@ export const partners = [
     name: "Vincent Production",
     url: "https://www.instagram.com/vincent.production?igsh=djVjd3Fya2o1d202",
   },
-]
+];
 
 export const platforms = [
   {
@@ -94,19 +106,4 @@ export const platforms = [
     image: platformYoutube,
     url: "https://www.youtube.com/channel/UC37Te9PzSLOpBHKIM85BZeg",
   },
-  {
-    id: 8,
-    image: platformTiktokShop,
-    url: "https://shop-id.tokopedia.com/",
-  },
-  {
-    id: 9,
-    image: platformShopee,
-    url: "https://shopee.co.id/",
-  },
-  {
-    id: 10,
-    image: platformTokopedia,
-    url: "https://www.tokopedia.com/",
-  },
-]
+];
