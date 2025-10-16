@@ -1,14 +1,18 @@
 import PdfPage from "@/components/pages/PdfPage"
 
-export default function PdfRenderPage({ searchParams }) {
-  const code = String(searchParams?.code || "").toUpperCase()
+export const dynamic = "force-dynamic"
+
+export default async function PdfRenderPage({ searchParams }) {
+  const sp = await searchParams
+
+  const code = String(sp?.code || "").toUpperCase()
   const product = {
-    name: decodeURIComponent(searchParams?.name || "-"),
-    batch: decodeURIComponent(searchParams?.batch || "-"),
-    productionDate: decodeURIComponent(searchParams?.productionDate || "-"),
-    warrantyUntil: decodeURIComponent(searchParams?.warrantyUntil || "-"),
+    name: sp?.name ? decodeURIComponent(sp.name) : "-",
+    batch: sp?.batch ? decodeURIComponent(sp.batch) : "-",
+    productionDate: sp?.productionDate ? decodeURIComponent(sp.productionDate) : "-",
+    warrantyUntil: sp?.warrantyUntil ? decodeURIComponent(sp.warrantyUntil) : "-",
   }
-  const issuedOn = searchParams?.issuedOn ? decodeURIComponent(searchParams.issuedOn) : ""
+  const issuedOn = sp?.issuedOn ? decodeURIComponent(sp.issuedOn) : ""
 
   return (
     <div

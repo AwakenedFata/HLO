@@ -75,7 +75,7 @@ function FooterComponent() {
             <h5 className="footer-heading">About</h5>
             <ul className="footer-links">
               <li>
-                <Link href="/aboutus">Tentang Kami</Link>
+                <Link href="/#aboutus">Tentang Kami</Link>
               </li>
               <li>
                 <Link href="/#">Event & Turnamen</Link>

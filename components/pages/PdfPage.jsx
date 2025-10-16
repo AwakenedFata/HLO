@@ -1,7 +1,6 @@
 "use client"
 import styled, { createGlobalStyle } from "styled-components"
 
-// 🧩 Global font setup – pastikan file font-nya ada di /public/assets/fonts/
 const GlobalStyle = createGlobalStyle`
   @font-face {
     font-family: "Bahnschrift";

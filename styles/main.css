@@ -92,9 +92,16 @@
 }
 @media (min-width: 1024px) {
   .navbar,
-  .navbar .nav-link,
+  .navbar .nav-link {
+    font-size: 13.5px !important;
+  }
+  .navbar .merch-button{
+    font-size: 12px !important;
+  }
+}
+@media (max-width: 1024px) {
   .navbar .merch-button {
-    font-size: 13.5px;
+    font-size: 14.5px !important;
   }
 }
 
@@ -165,7 +172,6 @@
   border-radius: 6px !important;
   transition: background-color 0.3s ease, transform 0.3s ease !important;
   text-align: center !important;
-  font-size: 13.5px !important;
 }
 
 .navbar .merch-button:hover {

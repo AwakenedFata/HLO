@@ -38,55 +38,59 @@ const PlatformsPage = () => {
     if (!isMobile) e.currentTarget.style.transform = "scale(1)";
   };
 
-  const PlatformCard = ({ image, url }) => (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ textDecoration: "none" }}
-    >
-      <div
-        className="platform-card"
-        style={{
-          position: "relative",
-          width: isMobile ? "120px" : "150px",
-          height: isMobile ? "120px" : "150px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          transition: "transform 0.2s",
-        }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+  const PlatformCard = ({ image, url }) => {
+    const cardSize = isMobile ? "120px" : "clamp(120px, 12vw, 150px)";
+    
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: "none" }}
       >
-        <img
-          src="/assets/platforms/kotak.png"
-          alt="Platform Background"
-          style={{
-            position: "absolute",
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            zIndex: 1,
-          }}
-        />
-        <img
-          src={image || "/placeholder.svg"}
-          alt="Platform"
+        <div
+          className="platform-card"
           style={{
             position: "relative",
-            width: "60%",
-            height: "60%",
-            objectFit: "contain",
-            zIndex: 2,
+            width: cardSize,
+            height: cardSize,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition: "transform 0.2s",
           }}
-        />
-      </div>
-    </a>
-  );
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <img
+            src="/assets/platforms/kotak.png"
+            alt="Platform Background"
+            style={{
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              zIndex: 1,
+            }}
+          />
+          <img
+            src={image || "/placeholder.svg"}
+            alt="Platform"
+            style={{
+              position: "relative",
+              width: "60%",
+              height: "60%",
+              objectFit: "contain",
+              zIndex: 2,
+            }}
+          />
+        </div>
+      </a>
+    );
+  };
 
   return (
     <div
@@ -107,7 +111,7 @@ const PlatformsPage = () => {
         className="platforms-title"
         style={{
           fontSize: isMobile ? "3rem" : "5rem",
-          marginBottom: isMobile ? "30px" : "50px",
+          marginBottom: isMobile ? "30px" : "25px",
           textAlign: "center",
           textTransform: "uppercase",
         }}
@@ -132,11 +136,13 @@ const PlatformsPage = () => {
           </Row>
         ) : (
           <>
-            <Row className="justify-content-center g-4">
-              {platforms.slice(0, 5).map((platform) => (
+            <Row className="justify-content-center g-3 mb-4">
+              {platforms.slice(0, 4).map((platform) => (
                 <Col
                   key={platform.id}
-                  md={2}
+                  md={3}
+                  lg={2}
+                  xl={2}
                   className="d-flex justify-content-center"
                   data-aos="zoom-in"
                   data-aos-duration="1000"
@@ -145,11 +151,13 @@ const PlatformsPage = () => {
                 </Col>
               ))}
             </Row>
-            <Row className="justify-content-center g-4 mt-3">
-              {platforms.slice(5, 10).map((platform) => (
+            <Row className="justify-content-center g-3" style={{ maxWidth: "950px", margin: "0 auto" }}>
+              {platforms.slice(4, 7).map((platform) => (
                 <Col
                   key={platform.id}
-                  md={2}
+                  md={3}
+                  lg={2}
+                  xl={3}
                   className="d-flex justify-content-center"
                   data-aos="zoom-in"
                   data-aos-duration="1000"
