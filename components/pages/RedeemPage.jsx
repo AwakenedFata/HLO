@@ -117,7 +117,7 @@ function RedeemPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: isMobile ? "20px 0" : "0",
+        padding: isMobile ? "0" : "0",
       }}
     >
       <div

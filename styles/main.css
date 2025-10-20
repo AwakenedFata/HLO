@@ -221,10 +221,15 @@
   width: 24px !important;
   height: 18px !important;
   transition: all 0.3s ease !important;
+  display: block !important;
+}
+
+/* Garis tengah - menggunakan pseudo-element span */
+.custom-toggler .navbar-toggler-icon {
+  background-color: transparent !important;
 }
 
 .custom-toggler .navbar-toggler-icon::before,
-.custom-toggler .navbar-toggler-icon::after,
 .custom-toggler .navbar-toggler-icon::after {
   content: "" !important;
   position: absolute !important;
@@ -236,36 +241,50 @@
   left: 0 !important;
 }
 
-/* Three lines for the hamburger */
+/* Garis atas */
 .custom-toggler .navbar-toggler-icon::before {
   top: 0 !important;
 }
 
+/* Garis bawah */
 .custom-toggler .navbar-toggler-icon::after {
   bottom: 0 !important;
 }
 
-.custom-toggler .navbar-toggler-icon::after {
-  top: 8px !important; /* Middle line */
+/* Garis tengah - tambahkan elemen baru */
+.custom-toggler .navbar-toggler-icon span {
+  content: "" !important;
+  position: absolute !important;
+  width: 100% !important;
+  height: 2px !important;
+  background-color: var(--color-text) !important;
+  border-radius: 2px !important;
+  transition: all 0.3s ease !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  display: block !important;
 }
 
-/* Animation for expanded state */
-.navbar-expanded .custom-toggler .navbar-toggler-icon::before {
-  transform: translateY(8px) rotate(45deg) !important;
+/* Animation untuk expanded state */
+.navbar[aria-expanded="true"] .custom-toggler .navbar-toggler-icon::before {
+  top: 50% !important;
+  transform: translateY(-50%) rotate(45deg) !important;
 }
 
-.navbar-expanded .custom-toggler .navbar-toggler-icon::after {
-  transform: translateY(-8px) rotate(-45deg) !important;
+.navbar[aria-expanded="true"] .custom-toggler .navbar-toggler-icon::after {
+  bottom: 50% !important;
+  transform: translateY(50%) rotate(-45deg) !important;
 }
 
-.navbar-expanded .custom-toggler .navbar-toggler-icon::after {
+.navbar[aria-expanded="true"] .custom-toggler .navbar-toggler-icon span {
   opacity: 0 !important;
 }
 
-/* Hover effect for hamburger */
+/* Hover effect untuk hamburger */
 .custom-toggler:hover .navbar-toggler-icon::before,
 .custom-toggler:hover .navbar-toggler-icon::after,
-.custom-toggler:hover .navbar-toggler-icon::after {
+.custom-toggler:hover .navbar-toggler-icon span {
   background-color: var(--active-color) !important;
 }
 
@@ -2682,6 +2701,7 @@ textarea.contact-input {
 
 /*  STYLE MERCHANPAGE */
 .merchan-page {
+  padding-top: 40px;
   object-fit: cover;
   z-index: -1;
 }

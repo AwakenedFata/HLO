@@ -15,6 +15,13 @@ const platformTiktok = "/assets/platforms/tiktok-logo.png";
 const platformDiscord = "/assets/platforms/discord-logo.png";
 const platformX = "/assets/platforms/logo-x-modern-2023.png";
 
+const marketPlaceShopee = "/assets/Merchandise/shopee.png"
+const marketPlaceTokopedia = "/assets/Merchandise/tokopedia.png"
+const marketPlaceLazada = "/assets/Merchandise/lazada.png"
+const marketPlaceTiktokshop = "/assets/Merchandise/tiktokshop.png"
+const marketPlaceBlibli = "/assets/Merchandise/blibli2.png"
+const marketPlaceToco = "/assets/Merchandise/toco.png"
+
 export const navLinks = [
   { id: 1, path: "/", text: "Home" },
   { id: 2, path: "/#aboutus", text: "About Us" },
@@ -107,3 +114,30 @@ export const platforms = [
     url: "https://www.youtube.com/channel/UC37Te9PzSLOpBHKIM85BZeg",
   },
 ];
+
+export const marketPlace = [
+    {
+    id: 1,
+    image: marketPlaceShopee,
+  },
+  {
+    id: 2,
+    image: marketPlaceTokopedia,
+  },
+  {
+    id: 3,
+    image: marketPlaceLazada,
+  },
+  {
+    id: 4,
+    image: marketPlaceTiktokshop,
+  },
+  {
+    id: 5,
+    image: marketPlaceBlibli,
+  },
+  {
+    id: 6,
+    image: marketPlaceToco,
+  },
+]

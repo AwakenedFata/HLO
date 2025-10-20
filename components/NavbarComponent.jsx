@@ -124,7 +124,11 @@ function NavbarComponent() {
             className="d-inline-block align-top logo-navbar"
           />
         </Link>
-        <Navbar.Toggle aria-controls="basic-navbar-nav" className="custom-toggler" />
+        <Navbar.Toggle aria-controls="basic-navbar-nav" className="custom-toggler">
+          <span className="navbar-toggler-icon">
+            <span></span>
+          </span>
+        </Navbar.Toggle>
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="mx-auto">
             {navLinks.map((link) => {
