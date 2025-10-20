@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react"
 import styled from "styled-components"
 import dynamic from "next/dynamic"
 
-// Dynamic import untuk Model3DViewer (client-side only)
 const Model3DViewer = dynamic(() => import("@/components/three/Model3D"), {
   ssr: false,
   loading: () => (
