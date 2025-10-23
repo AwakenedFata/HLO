@@ -97,12 +97,10 @@ function GalleryComponent() {
   const [error, setError] = useState(null)
   const router = useRouter()
 
-  // Mark component as mounted (client-side)
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Fetch gallery data from database
   useEffect(() => {
     if (!mounted) return
 
@@ -128,7 +126,6 @@ function GalleryComponent() {
     fetchGalleryData()
   }, [mounted])
 
-  // Initialize Swiper
   useEffect(() => {
     if (!mounted || swiperInitialized) return
 
@@ -141,7 +138,6 @@ function GalleryComponent() {
     initSwiper()
   }, [mounted, swiperInitialized])
 
-  // Mobile detection and setup
   useEffect(() => {
     if (!mounted) return
 
@@ -149,7 +145,6 @@ function GalleryComponent() {
       setIsMobile(window.innerWidth <= 480)
     }
 
-    // Set initial mobile state
     checkMobile()
 
     window.addEventListener("resize", checkMobile)
@@ -165,7 +160,6 @@ function GalleryComponent() {
     return () => window.removeEventListener("resize", checkMobile)
   }, [mounted])
 
-  // Setup Swiper parameters
   useEffect(() => {
     if (!mounted || !swiperInitialized || !galleryData.length) return
 
@@ -175,7 +169,7 @@ function GalleryComponent() {
     const params = {
       slidesPerView: isMobile ? 1 : 3,
       grabCursor: true,
-      spaceBetween: isMobile ? 0 : -10,
+      spaceBetween: isMobile ? 0 : -60,
       centeredSlides: true,
       initialSlide: 1,
       effect: "coverflow",
@@ -228,7 +222,7 @@ function GalleryComponent() {
           display: flex;
           justify-content: center;
           transition: all 0.3s ease;
-          padding: 40px 40px 80px;
+          padding: 20px 10px 50px;
         }
         .swiper-slide:not(.swiper-slide-active) {
           transform: scale(0.85);
@@ -240,17 +234,17 @@ function GalleryComponent() {
         }
         @media (max-width: 1200px) {
           .swiper-slide {
-            padding: 30px 30px 70px;
+            padding: 15px 8px 40px;
           }
         }
         @media (max-width: 991px) {
           .swiper-slide {
-            padding: 25px 25px 60px;
+            padding: 12px 6px 35px;
           }
         }
         @media (max-width: 767px) {
           .swiper-slide {
-            padding: 20px 20px 50px;
+            padding: 10px 5px 30px;
           }
         }
         `,
@@ -265,7 +259,6 @@ function GalleryComponent() {
     Object.assign(swiperEl, params)
     swiperEl.initialize()
 
-    // Hide extra bullets (max 3)
     const timeoutId = setTimeout(() => {
       const bullets = document.querySelectorAll(".swiper-pagination-bullet")
       bullets.forEach((bullet, i) => {
@@ -283,21 +276,17 @@ function GalleryComponent() {
       const data = await res.json()
 
       if (data?.success && data?.article?.slug) {
-        // arahkan langsung ke artikel terkait
         router.push(`/article/${data.article.slug}`)
       } else {
-        // fallback bila artikel belum tersedia
         console.warn("[v0] Artikel belum tersedia untuk galeri ini")
         router.push("/gallery")
       }
     } catch (e) {
       console.error("[v0] Error fetching related article:", e)
-      // fallback pada error
       router.push("/gallery")
     }
   }
 
-  // Show static content during SSR and initial hydration
   if (!mounted) {
     return (
       <GallerySection>
@@ -351,19 +340,16 @@ function GalleryComponent() {
 
   return (
     <GallerySection>
-      {/* Background */}
       <GalleryBgContainer>
         <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
       </GalleryBgContainer>
 
       <Container>
-        {/* Title */}
         <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
           <h2>Gallery</h2>
           <h1>HOK Lampung Community</h1>
         </GalleryTitle>
 
-        {/* Gallery Swiper */}
         <GalleryCarouselContainer data-aos="zoom-in" data-aos-duration="1000">
           {swiperInitialized && galleryData.length > 0 && (
             <swiper-container ref={swiperElRef} init="false">

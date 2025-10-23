@@ -4,8 +4,8 @@ import styled from "styled-components"
 const FrameContainer = styled.div`
   position: relative;
   width: 100%;
-  max-width: 400px;
-  aspect-ratio: 3/4; /* Force 3:4 vertical aspect ratio */
+  max-width: 350px;
+  aspect-ratio: 3/4;
   display: flex;
   justify-content: center;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
@@ -22,8 +22,8 @@ const FrameWrapper = styled.div`
 const GalleryImage = styled.img`
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Ensure image covers the entire frame */
-  object-position: center; /* Center the image */
+  object-fit: cover;
+  object-position: center;
   transition: transform 0.3s ease;
   display: block;
   border-radius: 50px;
@@ -52,7 +52,6 @@ const FrameOverlay = styled.img`
   }
 `
 
-
 const GalleryFrame = ({ galleryItem, onImageClick }) => {
   const handleImageClick = () => {
     if (onImageClick) {
@@ -60,25 +59,21 @@ const GalleryFrame = ({ galleryItem, onImageClick }) => {
     }
   }
 
-return (
-  <FrameContainer className="frame-container">
-    {/* Frame di luar, lapisan paling atas */}
-    {galleryItem.frame && (
-      <FrameOverlay src={galleryItem.frame.imageUrl} alt="Frame" loading="lazy" />
-    )}
+  return (
+    <FrameContainer className="frame-container">
+      {galleryItem.frame && <FrameOverlay src={galleryItem.frame.imageUrl} alt="Frame" loading="lazy" />}
 
-    {/* Gambar tetap di dalam wrapper */}
-    <FrameWrapper>
-      <GalleryImage
-        src={galleryItem.imageUrl || "/placeholder.svg"}
-        alt={galleryItem.title}
-        onClick={handleImageClick}
-        loading="lazy" className="gallery-image"
-      />
-    </FrameWrapper>
-  </FrameContainer>
-)
-
+      <FrameWrapper>
+        <GalleryImage
+          src={galleryItem.imageUrl || "/placeholder.svg"}
+          alt={galleryItem.title}
+          onClick={handleImageClick}
+          loading="lazy"
+          className="gallery-image"
+        />
+      </FrameWrapper>
+    </FrameContainer>
+  )
 }
 
 export default GalleryFrame

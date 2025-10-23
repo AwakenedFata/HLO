@@ -53,7 +53,7 @@ function SponsorsComponent() {
           <Row className="justify-content-center">
             {/* Top Row - max 3 Partners */}
             <Col xs={12}>
-              <Row className="justify-content-center top-row g-0">
+              <Row className="justify-content-center top-row">
                 {firstRow.map((partner, index) => (
                   <Col
                     key={partner.id}
@@ -61,8 +61,7 @@ function SponsorsComponent() {
                     md={4}
                     sm={6}
                     xs={12}
-                    className="partner-col mb-0 p-0"
-                    style={{ marginBottom: 0 }}
+                    className="partner-col"
                     data-aos="fade-up"
                     data-aos-duration="800"
                     data-aos-delay={index * 150}
@@ -83,12 +82,7 @@ function SponsorsComponent() {
                         <a href={partner.url} target="_blank" rel="noopener noreferrer">
                           <div className="partner-logo-container">
                             <img
-                              src={
-                                partner.image ||
-                                "/placeholder.svg?height=120&width=120&query=partner%20logo%20placeholder" ||
-                                "/placeholder.svg" ||
-                                "/placeholder.svg"
-                              }
+                              src={partner.image || "/placeholder.svg"}
                               alt={partner.name}
                               className={`partner-logo ${getPartnerClass(partner.id)}`}
                             />
@@ -104,7 +98,7 @@ function SponsorsComponent() {
             {/* Bottom Row - sisa Partners */}
             {secondRow.length > 0 && (
               <Col xs={12}>
-                <Row className="justify-content-center bottom-row g-0">
+                <Row className="justify-content-center bottom-row">
                   {secondRow.map((partner, index) => (
                     <Col
                       key={partner.id}
@@ -112,8 +106,7 @@ function SponsorsComponent() {
                       md={4}
                       sm={6}
                       xs={12}
-                      className="partner-col mb-0 p-0"
-                      style={{ marginBottom: 0 }}
+                      className="partner-col"
                       data-aos="fade-up"
                       data-aos-duration="800"
                       data-aos-delay={450 + index * 150}
@@ -134,12 +127,7 @@ function SponsorsComponent() {
                           <a href={partner.url} target="_blank" rel="noopener noreferrer">
                             <div className="partner-logo-container">
                               <img
-                                src={
-                                  partner.image ||
-                                  "/placeholder.svg?height=120&width=120&query=partner%20logo%20placeholder" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg"
-                                }
+                                src={partner.image || "/placeholder.svg"}
                                 alt={partner.name}
                                 className={`partner-logo ${getPartnerClass(partner.id)}`}
                               />

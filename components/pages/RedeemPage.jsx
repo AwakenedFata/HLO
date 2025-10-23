@@ -3,6 +3,354 @@
 import { useState, useEffect } from "react";
 import { Form, Button } from "react-bootstrap";
 import axios from "axios";
+import styled from "styled-components";
+
+// Styled Components
+const PageWrapper = styled.div`
+  width: 100%;
+  min-height: 100vh;
+  background-image: url(/assets/Redeem/background.avif);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${(props) => (props.$isMobile ? "0" : "0")};
+  padding-top: 70px;
+
+  @media (max-width: 768px) {
+    padding: 120px 0 120px 0;
+  }
+
+  @media (max-width: 480px) {
+    padding: 45px 0 0 0; 
+  }
+`;
+
+const RedeemContainer = styled.div`
+  background-image: url(${(props) => props.$bgImage});
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: ${(props) => (props.$isMobile ? "100%" : "90%")};
+  max-width: ${(props) => (props.$isMobile ? "450px" : "1000px")};
+  height: ${(props) => (props.$isMobile ? "1200px" : "700px")};
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: ${(props) => (props.$isMobile ? "flex-end" : "center")};
+  transition: all 0.3s ease;
+
+  /* Added responsive breakpoints for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    width: 65%;
+    max-width: 1024px;
+    height: 512px;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    width: 65%;
+    max-width: 1016px;
+    height: 500px;
+  }
+
+  @media (max-width: 1023px) {
+    background-size: contain;
+    max-width: 800px;
+    height: 500px;
+  }
+
+  @media (max-width: 768px) {
+    height: 950px;
+  }
+
+  @media (max-width: 576px) {
+    min-height: 900px;
+  }
+
+  @media (max-width: 480px) {
+    height: 860px;
+    width: 95%;
+    min-height: 700px;
+  }
+`;
+
+const FormSide = styled.div`
+  width: ${(props) => (props.$isMobile ? "85%" : "35%")};
+  position: absolute;
+  left: ${(props) => (props.$isMobile ? "50%" : "25%")};
+  top: ${(props) => {
+    if (props.$windowWidth <= 768) return "auto";
+    if (props.$windowWidth <= 992) return "53%";
+    return "50%";
+  }};
+  bottom: ${(props) => (props.$isMobile ? "70px" : "auto")};
+  transform: ${(props) =>
+    props.$isMobile ? "translateX(-50%)" : "translate(-50%, -50%)"};
+  padding: 0;
+
+  /* Added responsive breakpoints for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    width: 36%;
+    left: 26%;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    width: 37%;
+    left: 25%;
+    top: 51%;
+  }
+
+  @media (min-width: 1024px) {
+    width: 37%;
+  }
+
+  @media (max-width: 1023px) {
+    width: 37%;
+    top: 51%;
+  }
+
+  @media (max-width: 768px) {
+    width: 50%;
+  }
+
+  @media (max-width: 480px) {
+    min-height: 360px;
+    width: 80%;
+  }
+`;
+
+const Title = styled.h1`
+  font-size: ${(props) => {
+    if (props.$windowWidth <= 320) return "1.5rem";
+    if (props.$windowWidth <= 992) return "1.5rem";
+    return "2.2rem";
+  }};
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #000;
+  font-family: "Poppins-Light", sans-serif;
+  filter: drop-shadow(rgba(0, 0, 0, 0.5) 2px 2px 2px);
+
+  /* Added responsive font sizes for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    font-size: 1.4rem;
+    margin-top: 20px;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    font-size: 1.2rem;
+    margin-top: 18px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 1.3rem;
+    margin-top: 0px;
+  }
+
+  @media (max-width: 878px) {
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 576px) {
+    font-size: 1.3rem;
+  }
+
+  @media (max-width: 480px) {
+    margin-top: 10px;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+  }
+`;
+
+const StyledFormControl = styled(Form.Control)`
+  padding: ${(props) =>
+    props.$windowWidth <= 320 ? "10px 15px" : "12px 20px"};
+  border-radius: 30px;
+  border: none;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  font-size: ${(props) => (props.$windowWidth <= 320 ? "0.9rem" : "1rem")};
+  font-family: "Poppins-Semibold", sans-serif;
+  background-color: #f6f8fd;
+  filter: drop-shadow(rgba(0, 0, 0, 0.2) 2px 5px 2px);
+
+  &::placeholder {
+    color: rgba(0, 0, 0, 0.333);
+  }
+
+  &:focus {
+    color: rgba(0, 0, 0, 0.333);
+    background-color: #f6f8fd;
+    border: none;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Added responsive padding and font sizes for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    font-size: 0.85rem;
+    padding: 10px 18px;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    font-size: 0.6rem;
+    padding: 6px 16px;
+  }
+
+  @media (max-width: 1016px) {
+    padding: 8px 20px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 878px) {
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 20px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+`;
+
+const ErrorMessage = styled.p`
+  color: red;
+  font-size: 0.8rem;
+  margin-left: 10px;
+  font-family: "Poppins-Medium", sans-serif;
+  margin-top: 5px;
+
+  /* Added responsive font sizes for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    font-size: 0.75rem;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    font-size: 0.5rem;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 878px) {
+    font-size: 0.65rem;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    margin-bottom: 0;
+  }
+`;
+
+const StyledButton = styled(Button)`
+  width: 100%;
+  padding: ${(props) => (props.$windowWidth <= 320 ? "10px" : "12px")};
+  border-radius: 30px;
+  background-color: #f5ab1d;
+  border: none;
+  font-weight: bold;
+  margin-top: 10px;
+  font-size: ${(props) => (props.$windowWidth <= 320 ? "0.9rem" : "1rem")};
+  box-shadow: none;
+
+  &:hover,
+  &:focus {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 161, 99, 0.594);
+    background-color: #f5ab1d;
+    border: none;
+  }
+  
+  &:active {
+    background-color: #f5ab1d !important;
+    border: none !important;
+    box-shadow: 0 8px 20px rgba(255, 161, 99, 0.594) !important;
+    color: inherit !important;
+  }
+
+  &:disabled {
+    background-color: #f5ab1d;
+    border: none;
+    opacity: 0.7;
+  }
+
+  /* Added responsive padding and font sizes for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    padding: 11px 14px;
+    font-size: 0.85rem;
+    margin-top: 0px;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    padding: 6px 10px;
+    margin-top: 0px;
+    font-size: 0.6rem;
+  }
+
+  @media (max-width: 1023px) {
+    padding: 8px 20px;
+    font-size: 0.8rem;
+    margin-top: 0;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 20px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+`;
+
+const FormNote = styled.p`
+  color: white;
+  text-align: center;
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
+  font-family: "Poppins-Semibold", sans-serif;
+
+  /* Added responsive font sizes and margins for 1200px+ and 1199px- */
+  @media (min-width: 1200px) {
+    font-size: 0.7rem;
+    margin-top: 10px;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1199px) {
+    margin-top: 10px;
+    font-size: 0.5rem;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 0.7rem;
+    margin-top: 10px;
+  }
+
+  @media (max-width: 878px) {
+    margin-top: 10px;
+    font-size: 0.65rem;
+  }
+
+  @media (max-width: 768px) {
+    margin-top: 20px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    margin-top: 10px;
+    padding-top: 0;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 380px) {
+    margin-top: 10px;
+    padding-top: 0;
+    font-size: 0.8rem;
+  }
+`;
 
 function RedeemPage() {
   const [pinCode, setPinCode] = useState("");
@@ -19,11 +367,9 @@ function RedeemPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  // Path relatif untuk gambar
   const bgRedeemFormAndLogo = "/assets/Redeem/1.avif";
   const bgRedeemMobile = "/assets/Redeem/2.avif";
 
-  // Tandai bahwa kita sudah di client-side
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -43,6 +389,7 @@ function RedeemPage() {
   const validatePinFormat = (pin) => {
     return !/[a-z]/.test(pin);
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -75,9 +422,7 @@ function RedeemPage() {
         nama,
       });
 
-      // Check for the correct success message from the API
       if (response.data.message === "PIN code berhasil digunakan") {
-        // Gunakan environment variable untuk nomor WhatsApp
         const phoneNumber =
           process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6285709346954";
         const formattedPhone = phoneNumber.replace(/-/g, "").replace(/\s/g, "");
@@ -108,63 +453,13 @@ function RedeemPage() {
   };
 
   return (
-    <div
-      className="redeem-page w-100 min-vh-100"
-      style={{
-        backgroundImage: `url(/assets/Redeem/background.avif)`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: isMobile ? "0" : "0",
-      }}
-    >
-      <div
-        className="redeem-container"
-        style={{
-          backgroundImage: `url(${
-            isMobile ? bgRedeemMobile : bgRedeemFormAndLogo
-          })`,
-          backgroundSize: "contain",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-          width: isMobile ? "100%" : "90%",
-          maxWidth: isMobile ? "450px" : "1000px",
-          height: isMobile ? "1200px" : "500px",
-          position: "relative",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: isMobile ? "flex-end" : "center",
-        }}
+    <PageWrapper $isMobile={isMobile}>
+      <RedeemContainer
+        $isMobile={isMobile}
+        $bgImage={isMobile ? bgRedeemMobile : bgRedeemFormAndLogo}
       >
-        <div
-          className="form-side"
-          style={{
-            width: isMobile ? "85%" : "35%",
-            position: "absolute",
-            left: isMobile ? "50%" : "25%",
-            top:
-              windowWidth <= 768 ? "auto" : windowWidth <= 992 ? "53%" : "50%",
-            bottom: isMobile ? "70px" : "auto",
-            transform: isMobile ? "translateX(-50%)" : "translate(-50%, -50%)",
-            padding: "0",
-          }}
-        >
-          <h1
-            style={{
-              fontSize:
-                windowWidth <= 320
-                  ? "1.5rem"
-                  : windowWidth <= 992
-                  ? "1.5rem"
-                  : "2.2rem",
-              fontWeight: "bold",
-              marginBottom: "20px",
-              textAlign: "center",
-              color: "#000",
-            }}
-          >
+        <FormSide $isMobile={isMobile} $windowWidth={windowWidth}>
+          <Title $windowWidth={windowWidth}>
             {windowWidth <= 768 ? (
               "Redeem your tokens now!"
             ) : (
@@ -174,11 +469,11 @@ function RedeemPage() {
                 tokens now!
               </>
             )}
-          </h1>
+          </Title>
 
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
-              <Form.Control
+              <StyledFormControl
                 type="text"
                 placeholder="PIN code"
                 value={pinCode}
@@ -191,131 +486,59 @@ function RedeemPage() {
                     lowercasePin: false,
                   });
                 }}
-                style={{
-                  padding: windowWidth <= 320 ? "10px 15px" : "12px 20px",
-                  borderRadius: "30px",
-                  border: "none",
-                  boxShadow: "0px 2px 5px rgba(0,0,0,0.1)",
-                  fontSize: windowWidth <= 320 ? "0.9rem" : "1rem",
-                }}
+                $windowWidth={windowWidth}
               />
               {error.invalidPin && !error.emptyFields && (
-                <p
-                  className="error-message"
-                  style={{
-                    color: "red",
-                    fontSize: "0.8rem",
-                    marginLeft: "10px",
-                  }}
-                >
-                  *PIN code tidak valid
-                </p>
+                <ErrorMessage>*PIN code tidak valid</ErrorMessage>
               )}
               {error.usedPin && !error.emptyFields && !error.invalidPin && (
-                <p
-                  className="error-message"
-                  style={{
-                    color: "red",
-                    fontSize: "0.8rem",
-                    marginLeft: "10px",
-                  }}
-                >
-                  *PIN code sudah pernah digunakan
-                </p>
+                <ErrorMessage>*PIN code sudah pernah digunakan</ErrorMessage>
               )}
-              { error.lowercasePin && !error.usedPin && !error.emptyFields && !error.invalidPin && (
-                <p
-                  className="error-message"
-                  style={{
-                    color: "red",
-                    fontSize: "0.8rem",
-                    marginLeft: "10px",
-                  }}
-                >
-                  *PIN code harus huruf kapital semua
-                </p>
-              )}
+              {error.lowercasePin &&
+                !error.usedPin &&
+                !error.emptyFields &&
+                !error.invalidPin && (
+                  <ErrorMessage>
+                    *PIN code harus huruf kapital semua
+                  </ErrorMessage>
+                )}
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Control
+              <StyledFormControl
                 type="text"
                 placeholder="ID game"
                 value={idGame}
                 onChange={(e) => setIdGame(e.target.value)}
-                style={{
-                  padding: windowWidth <= 320 ? "10px 15px" : "12px 20px",
-                  borderRadius: "30px",
-                  border: "none",
-                  boxShadow: "0px 2px 5px rgba(0,0,0,0.1)",
-                  fontSize: windowWidth <= 320 ? "0.9rem" : "1rem",
-                }}
+                $windowWidth={windowWidth}
               />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Control
+              <StyledFormControl
                 type="text"
                 placeholder="Nama"
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
-                style={{
-                  padding: windowWidth <= 320 ? "10px 15px" : "12px 20px",
-                  borderRadius: "30px",
-                  border: "none",
-                  boxShadow: "0px 2px 5px rgba(0,0,0,0.1)",
-                  fontSize: windowWidth <= 320 ? "0.9rem" : "1rem",
-                }}
+                $windowWidth={windowWidth}
               />
             </Form.Group>
 
             {error.emptyFields && (
-              <p
-                className="error-message"
-                style={{
-                  color: "red",
-                  fontSize: "0.8rem",
-                  marginBottom: "10px",
-                  marginLeft: "10px",
-                  marginTop: "-5px",
-                }}
-              >
+              <ErrorMessage style={{ marginBottom: "10px", marginTop: "-5px" }}>
                 *Semua kolom harus diisi terlebih dahulu
-              </p>
+              </ErrorMessage>
             )}
 
-            <Button
+            <StyledButton
               type="submit"
               disabled={isLoading}
-              style={{
-                width: "100%",
-                padding: windowWidth <= 320 ? "10px" : "12px",
-                borderRadius: "30px",
-                backgroundColor: "#F9A826",
-                border: "none",
-                fontWeight: "bold",
-                marginTop: "10px",
-                fontSize: windowWidth <= 320 ? "0.9rem" : "1rem",
-              }}
+              $windowWidth={windowWidth}
             >
               {isLoading ? "Processing..." : "Submit"}
-            </Button>
+            </StyledButton>
 
-            <p
-              className="form-side-note"
-              style={{
-                color: "white",
-                fontSize:
-                  windowWidth <= 320
-                    ? "0.7rem"
-                    : windowWidth <= 992
-                    ? "0.8rem"
-                    : "1rem",
-                marginTop: "15px",
-                textAlign: "center",
-                textShadow: "0px 1px 2px rgba(0,0,0,0.3)",
-              }}
-            >
+            <FormNote $windowWidth={windowWidth}>
               {windowWidth <= 992 ? (
                 "*pastikan semua yang dimasukkan sudah benar termasuk PIN code"
               ) : (
@@ -325,11 +548,11 @@ function RedeemPage() {
                   sudah benar terutama PIN code
                 </>
               )}
-            </p>
+            </FormNote>
           </Form>
-        </div>
-      </div>
-    </div>
+        </FormSide>
+      </RedeemContainer>
+    </PageWrapper>
   );
 }
 

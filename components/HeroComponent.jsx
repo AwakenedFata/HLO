@@ -1,32 +1,33 @@
-"use client"
-import { Container, Row, Col } from "react-bootstrap"
-import { FaWhatsapp, FaTelegramPlane, FaDiscord } from "react-icons/fa"
-import { GrFacebookOption } from "react-icons/gr"
-import { IoLogoInstagram } from "react-icons/io5"
-import { FaXTwitter } from "react-icons/fa6"
-import { TfiEmail } from "react-icons/tfi"
-import { useMobileDetect } from "@/hooks/use-mobile"
-import Image from "next/image"
-import VideoBackground from "./VideoBackground"
+"use client";
+import { Container, Row, Col } from "react-bootstrap";
+import { FaWhatsapp, FaTelegramPlane, FaDiscord } from "react-icons/fa";
+import { GrFacebookOption } from "react-icons/gr";
+import { IoLogoInstagram } from "react-icons/io5";
+import { FaXTwitter } from "react-icons/fa6";
+import { TfiEmail } from "react-icons/tfi";
+import { useMobileDetect } from "@/hooks/use-mobile";
+import Image from "next/image";
+import VideoBackground from "./VideoBackground";
+import WelcomeComponent from "./WelcomeComponent";
 
 const HeroComponent = () => {
-  const isMobile = useMobileDetect()
+  const isMobile = useMobileDetect();
 
   const handleTouchStart = (e) => {
-    e.currentTarget.style.transform = "scale(1.2)"
-  }
+    e.currentTarget.style.transform = "scale(1.2)";
+  };
 
   const handleTouchEnd = (e) => {
-    e.currentTarget.style.transform = "scale(1)"
-  }
+    e.currentTarget.style.transform = "scale(1)";
+  };
 
   const handleMouseEnter = (e) => {
-    if (!isMobile) e.currentTarget.style.transform = "scale(1.2)"
-  }
+    if (!isMobile) e.currentTarget.style.transform = "scale(1.2)";
+  };
 
   const handleMouseLeave = (e) => {
-    if (!isMobile) e.currentTarget.style.transform = "scale(1)"
-  }
+    if (!isMobile) e.currentTarget.style.transform = "scale(1)";
+  };
 
   const socialLinks = [
     {
@@ -48,16 +49,19 @@ const HeroComponent = () => {
       href: "https://mail.google.com/mail/?view=cm&fs=1&to=hoklampung.official@gmail.com",
       icon: <TfiEmail />,
     },
-  ]
+  ];
 
   return (
     <div className="homepage">
       <header className="w-100 min-vh-100 d-flex align-items-center">
         <VideoBackground />
-        <Container>
+        <Container className="position-relative" style={{ zIndex: 2 }}>
           <Row className="header-box d-flex flex-lg-row flex-column align-items-center">
-            <Col lg="6">
-              <Image src="/assets/Home/welcome.avif" alt="#WELCOME" className="welcome" width={1000} height={1000} />
+            <Col
+              lg="6"
+              style={{ overflow: "visible", minHeight: "auto", zIndex: 3 }}
+            >
+              <WelcomeComponent />
               <div className="social-icons">
                 {socialLinks.map((link, idx) => (
                   <a
@@ -75,20 +79,25 @@ const HeroComponent = () => {
                 ))}
               </div>
             </Col>
-            <Col lg="6" className="pt-lg-0 pt-5 d-flex justify-content-center">
+            <Col
+              lg="6"
+              className="pt-lg-0 pt-5 d-flex justify-content-center"
+              style={{ overflow: "visible", zIndex: 1 }}
+            >
               <Image
                 src="/assets/Home/logo 3D.avif"
                 alt="LOGOHOK"
                 className="logo3d float-animation"
                 width={1000}
                 height={1000}
+                style={{ zIndex: 1 }}
               />
             </Col>
           </Row>
         </Container>
       </header>
     </div>
-  )
-}
+  );
+};
 
-export default HeroComponent
+export default HeroComponent;
