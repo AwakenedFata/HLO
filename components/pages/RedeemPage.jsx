@@ -15,15 +15,22 @@ const PageWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: ${(props) => (props.$isMobile ? "0" : "0")};
-  padding-top: 70px;
+  padding: 70px 20px 20px 20px;
 
   @media (max-width: 768px) {
-    padding: 120px 0 120px 0;
+    padding: 100px 20px 80px 20px;
+  }
+
+  @media (max-width: 576px) {
+    padding: 80px 15px 60px 15px;
   }
 
   @media (max-width: 480px) {
-    padding: 45px 0 0 0; 
+    padding: 70px 15px 50px 15px;
+  }
+
+  @media (max-width: 410px) {
+    padding: 60px 15px 40px 15px;
   }
 `;
 
@@ -34,14 +41,14 @@ const RedeemContainer = styled.div`
   background-position: center;
   width: ${(props) => (props.$isMobile ? "100%" : "90%")};
   max-width: ${(props) => (props.$isMobile ? "450px" : "1000px")};
-  height: ${(props) => (props.$isMobile ? "1200px" : "700px")};
+  height: ${(props) => (props.$isMobile ? "auto" : "700px")};
+  min-height: ${(props) => (props.$isMobile ? "700px" : "auto")};
   position: relative;
   display: flex;
   justify-content: center;
   align-items: ${(props) => (props.$isMobile ? "flex-end" : "center")};
   transition: all 0.3s ease;
 
-  /* Added responsive breakpoints for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
     width: 65%;
     max-width: 1024px;
@@ -55,23 +62,37 @@ const RedeemContainer = styled.div`
   }
 
   @media (max-width: 1023px) {
-    background-size: contain;
     max-width: 800px;
     height: 500px;
+    background-size: contain;
   }
 
   @media (max-width: 768px) {
-    height: 950px;
+    width: 95%;
+    max-width: 420px;
+    min-height: 800px;
+    height: auto;
   }
 
   @media (max-width: 576px) {
-    min-height: 900px;
+    width: 100%;
+    max-width: 380px;
+    min-height: 750px;
   }
 
   @media (max-width: 480px) {
-    height: 860px;
-    width: 95%;
+    max-width: 350px;
     min-height: 700px;
+  }
+
+  @media (max-width: 410px) {
+    max-width: 320px;
+    min-height: 650px;
+  }
+
+  @media (max-width: 360px) {
+    max-width: 300px;
+    min-height: 620px;
   }
 `;
 
@@ -84,12 +105,11 @@ const FormSide = styled.div`
     if (props.$windowWidth <= 992) return "53%";
     return "50%";
   }};
-  bottom: ${(props) => (props.$isMobile ? "70px" : "auto")};
+  bottom: ${(props) => (props.$isMobile ? "60px" : "auto")};
   transform: ${(props) =>
     props.$isMobile ? "translateX(-50%)" : "translate(-50%, -50%)"};
   padding: 0;
 
-  /* Added responsive breakpoints for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
     width: 36%;
     left: 26%;
@@ -111,12 +131,23 @@ const FormSide = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 50%;
+    width: 80%;
+    bottom: 80px;
+  }
+
+  @media (max-width: 576px) {
+    width: 82%;
+    bottom: 70px;
   }
 
   @media (max-width: 480px) {
-    min-height: 360px;
-    width: 80%;
+    width: 83%;
+    bottom: 60px;
+  }
+
+  @media (max-width: 410px) {
+    width: 85%;
+    bottom: 55px;
   }
 `;
 
@@ -127,16 +158,14 @@ const Title = styled.h1`
     return "2.2rem";
   }};
   font-weight: bold;
-  margin-bottom: 20px;
   text-align: center;
   color: #000;
   font-family: "Poppins-Light", sans-serif;
   filter: drop-shadow(rgba(0, 0, 0, 0.5) 2px 2px 2px);
 
-  /* Added responsive font sizes for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
-    font-size: 1.4rem;
-    margin-top: 20px;
+    font-size: 1.6rem;
+    margin-top: 15px;
   }
 
   @media (min-width: 1024px) and (max-width: 1199px) {
@@ -153,14 +182,30 @@ const Title = styled.h1`
     font-size: 1.2rem;
   }
 
+  @media (max-width: 768px) {
+    font-size: 1.4rem;
+    margin-bottom: 18px;
+  }
+
   @media (max-width: 576px) {
-    font-size: 1.3rem;
+    font-size: 1.35rem;
+    margin-bottom: 16px;
   }
 
   @media (max-width: 480px) {
     margin-top: 10px;
-    margin-bottom: 20px;
-    font-size: 1.5rem;
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+  }
+
+  @media (max-width: 410px) {
+    font-size: 1.25rem;
+    margin-bottom: 14px;
+  }
+
+  @media (max-width: 380px) {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
   }
 `;
 
@@ -186,7 +231,6 @@ const StyledFormControl = styled(Form.Control)`
     box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
   }
 
-  /* Added responsive padding and font sizes for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
     font-size: 0.85rem;
     padding: 10px 18px;
@@ -207,12 +251,28 @@ const StyledFormControl = styled(Form.Control)`
   }
 
   @media (max-width: 768px) {
-    padding: 12px 20px;
+    padding: 11px 18px;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 576px) {
+    padding: 10px 16px;
+    font-size: 0.9rem;
   }
 
   @media (max-width: 480px) {
-    padding: 12px 20px;
-    font-size: 0.9rem;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 410px) {
+    padding: 7px 15px;
+    font-size: 0.8rem;
+  }
+    
+  @media (max-width: 380px) {
+    padding: 8px 13px;
+    font-size: 0.6rem;
   }
 `;
 
@@ -223,7 +283,6 @@ const ErrorMessage = styled.p`
   font-family: "Poppins-Medium", sans-serif;
   margin-top: 5px;
 
-  /* Added responsive font sizes for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
     font-size: 0.75rem;
   }
@@ -241,8 +300,20 @@ const ErrorMessage = styled.p`
   }
 
   @media (max-width: 768px) {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     margin-bottom: 0;
+  }
+
+  @media (max-width: 576px) {
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 410px) {
+    font-size: 0.6rem;
   }
 `;
 
@@ -278,7 +349,6 @@ const StyledButton = styled(Button)`
     opacity: 0.7;
   }
 
-  /* Added responsive padding and font sizes for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
     padding: 11px 14px;
     font-size: 0.85rem;
@@ -298,12 +368,28 @@ const StyledButton = styled(Button)`
   }
 
   @media (max-width: 768px) {
-    padding: 12px 20px;
+    padding: 11px 18px;
+    font-size: 0.95rem;
+    margin-top: 5px;
+  }
+
+  @media (max-width: 576px) {
+    padding: 10px 16px;
+    font-size: 0.9rem;
   }
 
   @media (max-width: 480px) {
-    padding: 12px 20px;
-    font-size: 0.9rem;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 410px) {
+    padding: 7px 15px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 380px) {
+    margin-top: 0px;
   }
 `;
 
@@ -313,7 +399,6 @@ const FormNote = styled.p`
   text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
   font-family: "Poppins-Semibold", sans-serif;
 
-  /* Added responsive font sizes and margins for 1200px+ and 1199px- */
   @media (min-width: 1200px) {
     font-size: 0.7rem;
     margin-top: 10px;
@@ -335,20 +420,24 @@ const FormNote = styled.p`
   }
 
   @media (max-width: 768px) {
-    margin-top: 20px;
-    font-size: 0.8rem;
+    margin-top: 15px;
+    font-size: 0.78rem;
+  }
+
+  @media (max-width: 576px) {
+    margin-top: 12px;
+    font-size: 0.75rem;
   }
 
   @media (max-width: 480px) {
     margin-top: 10px;
     padding-top: 0;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
   }
 
-  @media (max-width: 380px) {
-    margin-top: 10px;
-    padding-top: 0;
-    font-size: 0.8rem;
+  @media (max-width: 410px) {
+    margin-top: 8px;
+    font-size: 0.6rem;
   }
 `;
 

@@ -3,6 +3,7 @@ const nextConfig = {
   compiler: {
     styledComponents: true, 
   },
+  
   serverExternalPackages: ["mongoose"],
 
   eslint: {
@@ -11,6 +12,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+
   reactStrictMode: true,
 
   poweredByHeader: false,

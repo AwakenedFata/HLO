@@ -24,7 +24,7 @@ const marketPlaceToco = "/assets/Merchandise/toco.png"
 
 export const navLinks = [
   { id: 1, path: "/", text: "Home" },
-  { id: 2, path: "/#aboutus", text: "About Us" },
+  { id: 2, path: "/aboutus", text: "About Us" },
   { id: 3, path: "/gallery", text: "Gallery" },
   { id: 5, path: "/platforms", text: "Platforms" },
   { id: 6, path: "/redeem", text: "Redeem" },

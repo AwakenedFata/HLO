@@ -2,23 +2,12 @@
 
 import { useState, useRef, useEffect } from "react"
 import styled from "styled-components"
-import dynamic from "next/dynamic"
-
-const Model3DViewer = dynamic(() => import("@/components/three/Model3D"), {
-  ssr: false,
-  loading: () => (
-    <LoadingContainer>
-      <LoadingText>Memuat Model 3D...</LoadingText>
-    </LoadingContainer>
-  ),
-})
 
 const PageContainer = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* tetap gunakan background halaman seperti semula */
   background-image: url("/assets/serialnumber/serialnumber.avif");
   background-size: cover;
   background-position: center;
@@ -32,81 +21,19 @@ const PageContainer = styled.div`
 
 const ContentWrapper = styled.div`
   display: flex;
-  gap: 40px;
-  align-items: center; /* pastikan konten sejajar tengah secara vertikal */
+  align-items: center;
   justify-content: center;
   width: 100%;
   max-width: 1400px;
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    gap: 30px;
-    align-items: center; /* center di mobile */
-  }
-`
-
-const ModelContainer = styled.div`
-  flex: 1;
-  max-width: 700px;  /* lebih besar */
-  height: 700px;     /* lebih besar */
-  background: transparent;   /* hapus background/glass */
-  border-radius: 0;          /* tanpa radius */
-  box-shadow: none;          /* tanpa shadow */
-  backdrop-filter: none;     /* tanpa blur */
-  overflow: visible;         /* biar tidak terpotong */
-  display: flex;             /* center proper */
-  align-items: center;
-  justify-content: center;
-
-  @media (max-width: 1280px) {
-    max-width: 640px;
-    height: 620px;
-  }
-
-  @media (max-width: 1024px) {
-    order: 2;        /* pindah ke bawah kartu saat mobile/tablet */
-    width: 100%;
-    max-width: 560px;
-    height: 520px;
-    margin: 0 auto;  /* center horizontal */
-  }
-
-  @media (max-width: 640px) {
-    height: 420px;
-  }
-
-  @media (max-width: 484px) {
-    height: 360px;
-  }
-`
-
-const LoadingContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-`
-
-const LoadingText = styled.div`
-  color: #667eea;
-  font-size: 18px;
-  font-weight: 600;
-  text-align: center;
 `
 
 const Card = styled.div`
   background: rgba(255, 255, 255, 0.5);
   border-radius: 50px;
   padding: 40px 40px;
-  flex: 1;
   max-width: 600px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-
-  @media (max-width: 1024px) {
-    order: 1; /* pastikan kartu di atas pada mobile */
-  }
 
   @media (max-width: 768px) {
     padding: 32px 32px;
@@ -313,7 +240,7 @@ const IconCircle = styled.div`
   place-items: center;
   background: ${(p) => (p.variant === "success" ? "#10b981" : "#ef4444")};
   box-shadow: 0 10px 18px
-    ${(p) => (p.variant === "success" ? "rgba(16,185,129,.35)" : "rgba(239,68,68,.35)")}};
+    ${(p) => (p.variant === "success" ? "rgba(16,185,129,.35)" : "rgba(239,68,68,.35)")};
   animation: scaleIn 0.4s ease-out;
 
   @keyframes scaleIn {
@@ -666,12 +593,6 @@ export default function VerifikasiOrisinalPage() {
   return (
     <PageContainer>
       <ContentWrapper>
-        {/* 3D Model Container - Kiri di Desktop, Bawah di Mobile */}
-        <ModelContainer>
-          <Model3DViewer modelPath="/assets/serialnumber/marco-polo.glb" />
-        </ModelContainer>
-
-        {/* Verification Card - Kanan di Desktop, Atas di Mobile */}
         <Card>
           <Title>Verifikasi Keaslian Produk</Title>
 

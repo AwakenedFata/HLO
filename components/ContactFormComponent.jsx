@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Container, Row, Col, Form, Button } from "react-bootstrap";
+import { Container, Row, Col, Form } from "react-bootstrap";
 import { FaWhatsapp, FaInstagram } from "react-icons/fa";
-import { TfiEmail } from "react-icons/tfi";
 import { IoIosMail } from "react-icons/io";
 import styled from "styled-components";
 
@@ -42,7 +41,7 @@ function ContactFormComponent() {
   };
 
   return (
-    <div className="contact-us-section">
+    <div id="contact-us" className="contact-us-section">
       <Container>
         {/* Header Section */}
         <Row className="justify-content-center text-center mb-4">
@@ -74,6 +73,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         required
                         className="contact-input"
+                        suppressHydrationWarning
                       />
                     </Form.Group>
 
@@ -86,6 +86,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         required
                         className="contact-input"
+                        suppressHydrationWarning
                       />
                     </Form.Group>
 
@@ -98,6 +99,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         required
                         className="contact-input"
+                        suppressHydrationWarning
                       />
                     </Form.Group>
 
@@ -111,10 +113,15 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         required
                         className="contact-input"
+                        suppressHydrationWarning
                       />
                     </Form.Group>
                   </FormContainer>
-                  <button type="submit" className="kontak-button d-flex justify-content-center text-align-center">
+                  <button
+                    type="submit"
+                    className="kontak-button d-flex justify-content-center text-align-center"
+                    suppressHydrationWarning
+                  >
                     Kirim Pesan
                   </button>
                 </Form>

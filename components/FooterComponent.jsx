@@ -61,8 +61,9 @@ function FooterComponent() {
                   placeholder="Submit email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  suppressHydrationWarning
                 />
-                <button className="btn btn-submit" type="button" onClick={handleSubscribe}>
+                <button className="btn btn-submit" type="button" onClick={handleSubscribe} suppressHydrationWarning>
                   <GoMail />
                 </button>
               </div>
@@ -78,13 +79,13 @@ function FooterComponent() {
                 <Link href="/#aboutus">Tentang Kami</Link>
               </li>
               <li>
-                <Link href="/#">Event & Turnamen</Link>
+                <Link href="https://wa.me/6285709346954">Event & Turnamen</Link>
               </li>
               <li>
                 <Link href="/partners">Partner & Sponsor</Link>
               </li>
               <li>
-                <Link href="/#">Bantuan & Dukungan</Link>
+                <Link href="/contact-us">Bantuan & Dukungan</Link>
               </li>
             </ul>
           </Col>
@@ -94,7 +95,7 @@ function FooterComponent() {
             <h5 className="footer-heading">Service</h5>
             <ul className="footer-links">
               <li>
-                <Link href="/#">Info Turnamen</Link>
+                <Link href="https://wa.me/6285709346954">Info Turnamen</Link>
               </li>
               <li>
                 <a href="https://wa.me/6285709346954" target="_blank" rel="noopener noreferrer">
@@ -213,9 +214,7 @@ function FooterComponent() {
           </Col>
           <Col lg={6} md={12} className="copyright-col">
             <div className="copyright-text">
-              <p>
-                All rights reserved &copy; <span>HOK Lampung Community</span> {currentYear}
-              </p>
+              <p>All rights reserved &copy; HOK Lampung Community {currentYear}</p>
             </div>
           </Col>
         </Row>

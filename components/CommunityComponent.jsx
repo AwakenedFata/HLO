@@ -91,7 +91,7 @@ const AboutUsLabel = styled.h3`
     font-size: 1.1rem;
   }
   @media (max-width: 458px) {
-    font-size: 0.80rem;
+    font-size: 0.8rem;
   }
   @media (max-width: 426px) {
     font-size: 0.9rem;
@@ -108,14 +108,14 @@ const MainTitle = styled.h2`
   font-family: "HastricoDT-Bold", "Arial", sans-serif;
   color: #000000;
   line-height: 1.5;
-  @media (min-width: 1024px) {
+  @media (min-width: 1200px) {
     font-size: 1.5rem;
     margin-bottom: -8px;
   }
-  @media (max-width: 1016px) {
+  @media (min-width: 1024px) and (max-width: 1199px) {
     font-size: 1.3rem;
   }
-  @media (max-width: 992px) {
+  @media (max-width: 1023px) {
     font-size: 1.8rem;
   }
   @media (max-width: 526px) {
@@ -194,7 +194,7 @@ const Paragraph = styled.p`
 const FooterSection = styled.div`
   text-align: center;
   margin-top: 25px;
-  
+
   @media (max-width: 526px) {
     margin-top: 15px;
   }

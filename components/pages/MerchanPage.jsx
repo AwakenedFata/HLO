@@ -49,13 +49,10 @@ const ContentWrapper = styled.div`
 
   @media (max-width: 768px) {
     flex-direction: column;
-    gap: 50px;
+    gap: 20px;
     justify-content: center;
   }
 
-  @media (max-width: 480px) {
-    gap: 90px;
-  }
 `;
 
 const ProductSection = styled.div`
@@ -74,7 +71,7 @@ const ProductSection = styled.div`
   }
 
   @media (max-width: 480px) {
-    padding: 0 5px;
+    padding: 20px 5px 0;
   }
 `;
 
@@ -98,11 +95,11 @@ const ProductImage = styled.img`
 
   @media (max-width: 480px) {
     width: 150%;
-    max-width: 420px;
+    max-width: 360px;
   }
 
   @media (max-width: 375px) {
-    max-width: 380px;
+    max-width: 300px;
   }
 `;
 

@@ -184,14 +184,9 @@
   background-color: #e09400 !important;
 }
 
-.navbar .merch-button.active {
-  color: var(--secondary-color) !important;
-  background-color: var(--used-color) !important;
-}
-
 .navbar .merch-button.nav-active {
   background-color: var(--used-color) !important;
-  color: var(--secondary-color) !important;
+  color: var(--primary-color) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
