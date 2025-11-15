@@ -40,3 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+app/(main)/verifikasi-orisinal/page.jsx
+app/admin/(main-admin)/verifikasi-orisinal/page.jsx
+app/api/verification-pdf/route.js
+app/api/verify-serial/route.js
+components/pages/VerifikasiOrisinalPage.jsx
+components/pages/admin/VerifikasiOrisinalManagement.jsx
+lib/models/serialNumber.js
