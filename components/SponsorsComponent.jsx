@@ -54,7 +54,7 @@ function SponsorsComponent() {
             {/* Top Row - max 3 Partners */}
             <Col xs={12}>
               <Row className="justify-content-center top-row">
-                {firstRow.map((partner, index) => (
+                {firstRow.map((partner) => (
                   <Col
                     key={partner.id}
                     lg={4}
@@ -64,7 +64,6 @@ function SponsorsComponent() {
                     className="partner-col"
                     data-aos="fade-up"
                     data-aos-duration="800"
-                    data-aos-delay={index * 150}
                   >
                     <div className="partner-card-wrapper">
                       <div
@@ -99,7 +98,7 @@ function SponsorsComponent() {
             {secondRow.length > 0 && (
               <Col xs={12}>
                 <Row className="justify-content-center bottom-row">
-                  {secondRow.map((partner, index) => (
+                  {secondRow.map((partner) => (
                     <Col
                       key={partner.id}
                       lg={4}
@@ -109,7 +108,6 @@ function SponsorsComponent() {
                       className="partner-col"
                       data-aos="fade-up"
                       data-aos-duration="800"
-                      data-aos-delay={450 + index * 150}
                     >
                       <div className="partner-card-wrapper">
                         <div

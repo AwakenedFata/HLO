@@ -1,11 +1,12 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { Container } from "react-bootstrap"
-import GalleryFrame from "@/components/GalleryFrame"
-import styled from "styled-components"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react";
+import { Container } from "react-bootstrap";
+import GalleryFrame from "@/components/GalleryFrame";
+import styled from "styled-components";
+import { useRouter } from "next/navigation";
 
+// Styled components based on main.css
 const GallerySection = styled.div`
   position: relative;
   padding: 20px 0;
@@ -15,7 +16,7 @@ const GallerySection = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
-`
+`;
 
 const GalleryBgContainer = styled.div`
   position: absolute;
@@ -23,19 +24,19 @@ const GalleryBgContainer = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-`
+`;
 
 const GalleryBg = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
-`
+`;
 
 const GalleryTitle = styled.div`
   font-family: "Gilroy", sans-serif;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3),
     -1px -1px 2px rgba(255, 255, 255, 0.1), 0 2px 4px rgba(0, 0, 0, 0.2);
-  padding-top: 40px;
+  padding-top: 60px;
   color: white;
   text-align: center;
   margin-bottom: 2rem;
@@ -52,7 +53,8 @@ const GalleryTitle = styled.div`
     margin-bottom: 15px;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
+    padding-top: 0px;
     h2 {
       font-size: 2rem;
     }
@@ -60,13 +62,13 @@ const GalleryTitle = styled.div`
       font-size: 1.8rem;
     }
   }
-`
+`;
 
 const GalleryCarouselContainer = styled.div`
   padding: 0 0 20px;
   position: relative;
   overflow-x: hidden;
-`
+`;
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -75,7 +77,7 @@ const LoadingContainer = styled.div`
   height: 300px;
   color: white;
   font-size: 1.2rem;
-`
+`;
 
 const ErrorContainer = styled.div`
   display: flex;
@@ -85,99 +87,142 @@ const ErrorContainer = styled.div`
   color: #ff6b6b;
   font-size: 1.2rem;
   text-align: center;
-`
+`;
 
 function GalleryComponent() {
-  const swiperElRef = useRef(null)
-  const [isMobile, setIsMobile] = useState(false)
-  const [swiperInitialized, setSwiperInitialized] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [galleryData, setGalleryData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const router = useRouter()
+  const swiperElRef = useRef(null);
+  const [screenSize, setScreenSize] = useState("desktop"); // desktop | tablet | mobile
+  const [swiperInitialized, setSwiperInitialized] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [galleryData, setGalleryData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const router = useRouter();
 
+  // Mark component as mounted (client-side)
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
+  // Fetch gallery data from database
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted) return;
 
     const fetchGalleryData = async () => {
       try {
-        setLoading(true)
-        const response = await fetch("/api/seksi-galeri")
-        const result = await response.json()
+        setLoading(true);
+        const response = await fetch("/api/seksi-galeri");
+        const result = await response.json();
 
         if (result.success) {
-          setGalleryData(result.data)
+          setGalleryData(result.data);
         } else {
-          setError("Failed to load gallery data")
+          setError("Failed to load gallery data");
         }
       } catch (err) {
-        console.error("[v0] Error fetching gallery data:", err)
-        setError("Failed to load gallery data")
+        console.error("[v0] Error fetching gallery data:", err);
+        setError("Failed to load gallery data");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchGalleryData()
-  }, [mounted])
+    fetchGalleryData();
+  }, [mounted]);
 
+  // Initialize Swiper
   useEffect(() => {
-    if (!mounted || swiperInitialized) return
+    if (!mounted || swiperInitialized) return;
 
     const initSwiper = async () => {
-      const { register } = await import("swiper/element/bundle")
-      register()
-      setSwiperInitialized(true)
-    }
+      const { register } = await import("swiper/element/bundle");
+      register();
+      setSwiperInitialized(true);
+    };
 
-    initSwiper()
-  }, [mounted, swiperInitialized])
+    initSwiper();
+  }, [mounted, swiperInitialized]);
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted) return;
 
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 480)
-    }
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      if (width < 768) {
+        setScreenSize("mobile");
+      } else if (width >= 768 && width <= 992) {
+        setScreenSize("tablet");
+      } else {
+        setScreenSize("desktop");
+      }
+    };
 
-    checkMobile()
+    // Set initial screen size
+    checkScreenSize();
 
-    window.addEventListener("resize", checkMobile)
+    window.addEventListener("resize", checkScreenSize);
 
-    const metaViewport = document.querySelector('meta[name="viewport"]')
+    const metaViewport = document.querySelector('meta[name="viewport"]');
     if (!metaViewport) {
-      const meta = document.createElement("meta")
-      meta.name = "viewport"
-      meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-      document.head.appendChild(meta)
+      const meta = document.createElement("meta");
+      meta.name = "viewport";
+      meta.content =
+        "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+      document.head.appendChild(meta);
     }
 
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [mounted])
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, [mounted]);
 
   useEffect(() => {
-    if (!mounted || !swiperInitialized || !galleryData.length) return
+    if (!mounted || !swiperInitialized || !galleryData.length) return;
 
-    const swiperEl = swiperElRef.current
-    if (!swiperEl) return
+    const swiperEl = swiperElRef.current;
+    if (!swiperEl) return;
+
+    let slidesPerView,
+      spaceBetween,
+      coverflowStretch,
+      coverflowDepth,
+      coverflowModifier;
+    let initialSlide = 1;
+
+    if (screenSize === "mobile") {
+      // Mobile: 1 slide only
+      slidesPerView = 1;
+      spaceBetween = 0;
+      coverflowStretch = 0;
+      coverflowDepth = 20;
+      coverflowModifier = 1;
+      initialSlide = 0;
+    } else if (screenSize === "tablet") {
+      // Tablet (768px - 992px): 3 slides, closer spacing, spread out coverflow
+      slidesPerView = 3;
+      spaceBetween = 10; // closer than desktop
+      coverflowStretch = -20; // less stretch than desktop
+      coverflowDepth = 80;
+      coverflowModifier = 1.8;
+    } else {
+      // Desktop: Original 3 slides
+      slidesPerView = 3;
+      spaceBetween = -21;
+      coverflowStretch = -51;
+      coverflowDepth = 100;
+      coverflowModifier = 2;
+    }
 
     const params = {
-      slidesPerView: isMobile ? 1 : 3,
+      slidesPerView: slidesPerView,
       grabCursor: true,
-      spaceBetween: isMobile ? 0 : -60,
+      spaceBetween: spaceBetween,
       centeredSlides: true,
-      initialSlide: 1,
+      initialSlide: initialSlide,
       effect: "coverflow",
       coverflowEffect: {
         rotate: 0,
-        stretch: isMobile ? 0 : -41,
-        depth: isMobile ? 50 : 100,
-        modifier: isMobile ? 1.5 : 2,
+        stretch: coverflowStretch,
+        depth: coverflowDepth,
+        modifier: coverflowModifier,
         slideShadows: false,
       },
       autoplay: {
@@ -188,7 +233,7 @@ function GalleryComponent() {
         el: ".swiper-pagination",
         clickable: true,
       },
-      loop: false,
+      loop: screenSize === "mobile" ? false : false,
       injectStyles: [
         `
         .swiper-pagination {
@@ -222,7 +267,7 @@ function GalleryComponent() {
           display: flex;
           justify-content: center;
           transition: all 0.3s ease;
-          padding: 20px 10px 50px;
+          padding: 40px 40px 80px;
         }
         .swiper-slide:not(.swiper-slide-active) {
           transform: scale(0.85);
@@ -232,61 +277,82 @@ function GalleryComponent() {
         .swiper-slide.swiper-slide-active {
           z-index: 1;
         }
-        @media (max-width: 1200px) {
+
+        /* Desktop: 3 slides with coverflow effect */
+        @media (min-width: 993px) {
           .swiper-slide {
-            padding: 15px 8px 40px;
+            padding: 40px 40px 80px;
           }
         }
-        @media (max-width: 991px) {
+
+        /* Tablet (768px - 992px): 3 slides, closer spacing */
+        @media (max-width: 992px) and (min-width: 768px) {
           .swiper-slide {
-            padding: 12px 6px 35px;
+            padding: 30px 20px 70px;
+          }
+          .swiper-slide:not(.swiper-slide-active) {
+            transform: scale(0.8);
           }
         }
+
+        /* Mobile: 1 slide only */
         @media (max-width: 767px) {
           .swiper-slide {
-            padding: 10px 5px 30px;
+            padding: 20px 10px 50px;
+            transform: scale(1) !important;
+            opacity: 1 !important;
+          }
+          .swiper-slide:not(.swiper-slide-active) {
+            display: none;
           }
         }
         `,
       ],
       on: {
         slideChange: (swiper) => {
-          console.log("[v0] Current slide:", swiper.realIndex)
+          console.log("[v0] Current slide:", swiper.realIndex);
         },
       },
-    }
+    };
 
-    Object.assign(swiperEl, params)
-    swiperEl.initialize()
+    Object.assign(swiperEl, params);
+    swiperEl.initialize();
 
+    // Hide extra bullets (max 3)
     const timeoutId = setTimeout(() => {
-      const bullets = document.querySelectorAll(".swiper-pagination-bullet")
+      const bullets = document.querySelectorAll(".swiper-pagination-bullet");
       bullets.forEach((bullet, i) => {
-        if (i >= 3) bullet.style.display = "none"
-      })
-    }, 100)
+        if (i >= 3) bullet.style.display = "none";
+      });
+    }, 100);
 
-    return () => clearTimeout(timeoutId)
-  }, [isMobile, swiperInitialized, mounted, galleryData])
+    return () => clearTimeout(timeoutId);
+  }, [screenSize, swiperInitialized, mounted, galleryData]);
 
   const handleImageClick = async (galleryItem) => {
     try {
-      console.log("[v0] Gallery item clicked:", galleryItem.title)
-      const res = await fetch(`/api/artikel-public/by-gallery/${galleryItem._id}`)
-      const data = await res.json()
+      console.log("[v0] Gallery item clicked:", galleryItem.title);
+      const res = await fetch(
+        `/api/artikel-public/by-gallery/${galleryItem._id}`
+      );
+      const data = await res.json();
 
       if (data?.success && data?.article?.slug) {
-        router.push(`/article/${data.article.slug}`)
+        // arahkan langsung ke artikel terkait
+        router.push(`/article/${data.article.slug}`);
       } else {
-        console.warn("[v0] Artikel belum tersedia untuk galeri ini")
-        router.push("/gallery")
+        // fallback bila artikel belum tersedia
+        console.warn("[v0] Artikel belum tersedia untuk galeri ini");
+        router.push("/gallery");
       }
     } catch (e) {
-      console.error("[v0] Error fetching related article:", e)
-      router.push("/gallery")
+      console.error("[v0] Error fetching related article:", e);
+      // fallback pada error
+      router.push("/gallery");
     }
-  }
+  };
 
+  // Show static content during SSR and initial hydration
   if (!mounted) {
     return (
       <GallerySection>
@@ -301,7 +367,7 @@ function GalleryComponent() {
           <LoadingContainer>Loading gallery...</LoadingContainer>
         </Container>
       </GallerySection>
-    )
+    );
   }
 
   if (loading) {
@@ -318,7 +384,7 @@ function GalleryComponent() {
           <LoadingContainer>Loading gallery...</LoadingContainer>
         </Container>
       </GallerySection>
-    )
+    );
   }
 
   if (error) {
@@ -335,27 +401,33 @@ function GalleryComponent() {
           <ErrorContainer>{error}</ErrorContainer>
         </Container>
       </GallerySection>
-    )
+    );
   }
 
   return (
     <GallerySection>
+      {/* Background */}
       <GalleryBgContainer>
         <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
       </GalleryBgContainer>
 
       <Container>
+        {/* Title */}
         <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
           <h2>Gallery</h2>
           <h1>HOK Lampung Community</h1>
         </GalleryTitle>
 
+        {/* Gallery Swiper */}
         <GalleryCarouselContainer data-aos="zoom-in" data-aos-duration="1000">
           {swiperInitialized && galleryData.length > 0 && (
             <swiper-container ref={swiperElRef} init="false">
               {galleryData.slice(0, 3).map((item, index) => (
                 <swiper-slide key={item._id || index}>
-                  <GalleryFrame galleryItem={item} onImageClick={handleImageClick} />
+                  <GalleryFrame
+                    galleryItem={item}
+                    onImageClick={handleImageClick}
+                  />
                 </swiper-slide>
               ))}
             </swiper-container>
@@ -364,7 +436,7 @@ function GalleryComponent() {
         </GalleryCarouselContainer>
       </Container>
     </GallerySection>
-  )
+  );
 }
 
-export default GalleryComponent
+export default GalleryComponent;

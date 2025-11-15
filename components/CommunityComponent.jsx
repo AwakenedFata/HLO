@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import { useEffect, useState, useRef } from "react";
-import { Container, Row, Col } from "react-bootstrap";
-import styled from "styled-components";
+import { useEffect, useState, useRef } from "react"
+import { Container, Row, Col } from "react-bootstrap"
+import styled from "styled-components"
 
 // Global Styles with Font Face
 const GlobalFonts = styled.div`
@@ -34,7 +34,7 @@ const GlobalFonts = styled.div`
     font-family: "HastricoDT-Bold";
     src: url("/fonts/Fontspring-DEMO-hastricodt-bold.otf") format("opentype");
   }
-`;
+`
 
 // Styled Components
 const CardContainer = styled.div`
@@ -42,14 +42,14 @@ const CardContainer = styled.div`
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
-`;
+`
 
 const CardImage = styled.img`
   width: 100%;
   height: auto;
   display: block;
   filter: drop-shadow(rgba(0, 0, 0, 0.5) 0px 10px 10px);
-`;
+`
 
 const TextOverlay = styled.div`
   position: absolute;
@@ -61,12 +61,12 @@ const TextOverlay = styled.div`
   flex-direction: column;
   padding: 8% 10% 10% 10%;
   box-sizing: border-box;
-`;
+`
 
 const HeaderSection = styled.div`
   text-align: center;
   margin-bottom: 5%;
-`;
+`
 
 const AboutUsLabel = styled.h3`
   font-family: "Overpass-Bold", "Arial", sans-serif;
@@ -102,7 +102,7 @@ const AboutUsLabel = styled.h3`
   @media (max-width: 380px) {
     font-size: 0.65rem;
   }
-`;
+`
 
 const MainTitle = styled.h2`
   font-family: "HastricoDT-Bold", "Arial", sans-serif;
@@ -138,14 +138,14 @@ const MainTitle = styled.h2`
   @media (max-width: 380px) {
     font-size: 0.85rem;
   }
-`;
+`
 
 const ContentSection = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-`;
+`
 
 const Paragraph = styled.p`
   font-family: "Poppins-Reguler", "Arial", sans-serif;
@@ -189,7 +189,7 @@ const Paragraph = styled.p`
   &:last-child {
     margin-bottom: 0;
   }
-`;
+`
 
 const FooterSection = styled.div`
   text-align: center;
@@ -201,7 +201,7 @@ const FooterSection = styled.div`
   @media (max-width: 400px) {
     margin-top: 25px;
   }
-`;
+`
 
 const Hashtag = styled.h4`
   font-family: "Poppins-MediumItalic", "Arial", sans-serif;
@@ -240,17 +240,14 @@ const Hashtag = styled.h4`
   @media (max-width: 380px) {
     font-size: 0.75rem;
   }
-`;
+`
 
 // About Us Card Component
 const AboutUsCard = () => {
   return (
     <GlobalFonts>
       <CardContainer>
-        <CardImage
-          src="/assets/aboutus/card.avif"
-          alt="About Us Card Background"
-        />
+        <CardImage src="/assets/aboutus/card.avif" alt="About Us Card Background" />
         <TextOverlay>
           <HeaderSection>
             <AboutUsLabel>ABOUT US</AboutUsLabel>
@@ -263,23 +260,17 @@ const AboutUsCard = () => {
 
           <ContentSection>
             <Paragraph>
-              Komunitas Honor of Kings Lampung Official berdiri pada Februari
-              2024 sebagai komunitas pertama yang hadir di Domisili Lampung.
-              Komunitas ini bertujuan menjadi wadah bagi para pemain game,
-              khususnya Honor of Kings, agar memiliki teman mabar yang berasal
-              dari daerah yang sama. Harapannya, komunitas ini dapat terus
-              berkembang di Lampung, meluas ke luar domisili, hingga dikenal di
-              tingkat nasional maupun internasional
+              Komunitas Honor of Kings Lampung Official berdiri pada Februari 2024 sebagai komunitas pertama yang hadir
+              di Domisili Lampung. Komunitas ini bertujuan menjadi wadah bagi para pemain game, khususnya Honor of
+              Kings, agar memiliki teman mabar yang berasal dari daerah yang sama. Harapannya, komunitas ini dapat terus
+              berkembang di Lampung, meluas ke luar domisili, hingga dikenal di tingkat nasional maupun internasional
             </Paragraph>
 
             <Paragraph>
-              Tidak hanya sebagai komunitas offline yang fokus di Domisili
-              Lampung, Honor of Kings Lampung Official juga hadir sebagai
-              komunitas online terbuka untuk semua pemain dari berbagai daerah,
-              bahkan luar negeri. Dengan konsep inklusif ini, komunitas ini
-              menjadi ruang bagi para player untuk terhubung, berinteraksi,
-              serta mengikuti berbagai kegiatan baik online maupun offline
-              secara aktif dan menyenangkan
+              Tidak hanya sebagai komunitas offline yang fokus di Domisili Lampung, Honor of Kings Lampung Official juga
+              hadir sebagai komunitas online terbuka untuk semua pemain dari berbagai daerah, bahkan luar negeri. Dengan
+              konsep inklusif ini, komunitas ini menjadi ruang bagi para player untuk terhubung, berinteraksi, serta
+              mengikuti berbagai kegiatan baik online maupun offline secara aktif dan menyenangkan
             </Paragraph>
           </ContentSection>
 
@@ -289,125 +280,113 @@ const AboutUsCard = () => {
         </TextOverlay>
       </CardContainer>
     </GlobalFonts>
-  );
-};
+  )
+}
 
 // Main Community Component
 function CommunityComponent() {
-  const [isClient, setIsClient] = useState(false);
-  const [memberCount, setMemberCount] = useState(0);
-  const [teamCount, setTeamCount] = useState(0);
-  const [startCountMember, setStartCountMember] = useState(false);
-  const [startCountTeam, setStartCountTeam] = useState(false);
-  const memberCardRef = useRef(null);
-  const teamCardRef = useRef(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isClient, setIsClient] = useState(false)
+  const [memberCount, setMemberCount] = useState(0)
+  const [teamCount, setTeamCount] = useState(0)
+  const [startCountMember, setStartCountMember] = useState(false)
+  const [startCountTeam, setStartCountTeam] = useState(false)
+  const memberCardRef = useRef(null)
+  const teamCardRef = useRef(null)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    setIsClient(true)
+  }, [])
 
   const isInViewport = (element) => {
-    if (!element || !isClient) return false;
-    const rect = element.getBoundingClientRect();
+    if (!element || !isClient) return false
+    const rect = element.getBoundingClientRect()
     return (
       rect.top >= 0 &&
       rect.left >= 0 &&
-      rect.bottom <=
-        (window.innerHeight || document.documentElement.clientHeight) &&
+      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
       rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-    );
-  };
+    )
+  }
 
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient) return
 
     const handleScroll = () => {
-      if (
-        memberCardRef.current &&
-        isInViewport(memberCardRef.current) &&
-        !startCountMember
-      ) {
-        setStartCountMember(true);
+      if (memberCardRef.current && isInViewport(memberCardRef.current) && !startCountMember) {
+        setStartCountMember(true)
       }
-      if (
-        teamCardRef.current &&
-        isInViewport(teamCardRef.current) &&
-        !startCountTeam
-      ) {
-        setStartCountTeam(true);
+      if (teamCardRef.current && isInViewport(teamCardRef.current) && !startCountTeam) {
+        setStartCountTeam(true)
       }
-    };
+    }
 
-    window.addEventListener("scroll", handleScroll);
-    handleScroll();
+    window.addEventListener("scroll", handleScroll)
+    handleScroll()
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [startCountMember ?? false, startCountTeam ?? false, isClient]);
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [startCountMember, startCountTeam, isClient])
 
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient) return
 
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
+      setIsMobile(window.innerWidth <= 768)
+    }
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isClient]);
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [isClient])
 
   useEffect(() => {
-    let interval;
+    let interval
     if (startCountMember && memberCount < 250) {
       interval = setInterval(() => {
         setMemberCount((prevCount) => {
-          const increment = Math.max(1, Math.floor((250 - prevCount) / 10));
-          const newCount = prevCount + increment;
-          return newCount >= 250 ? 250 : newCount;
-        });
-      }, 30);
+          const increment = Math.max(1, Math.floor((250 - prevCount) / 10))
+          const newCount = prevCount + increment
+          return newCount >= 250 ? 250 : newCount
+        })
+      }, 30)
     }
-    return () => clearInterval(interval);
-  }, [startCountMember, memberCount]);
+    return () => clearInterval(interval)
+  }, [startCountMember, memberCount])
 
   useEffect(() => {
-    let interval;
+    let interval
     if (startCountTeam && teamCount < 20) {
       interval = setInterval(() => {
         setTeamCount((prevCount) => {
-          const increment = Math.max(1, Math.floor((20 - prevCount) / 10));
-          const newCount = prevCount + increment;
-          return newCount >= 20 ? 20 : newCount;
-        });
-      }, 50);
+          const increment = Math.max(1, Math.floor((20 - prevCount) / 10))
+          const newCount = prevCount + increment
+          return newCount >= 20 ? 20 : newCount
+        })
+      }, 50)
     }
-    return () => clearInterval(interval);
-  }, [startCountTeam, teamCount]);
+    return () => clearInterval(interval)
+  }, [startCountTeam, teamCount])
 
   const handleTouchStart = (e) => {
-    e.currentTarget.style.transform = "scale(1.05)";
-  };
+    e.currentTarget.style.transform = "scale(1.05)"
+  }
 
   const handleTouchEnd = (e) => {
-    e.currentTarget.style.transform = "scale(1)";
-  };
+    e.currentTarget.style.transform = "scale(1)"
+  }
 
   const handleMouseEnter = (e) => {
-    if (!isMobile) e.currentTarget.style.transform = "scale(1.05)";
-  };
+    if (!isMobile) e.currentTarget.style.transform = "scale(1.05)"
+  }
 
   const handleMouseLeave = (e) => {
-    if (!isMobile) e.currentTarget.style.transform = "scale(1)";
-  };
+    if (!isMobile) e.currentTarget.style.transform = "scale(1)"
+  }
 
   return (
-    <div
-      id="aboutus"
-      className="aboutus-section w-100 min-vh-100 d-flex align-items-center"
-    >
+    <div id="aboutus" className="aboutus-section w-100 min-vh-100 d-flex align-items-center">
       <Container>
         <Row className="align-items-center">
           {/* Kiri - About Us Card */}
@@ -419,31 +398,18 @@ function CommunityComponent() {
           <Col lg={7} className="right-content-col">
             {/* Logo di atas */}
             <div className="logo-container">
-              <img
-                src="/assets/aboutus/logobaru.avif"
-                alt="Community Logo"
-                className="community-logo"
-              />
+              <img src="/assets/aboutus/logobaru.avif" alt="Community Logo" className="community-logo" />
             </div>
 
             {/* Foto Member */}
             <div className="community-image-container">
-              <img
-                src="/assets/aboutus/fotbar.avif"
-                alt="Community Members"
-                className="community-image img-fluid"
-              />
+              <img src="/assets/aboutus/fotbar.avif" alt="Community Members" className="community-image img-fluid" />
             </div>
 
             {/* Stat Cards */}
             <Row className="stat-cards-row">
               {/* StatCard 1 + Count */}
-              <Col
-                xs="auto"
-                className="stat-card-col"
-                data-aos="zoom-in"
-                data-aos-duration="1000"
-              >
+              <Col xs="auto" className="stat-card-col" >
                 <div
                   className="stat-card-container hover-zoom"
                   ref={memberCardRef}
@@ -452,24 +418,17 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img
-                    src="/assets/aboutus/kiri 2.avif"
-                    alt="Stat 1"
-                    className="statcard1 img-fluid"
-                  />
-                  <div className="count-wrappermember">
-                    <div className="count-text">{memberCount}</div>
-                  </div>
+                  <img src="/assets/aboutus/kiri 2.avif" alt="Stat 1" className="statcard1 img-fluid" />
+                  {startCountMember && (
+                    <div className="count-wrappermember">
+                      <div className="count-text">{memberCount}</div>
+                    </div>
+                  )}
                 </div>
               </Col>
 
               {/* StatCard 2 + Count */}
-              <Col
-                xs="auto"
-                className="stat-card-col"
-                data-aos="zoom-in"
-                data-aos-duration="1000"
-              >
+              <Col xs="auto" className="stat-card-col" >
                 <div
                   className="stat-card-container hover-zoom"
                   ref={teamCardRef}
@@ -478,24 +437,17 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img
-                    src="/assets/aboutus/tengah 2.avif"
-                    alt="Stat 2"
-                    className="statcard2 img-fluid"
-                  />
-                  <div className="count-wrapperteam">
-                    <div className="count-text">{teamCount}</div>
-                  </div>
+                  <img src="/assets/aboutus/tengah 2.avif" alt="Stat 2" className="statcard2 img-fluid" />
+                  {startCountTeam && (
+                    <div className="count-wrapperteam">
+                      <div className="count-text">{teamCount}</div>
+                    </div>
+                  )}
                 </div>
               </Col>
 
-              {/* StatCard 3 */}
-              <Col
-                xs="auto"
-                className="stat-card-col"
-                data-aos="zoom-in"
-                data-aos-duration="1000"
-              >
+              {/* StatCard 3 - No counter needed */}
+              <Col xs="auto" className="stat-card-col">
                 <div
                   className="stat-card-container hover-zoom"
                   onMouseEnter={handleMouseEnter}
@@ -503,11 +455,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img
-                    src="/assets/aboutus/info kanan.avif"
-                    alt="Stat 3"
-                    className="statcard3 img-fluid"
-                  />
+                  <img src="/assets/aboutus/info kanan.avif" alt="Stat 3" className="statcard3 img-fluid" />
                 </div>
               </Col>
             </Row>
@@ -515,7 +463,7 @@ function CommunityComponent() {
         </Row>
       </Container>
     </div>
-  );
+  )
 }
 
-export default CommunityComponent;
+export default CommunityComponent

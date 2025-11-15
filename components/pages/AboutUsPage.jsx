@@ -12,10 +12,15 @@ const GlobalFonts = createGlobalStyle`
 
   body {
     font-family: "Gilroy-SemiBold", sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  * {
+    box-sizing: border-box;
   }
 `;
 
-// Layout utama halaman
 const PageContainer = styled.div`
   min-height: 100vh;
   display: flex;
@@ -23,9 +28,13 @@ const PageContainer = styled.div`
   justify-content: center;
   padding: 20px;
   background-image: url("/assets/aboutus/background.avif");
-  background-size: auto;
+  background-size: contain;
   background-repeat: repeat;
   background-position: 0 0;
+
+  @media (max-width: 480px) {
+    padding: 15px;
+  }
 `;
 
 const CardsWrapper = styled.div`
@@ -34,26 +43,65 @@ const CardsWrapper = styled.div`
   justify-content: center;
   align-items: center;
   width: 100%;
+  max-width: 1400px;
+
+  @media (max-width: 1024px) {
+    gap: 40px;
+  }
 
   @media (max-width: 768px) {
     flex-direction: column;
     gap: 30px;
   }
+
+  @media (max-width: 480px) {
+    gap: 20px;
+  }
 `;
 
-// Struktur dasar card
 const Card = styled.div`
   width: 340px;
   height: 440px;
   border-radius: 26px;
   overflow: hidden;
   background-color: #f5a623;
-  box-shadow: 5px 5px 5px  rgba(0, 0, 0, 0.4);
+  box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
   cursor: pointer;
   position: relative;
+
+  @media (max-width: 1024px) {
+    width: 300px;
+    height: 388px; /* Menjaga rasio 340:440 = 300:388 */
+    border-radius: 23px;
+  }
+
+  @media (max-width: 768px) {
+    width: 320px;
+    height: 414px; /* Menjaga rasio 340:440 = 320:414 */
+    border-radius: 24px;
+  }
+
+  @media (max-width: 480px) {
+    width: 280px;
+    height: 362px; /* Menjaga rasio 340:440 = 280:362 */
+    border-radius: 21px;
+    box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  @media (max-width: 380px) {
+    width: 260px;
+    height: 336px; /* Menjaga rasio 340:440 = 260:336 */
+    border-radius: 20px;
+  }
+
+  @media (max-width: 340px) {
+    width: 240px;
+    height: 310px; /* Menjaga rasio 340:440 = 240:310 */
+    border-radius: 18px;
+  }
 
   &:hover {
     transform: scale(1.02);
@@ -62,24 +110,31 @@ const Card = styled.div`
   &:active {
     transform: scale(1.04);
   }
+
+  @media (hover: none) {
+    &:hover {
+      transform: none;
+    }
+    &:active {
+      transform: scale(0.98);
+    }
+  }
 `;
 
-// Isi card (konten utama)
 const CardContent = styled.div`
   flex: 1;
   display: flex;
-  align-items: center; /* Tengahkan secara vertikal */
+  align-items: center;
   justify-content: center;
   position: relative;
   background-color: #f5a623;
 `;
 
-// Container untuk gambar logo HOK (benar-benar di tengah card)
 const ImageContainerLogo = styled.div`
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: center; /* logo benar-benar di tengah */
+  align-items: center;
   justify-content: center;
 
   img {
@@ -90,17 +145,22 @@ const ImageContainerLogo = styled.div`
     transition: transform 0.4s ease;
   }
 
+  @media (max-width: 480px) {
+    img {
+      width: 65%;
+    }
+  }
+
   ${Card}:hover & img {
     transform: scale(1.08) rotate(2deg);
   }
 `;
 
-// Container untuk gambar siluet (bagian bawah harus nempel)
 const ImageContainerSiluet = styled.div`
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: flex-end; /* dorong gambar ke bawah */
+  align-items: flex-end;
   justify-content: center;
   position: relative;
 
@@ -110,6 +170,12 @@ const ImageContainerSiluet = styled.div`
     object-fit: contain;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
     transition: transform 0.4s ease;
+  }
+
+  @media (max-width: 480px) {
+    img {
+      width: 68%;
+    }
   }
 
   ${Card}:hover & img {
@@ -133,6 +199,27 @@ const CardLabel = styled.div`
   left: 0;
   right: 0;
 
+  @media (max-width: 1024px) {
+    font-size: 22px;
+    min-height: 40px;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 20px;
+    padding: 10px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 18px;
+    min-height: 36px;
+    padding: 8px;
+  }
+
+  @media (max-width: 360px) {
+    font-size: 16px;
+    min-height: 32px;
+  }
+
   &::before {
     content: "";
     position: absolute;
@@ -147,12 +234,11 @@ const CardLabel = styled.div`
 
   ${Card}:hover &::before {
     opacity: 1;
-    transform: scale(0)
   }
 `;
 
 export default function AboutUsPage() {
-  const router = useRouter(); 
+  const router = useRouter();
   const [hoveredCard, setHoveredCard] = useState(null);
 
   return (
@@ -160,7 +246,6 @@ export default function AboutUsPage() {
       <GlobalFonts />
       <PageContainer>
         <CardsWrapper>
-          {/* Card 1: Logo */}
           <Card
             onClick={() => router.push("/aboutus/maknalogo")}
             onMouseEnter={() => setHoveredCard(1)}
@@ -174,7 +259,6 @@ export default function AboutUsPage() {
             <CardLabel>Makna Logo</CardLabel>
           </Card>
 
-          {/* Card 2: Member Coming Soon */}
           <Card
             onMouseEnter={() => setHoveredCard(2)}
             onMouseLeave={() => setHoveredCard(null)}
