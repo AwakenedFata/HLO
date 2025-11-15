@@ -45,10 +45,24 @@ app/(main)/verifikasi-orisinal/
 app/admin/(main-admin)/verifikasi-orisinal/
 app/api/verification-pdf/
 app/api/verify-serial/
-app/admin/serials/
+app/admin/serials/route.js
 app/admin/serials/[id]
 app/admin/serials/batch-process-serials
 app/admin/serials/bulk-delete
 components/pages/VerifikasiOrisinalPage.jsx
 components/pages/admin/VerifikasiOrisinalManagement.jsx
 lib/models/serialNumber.js
+
+
+git rm --cached -r "app/(main)/verifikasi-orisinal"
+git rm --cached -r "app/admin/(main-admin)/verifikasi-orisinal"
+git rm --cached app/api/verification-pdf/route.js
+git rm --cached app/api/verify-serial/route.js
+git rm --cached app/admin/serials/route.js
+git rm --cached app/admin/serials/[id]
+git rm --cached app/admin/serials/batch-process-serials
+git rm --cached app/admin/serials/bulk-delete
+git rm --cached components/pages/VerifikasiOrisinalPage.jsx
+git rm --cached components/pages/admin/VerifikasiOrisinalManagement.jsx
+git rm --cached lib/models/serialNumber.js
+
