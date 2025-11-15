@@ -40,3 +40,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Temporary - verifikasi orisinal
+app/(main)/verifikasi-orisinal/
+app/admin/(main-admin)/verifikasi-orisinal/
+app/api/verification-pdf/
+app/api/verify-serial/
+app/admin/serials/
+app/admin/serials/[id]
+app/admin/serials/batch-process-serials
+app/admin/serials/bulk-delete
+components/pages/VerifikasiOrisinalPage.jsx
+components/pages/admin/VerifikasiOrisinalManagement.jsx
+lib/models/serialNumber.js
