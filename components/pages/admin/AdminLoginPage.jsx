@@ -6,7 +6,7 @@ import { signIn, useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { FcGoogle } from "react-icons/fc"
 import "@/styles/adminstyles.css"
-yahahhaha
+
 function AdminLoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
