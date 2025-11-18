@@ -36,7 +36,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Missing code" }, { status: 400 });
     }
 
-    const origin = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const targetUrl = `${origin}/pdfpage?${searchParams.toString()}`;
 
     console.log("[PDF] Rendering:", targetUrl);
