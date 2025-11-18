@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import styled from "styled-components"
+import { generatePdfUrl, generateFilename } from "@/lib/utils/pdfService"
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -577,18 +578,18 @@ export default function VerifikasiOrisinalPage() {
 
   const showForm = !result
 
-  const pdfHref =
-    result?.success && result?.data
-      ? (() => {
-          const params = new URLSearchParams({
-            code: result.data.code || code.join("").toUpperCase(),
-            name: result.data.product?.name || "-",
-            productionDate: result.data.product?.productionDate || "-",
-            issuedOn: result.data.issuedDate || new Date().toISOString(),
-          })
-          return `/api/verification-pdf?${params.toString()}`
-        })()
-      : "#"
+  // Generate PDF URL menggunakan react-pdf renderer
+  const pdfHref = result?.success && result?.data
+    ? generatePdfUrl({
+        code: result.data.code || code.join("").toUpperCase(),
+        issuedOn: result.data.issuedDate || new Date().toISOString(),
+        product: result.data.product || {},
+      })
+    : "#"
+
+  const pdfFilename = result?.success && result?.data
+    ? generateFilename(result.data.code || code.join("").toUpperCase())
+    : "certificate.pdf"
 
   return (
     <PageContainer>
@@ -642,13 +643,13 @@ export default function VerifikasiOrisinalPage() {
               <ActionsRow>
                 <DownloadLink
                   href={pdfHref}
-                  download="keterangan-produk-terverifikasi.pdf"
+                  download={pdfFilename}
                   target="_blank"
                   rel="noopener"
                 >
                   Unduh Dokumen
                 </DownloadLink>
-                <OverlaySecondaryButton onClick={handleClear}>Serial Number</OverlaySecondaryButton>
+                <OverlaySecondaryButton onClick={handleClear}>Serial Number Baru</OverlaySecondaryButton>
               </ActionsRow>
             </SuccessOverlay>
           ) : (
@@ -661,7 +662,7 @@ export default function VerifikasiOrisinalPage() {
                 {result.message || "Serial number salah, sudah digunakan, tidak ditemukan, atau tidak aktif."}
               </OverlayText>
               <ActionsRow>
-                <OverlaySecondaryButton onClick={handleClear}>Serial Number</OverlaySecondaryButton>
+                <OverlaySecondaryButton onClick={handleClear}>Coba Lagi</OverlaySecondaryButton>
               </ActionsRow>
             </ErrorOverlay>
           )}

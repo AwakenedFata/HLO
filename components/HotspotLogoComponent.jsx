@@ -169,6 +169,41 @@ export default function HotspotLogoComponent() {
       </div>
 
       <style jsx>{`
+        /* Responsive untuk layar dibawah 480px */
+        @media (max-width: 480px) {
+          .logo-container {
+            width: 350px !important;
+            height: 350px !important;
+          }
+
+          .hotspot-button {
+            width: 24px !important;
+            height: 24px !important;
+            border: 5px solid rgba(100,100,100,0.01) !important;
+          }
+
+          .plus-icon {
+            width: 10px !important;
+            height: 10px !important;
+          }
+
+          .hotspot-popup {
+            width: 180px !important;
+            padding: 3px 8px 6px !important;
+            border-radius: 6px !important;
+          }
+
+          .popup-title {
+            font-size: 11px !important;
+            margin-bottom: 4px !important;
+            padding-bottom: 4px !important;
+          }
+
+          .popup-description {
+            font-size: 9px !important;
+            line-height: 1.3 !important;
+          }
+        }
         /* Responsive untuk layar dibawah 420px */
         @media (max-width: 420px) {
           .logo-container {

@@ -384,7 +384,7 @@ export default function MaknaLogoPage() {
           .left-section {
             max-width: 100% !important;
             margin-bottom: 25px !important;
-            margin-top: 20px !important;
+            margin-top: 40px !important;
           }
 
           .right-section {
@@ -451,26 +451,26 @@ export default function MaknaLogoPage() {
           }
         }
 
-        /* Small screen such as Galaxy s8+ */
-        @media (max-width: 360px) and (max-height: 768px) {
+        /* Small screen such as Galaxy Z-Fold */
+        @media (max-width: 360px) and (max-height: 992px) {
           .main-container {
-            gap: 100px !important;
+            gap: 0px !important;
           }
           .left-section {
-            margin-top: 20px !important;
+            margin-top: 60px !important;
           }
           .right-section {
             margin-bottom: 20px !important;
           }
         }
 
-        /* Small screen such as iPhone SE */
+        /* Small screen such as iPhone SE, Galaxy S8+ */
         @media (max-width: 380px) and (max-height: 768px) {
           .main-container {
             gap: 100px !important;
           }
           .left-section {
-            margin-top: 20px !important;
+            margin-top: 45px !important;
           }
           .right-section {
             margin-bottom: 20px !important;

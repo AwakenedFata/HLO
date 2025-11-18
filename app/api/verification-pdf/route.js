@@ -1,241 +1,333 @@
-import puppeteer from "puppeteer-core"
-import chromium from "@sparticuz/chromium"
-import { NextResponse } from "next/server"
-import os from "os"
-import fs from "fs/promises"
-import path from "path"
+import { NextResponse } from 'next/server';
+import { renderToStream } from '@react-pdf/renderer';
+import CertificatePDFDocument from '@/components/pdf/CertificatePDFDocument';
 
-export const runtime = "nodejs"
-export const dynamic = "force-dynamic"
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// In-instance concurrency limiter to avoid multiple launches racing for /tmp
-const CONCURRENCY_LIMIT = 1
-let activeCount = 0
-const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+// Rate limiting configuration (optional - implementasi menggunakan Redis/Memory)
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 menit
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const rateLimitMap = new Map();
 
-async function acquireLock(timeoutMs = 15000) {
-  const start = Date.now()
-  while (activeCount >= CONCURRENCY_LIMIT) {
-    if (Date.now() - start > timeoutMs) {
-      throw Object.assign(new Error("Service busy"), { status: 503 })
-    }
-    await wait(50)
+/**
+ * Simple in-memory rate limiter
+ * Untuk production, gunakan Redis atau rate limiting service
+ */
+function checkRateLimit(identifier) {
+  const now = Date.now();
+  const userRequests = rateLimitMap.get(identifier) || [];
+  
+  // Filter request dalam window yang valid
+  const validRequests = userRequests.filter(
+    timestamp => now - timestamp < RATE_LIMIT_WINDOW
+  );
+  
+  if (validRequests.length >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, remaining: 0 };
   }
-  activeCount += 1
-  return () => {
-    activeCount = Math.max(0, activeCount - 1)
-  }
-}
-
-function getLocalChromePath() {
-  const platform = os.platform()
-  if (platform === "win32") return "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-  if (platform === "darwin") return "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  return "/usr/bin/google-chrome"
-}
-
-function getRequestOrigin(request) {
-  const url = new URL(request.url)
-  const forwardedProto = request.headers.get("x-forwarded-proto")
-  const proto = forwardedProto || url.protocol.replace(":", "") || "https"
-  const host = request.headers.get("host") || url.host
-  return `${proto}://${host}`
-}
-
-function getPdfPageUrl(searchParams, request) {
-  // Prefer same-origin for stability
-  const origin = getRequestOrigin(request)
-  const baseUrl =
-    process.env.NODE_ENV === "development"
-      ? process.env.PDF_PAGE_URL_DEV || `${origin}/pdfpage`
-      : process.env.PDF_PAGE_URL_PROD || `${origin}/pdfpage`
-
-  const params = new URLSearchParams(searchParams)
-  return `${baseUrl}?${params.toString()}`
-}
-
-function sanitizeFileName(name) {
-  return String(name || "certificate")
-    .replace(/[^a-z0-9_\-.]+/gi, "_")
-    .slice(0, 80)
-}
-
-async function cleanupOldProfiles(prefix = "puppeteer_profile_", maxAgeMs = 5 * 60 * 1000) {
-  try {
-    const tmp = os.tmpdir()
-    const entries = await fs.readdir(tmp)
-    const now = Date.now()
-    await Promise.all(
-      entries
-        .filter((d) => d.startsWith(prefix))
-        .map(async (d) => {
-          const full = path.join(tmp, d)
-          try {
-            const stat = await fs.stat(full)
-            if (now - stat.mtimeMs > maxAgeMs) {
-              await fs.rm(full, { recursive: true, force: true })
-            }
-          } catch {}
-        }),
-    )
-  } catch {}
-}
-
-async function launchBrowser({ userDataDir, isDev }) {
-  const args = [
-    ...(isDev ? [] : chromium.args),
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage",
-    "--single-process",
-    "--disable-gpu",
-    "--no-zygote",
-    `--user-data-dir=${userDataDir}`,
-  ]
-
-  return puppeteer.launch({
-    args,
-    executablePath: isDev ? getLocalChromePath() : await chromium.executablePath(),
-    headless: true,
-    defaultViewport: { width: 1200, height: 1754 }, // A4 @ 96dpi
-  })
-}
-
-function validateQueryParams(url) {
-  const params = url.searchParams
-  const code = String(params.get("code") || "").toUpperCase()
-  const issuedOn = params.get("issuedOn")
-  if (code && !/^[A-Z0-9-]{1,24}$/.test(code)) {
-    return { ok: false, status: 400, message: "Invalid code format" }
-  }
-  if (issuedOn) {
-    const d = new Date(issuedOn)
-    if (isNaN(d.getTime())) {
-      return { ok: false, status: 400, message: "Invalid issuedOn date" }
-    }
-  }
-  return { ok: true }
-}
-
-export async function GET(request) {
-  const release = await acquireLock().catch((e) => e)
-  if (typeof release !== "function") {
-    const status = release?.status || 429
-    return NextResponse.json({ error: release?.message || "Busy" }, { status })
-  }
-
-  let browser
-  const tmp = os.tmpdir()
-  const userDataDir = path.join(tmp, `puppeteer_profile_${Date.now()}_${Math.random().toString(36).slice(2)}`)
-  await fs.mkdir(userDataDir, { recursive: true }).catch(() => {})
-
-  try {
-    // Opportunistic cleanup of old temp profiles
-    cleanupOldProfiles().catch(() => {})
-
-    const reqUrl = new URL(request.url)
-    const validate = validateQueryParams(reqUrl)
-    if (!validate.ok) {
-      return NextResponse.json({ error: validate.message }, { status: validate.status })
-    }
-
-    const pdfPageUrl = getPdfPageUrl(reqUrl.searchParams, request)
-    const isDev = process.env.NODE_ENV === "development"
-
-    console.log("[v0] 🔗 Generating PDF from:", pdfPageUrl)
-
-    browser = await launchBrowser({ userDataDir, isDev })
-    const page = await browser.newPage()
-
-    // Strict request allowlist: same-origin, data, blob, and optional env allowlist
-    const allowedOrigin = new URL(pdfPageUrl).origin
-    const envAllow = (process.env.PDF_ALLOWED_ORIGINS || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-
-    await page.setRequestInterception(true)
-    page.on("request", (req) => {
-      try {
-        const reqUrl = req.url()
-        const u = new URL(reqUrl)
-        const scheme = u.protocol.replace(":", "")
-        if (scheme === "data" || scheme === "blob") return req.continue()
-        if (u.origin === allowedOrigin) return req.continue()
-        if (envAllow.includes(u.origin)) return req.continue()
-        return req.abort()
-      } catch {
-        return req.abort()
+  
+  validRequests.push(now);
+  rateLimitMap.set(identifier, validRequests);
+  
+  // Cleanup old entries (garbage collection)
+  if (rateLimitMap.size > 10000) {
+    const cutoff = now - RATE_LIMIT_WINDOW;
+    for (const [key, requests] of rateLimitMap.entries()) {
+      const valid = requests.filter(t => t > cutoff);
+      if (valid.length === 0) {
+        rateLimitMap.delete(key);
+      } else {
+        rateLimitMap.set(key, valid);
       }
-    })
+    }
+  }
+  
+  return {
+    allowed: true,
+    remaining: RATE_LIMIT_MAX_REQUESTS - validRequests.length,
+  };
+}
 
-    // Stable user-agent
-    await page.setUserAgent(
-      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    )
+/**
+ * Validate query parameters
+ */
+function validateParams(searchParams) {
+  const code = String(searchParams.get('code') || '').toUpperCase();
+  const issuedOn = searchParams.get('issuedOn');
+  
+  // Validate code format
+  if (code && !/^[A-Z0-9-]{1,24}$/.test(code)) {
+    return {
+      valid: false,
+      status: 400,
+      message: 'Invalid code format. Code must be alphanumeric (1-24 characters).',
+    };
+  }
+  
+  // Validate date format
+  if (issuedOn) {
+    const date = new Date(issuedOn);
+    if (isNaN(date.getTime())) {
+      return {
+        valid: false,
+        status: 400,
+        message: 'Invalid issuedOn date format.',
+      };
+    }
+  }
+  
+  return { valid: true };
+}
 
-    // Robust navigation
-    await page.goto(pdfPageUrl, { waitUntil: "networkidle0", timeout: 60000 }).catch(async () => {
-      await page.goto(pdfPageUrl, { waitUntil: "load", timeout: 60000 })
-    })
+/**
+ * Sanitize filename untuk mencegah path traversal
+ */
+function sanitizeFileName(name) {
+  return String(name || 'certificate')
+    .replace(/[^a-z0-9_\-.]+/gi, '_')
+    .slice(0, 80);
+}
 
-    // Wait for root container
-    await page.waitForSelector(".pdf-page", { timeout: 20000 }).catch(() => {})
-
-    // Fonts readiness
-    await page.evaluate(async () => {
-      try {
-        if (document && document.fonts && document.fonts.ready) {
-          await document.fonts.ready
+/**
+ * GET handler untuk generate PDF
+ */
+export async function GET(request) {
+  const startTime = Date.now();
+  
+  try {
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
+    
+    // Rate limiting check
+    const clientIP = 
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+    
+    const rateLimit = checkRateLimit(clientIP);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many requests. Please try again later.',
+          retryAfter: Math.ceil(RATE_LIMIT_WINDOW / 1000),
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil(RATE_LIMIT_WINDOW / 1000)),
+            'X-RateLimit-Remaining': '0',
+          },
         }
-      } catch {}
-    })
-
-    await wait(800)
-
-    // Generate the PDF
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: 0, bottom: 0, left: 0, right: 0 },
-    })
-
-    // Close before cleanup
-    await browser.close()
-    browser = undefined
-
-    // Cleanup tmp
-    await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => {})
-
-    const code = (reqUrl.searchParams.get("code") || "").toString().toUpperCase()
-    const fileName = sanitizeFileName(code ? `certificate-${code}.pdf` : "certificate-of-authenticity.pdf")
-
+      );
+    }
+    
+    // Validate parameters
+    const validation = validateParams(searchParams);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.message },
+        { status: validation.status }
+      );
+    }
+    
+    // Extract and decode parameters
+    const code = String(searchParams.get('code') || '').toUpperCase();
+    const issuedOn = searchParams.get('issuedOn') 
+      ? decodeURIComponent(searchParams.get('issuedOn'))
+      : new Date().toISOString();
+    
+    const product = {
+      name: searchParams.get('name') 
+        ? decodeURIComponent(searchParams.get('name')) 
+        : '-',
+      batch: searchParams.get('batch')
+        ? decodeURIComponent(searchParams.get('batch'))
+        : '-',
+      productionDate: searchParams.get('productionDate')
+        ? decodeURIComponent(searchParams.get('productionDate'))
+        : '-',
+      warrantyUntil: searchParams.get('warrantyUntil')
+        ? decodeURIComponent(searchParams.get('warrantyUntil'))
+        : '-',
+    };
+    
+    console.log('[PDF Generator] Generating certificate for code:', code);
+    
+    // Render PDF Document
+    const pdfStream = await renderToStream(
+      <CertificatePDFDocument
+        serialNumber={code}
+        issuedOn={issuedOn}
+        product={product}
+      />
+    );
+    
+    // Convert stream to buffer
+    const chunks = [];
+    for await (const chunk of pdfStream) {
+      chunks.push(chunk);
+    }
+    const pdfBuffer = Buffer.concat(chunks);
+    
+    const generationTime = Date.now() - startTime;
+    console.log(`[PDF Generator] ✓ PDF generated in ${generationTime}ms`);
+    
+    // Generate filename
+    const fileName = sanitizeFileName(
+      code ? `certificate-${code}.pdf` : 'certificate-of-authenticity.pdf'
+    );
+    
+    // Return PDF dengan proper headers
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
-        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Length': String(pdfBuffer.length),
+        'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
+        'X-Generation-Time': `${generationTime}ms`,
+        'X-RateLimit-Remaining': String(rateLimit.remaining),
       },
-    })
+    });
+    
   } catch (error) {
-    console.error("[v0] ❌ PDF generation error:", error)
+    console.error('[PDF Generator] ✗ Error:', error);
+    
+    const generationTime = Date.now() - startTime;
+    
+    // Handle specific errors
+    let statusCode = 500;
+    let errorMessage = 'Failed to generate PDF certificate';
+    
+    if (error.code === 'ENOENT') {
+      statusCode = 404;
+      errorMessage = 'Required assets not found';
+    } else if (error.message?.includes('font')) {
+      statusCode = 500;
+      errorMessage = 'Font loading error';
+    } else if (error.message?.includes('timeout')) {
+      statusCode = 504;
+      errorMessage = 'PDF generation timeout';
+    }
+    
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        timestamp: new Date().toISOString(),
+        generationTime: `${generationTime}ms`,
+      },
+      { 
+        status: statusCode,
+        headers: {
+          'X-Generation-Time': `${generationTime}ms`,
+        },
+      }
+    );
+  }
+}
 
-    // Best-effort cleanup
-    try {
-      if (browser) await browser.close()
-    } catch {}
-    await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => {})
-
-    const isNoSpace = (error && (error.code === "ENOSPC" || /ENOSPC/i.test(String(error)))) || false
-    const status = isNoSpace ? 503 : 500
-    const message = isNoSpace ? "PDF service is temporarily out of disk space. Please retry." : "Failed to generate PDF"
-
-    return NextResponse.json({ error: message, details: error?.message || String(error) }, { status })
-  } finally {
-    try {
-      if (typeof release === "function") release()
-    } catch {}
+/**
+ * POST handler untuk generate PDF dengan body data
+ * Berguna untuk data yang lebih kompleks
+ */
+export async function POST(request) {
+  const startTime = Date.now();
+  
+  try {
+    // Rate limiting check
+    const clientIP = 
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+    
+    const rateLimit = checkRateLimit(clientIP);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many requests. Please try again later.',
+          retryAfter: Math.ceil(RATE_LIMIT_WINDOW / 1000),
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil(RATE_LIMIT_WINDOW / 1000)),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+    
+    // Parse request body
+    const body = await request.json();
+    const { code, issuedOn, product } = body;
+    
+    // Validate code
+    if (code && !/^[A-Z0-9-]{1,24}$/.test(String(code).toUpperCase())) {
+      return NextResponse.json(
+        { error: 'Invalid code format' },
+        { status: 400 }
+      );
+    }
+    
+    console.log('[PDF Generator] Generating certificate for code:', code);
+    
+    // Render PDF Document
+    const pdfStream = await renderToStream(
+      <CertificatePDFDocument
+        serialNumber={code}
+        issuedOn={issuedOn || new Date().toISOString()}
+        product={product || {}}
+      />
+    );
+    
+    // Convert stream to buffer
+    const chunks = [];
+    for await (const chunk of pdfStream) {
+      chunks.push(chunk);
+    }
+    const pdfBuffer = Buffer.concat(chunks);
+    
+    const generationTime = Date.now() - startTime;
+    console.log(`[PDF Generator] ✓ PDF generated in ${generationTime}ms`);
+    
+    // Generate filename
+    const fileName = sanitizeFileName(
+      code ? `certificate-${code}.pdf` : 'certificate-of-authenticity.pdf'
+    );
+    
+    // Return PDF
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Length': String(pdfBuffer.length),
+        'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
+        'X-Generation-Time': `${generationTime}ms`,
+        'X-RateLimit-Remaining': String(rateLimit.remaining),
+      },
+    });
+    
+  } catch (error) {
+    console.error('[PDF Generator] ✗ Error:', error);
+    
+    const generationTime = Date.now() - startTime;
+    
+    return NextResponse.json(
+      {
+        error: 'Failed to generate PDF certificate',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        timestamp: new Date().toISOString(),
+        generationTime: `${generationTime}ms`,
+      },
+      { 
+        status: 500,
+        headers: {
+          'X-Generation-Time': `${generationTime}ms`,
+        },
+      }
+    );
   }
 }

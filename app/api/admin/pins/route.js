@@ -75,7 +75,7 @@ export async function GET(request) {
       "redeemedBy.idGame": 1,
       "redeemedBy.redeemedAt": 1,
     })
-      .sort({ createdAt: -1 })
+      .sort({ code: 1 }) // Ascending sort by PIN code (alphanumeric)
       .skip(skip)
       .limit(limit)
       .lean()
@@ -155,7 +155,6 @@ export async function POST(request) {
 
     await connectToDatabase()
 
-    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
     let session
     try {
       session = await requireAdmin()

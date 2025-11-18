@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   compiler: {
-    styledComponents: true, 
+    styledComponents: true,
   },
-  
+
   serverExternalPackages: ["mongoose"],
 
   eslint: {
@@ -21,6 +21,7 @@ const nextConfig = {
   images: {
     domains: ["placeholder.com"],
     unoptimized: true,
+    formats: ["image/avif", "image/webp"],
   },
 
   env: {
@@ -30,6 +31,7 @@ const nextConfig = {
 
   async headers() {
     return [
+      // API routes security headers
       {
         source: "/api/:path*",
         headers: [
@@ -51,6 +53,40 @@ const nextConfig = {
           },
         ],
       },
+      // PDF API with caching for performance
+      {
+        source: "/api/verification-pdf",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+        ],
+      },
+      // Static assets - long-term caching
+      {
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/assets/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      // General security headers
       {
         source: "/(.*)",
         headers: [
@@ -72,25 +108,41 @@ const nextConfig = {
           },
         ],
       },
-    ];
+    ]
   },
 
-  webpack(config) {
+  webpack(config, { isServer }) {
+    // Existing asset handling
     config.module.rules.push({
       test: /\.(png|jpe?g|gif|svg|mp4|webp|glb|gltf)$/i,
       type: "asset/resource",
       generator: {
         filename: "static/media/[hash][ext]",
       },
-    });
+    })
 
+    // Fix for React-PDF (canvas module)
+    config.resolve.alias.canvas = false
+
+    // Optimize for serverless (React-PDF)
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        canvas: false,
+      }
+    }
+
+    // Existing alias
     config.resolve.alias = {
       ...config.resolve.alias,
       "@": ".",
-    };
+    }
 
-    return config;
+    return config
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

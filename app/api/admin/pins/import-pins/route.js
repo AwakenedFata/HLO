@@ -39,7 +39,13 @@ export async function POST(request) {
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "File size exceeds 5MB limit" }, { status: 400 })
 
     const fileContent = await file.text()
-    const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true })
+    
+    const parsed = Papa.parse(fileContent, { 
+      header: true, 
+      skipEmptyLines: true,
+      delimiter: ",", // Explicit comma delimiter untuk mengatasi auto-detect error
+    })
+    
     if (parsed.errors.length > 0) {
       return NextResponse.json({ error: `CSV parsing error: ${parsed.errors[0].message}` }, { status: 400 })
     }

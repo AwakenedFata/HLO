@@ -592,12 +592,10 @@ const GalleryArticlePage = ({
       return {}
     }
 
-    // PENTING: Hanya gunakan paragraf 0 hingga totalParagraphs - 2 untuk penempatan gambar
-    // Ini memastikan paragraf terakhir (index totalParagraphs - 1) TIDAK akan memiliki gambar setelahnya
     const availablePositions = totalParagraphs > 1 ? totalParagraphs - 1 : 0
     
     if (availablePositions === 0) {
-      return {} // Jika hanya ada 1 paragraf, jangan tempatkan gambar
+      return {}
     }
 
     const seed = article._id ? article._id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0
@@ -608,16 +606,13 @@ const GalleryArticlePage = ({
       return seedValue / 233280
     }
 
-    // Buat array posisi yang tersedia (tidak termasuk posisi terakhir)
     const gaps = Array.from({ length: availablePositions }, (_, i) => i)
 
-    // Shuffle posisi
     for (let i = gaps.length - 1; i > 0; i--) {
       const j = Math.floor(seededRandom() * (i + 1))
       ;[gaps[i], gaps[j]] = [gaps[j], gaps[i]]
     }
 
-    // Tempatkan gambar pada posisi yang sudah di-shuffle
     const placements = {}
     images.forEach((img, idx) => {
       const gapIdx = gaps[idx % gaps.length]
@@ -646,12 +641,10 @@ const GalleryArticlePage = ({
 
     let result = ""
     paragraphs.forEach((paragraph, index) => {
-      // Tambahkan paragraf
       if (paragraph.trim()) {
         result += `<p key="p-${index}">${paragraph.trim()}</p>`
       }
 
-      // Tambahkan gambar SETELAH paragraf ini (jika ada dan bukan paragraf terakhir)
       const imgsHere = imagePlacements[index] || []
       if (imgsHere.length > 0) {
         imgsHere.forEach((image, i) => {
@@ -747,7 +740,12 @@ const GalleryArticlePage = ({
             <FilteredArticlesSection>
               <SidebarTitle>
                 <span>Artikel dengan Label: {selectedLabel}</span>
-                <ClearFilterButton onClick={() => setSelectedLabel("")}>Hapus Filter</ClearFilterButton>
+                <ClearFilterButton 
+                  onClick={() => setSelectedLabel("")}
+                  suppressHydrationWarning
+                >
+                  Hapus Filter
+                </ClearFilterButton>
               </SidebarTitle>
               {filteredArticles.map((filteredArticle) => (
                 <FilteredArticleItem key={filteredArticle._id} href={`/article/${filteredArticle.slug}`}>
@@ -777,6 +775,7 @@ const GalleryArticlePage = ({
                 placeholder="Cari label..."
                 value={labelSearch}
                 onChange={(e) => setLabelSearch(e.target.value)}
+                suppressHydrationWarning
               />
               <LabelGrid>
                 {filteredLabels.map((label, index) => (
@@ -788,6 +787,7 @@ const GalleryArticlePage = ({
                       color: selectedLabel === label ? "white" : "#495057",
                       borderColor: selectedLabel === label ? "#f5a623" : "#e9ecef",
                     }}
+                    suppressHydrationWarning
                   >
                     {label}
                   </LabelItem>

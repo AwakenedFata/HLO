@@ -922,6 +922,7 @@ function PinManagement() {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
+        delimiter: ",", // Explicit comma delimiter untuk mengatasi auto-detect error pada UTF-8 CSV
         complete: (results) => {
           if (results.errors.length > 0) {
             setImportError("Error parsing CSV: " + results.errors[0].message)
@@ -949,6 +950,7 @@ function PinManagement() {
     },
     [validateFile, addToast],
   )
+
 
   // Import CSV with immediate UI update
   const handleImportCSV = useCallback(
@@ -986,14 +988,13 @@ function PinManagement() {
           // Immediately update stats
           updateStatsImmediately("generate", imported)
 
-          // Force refresh data
-          invalidateAllCaches()
-          await forceRefreshData(fetchPins, 1, itemsPerPage)
-
-          // Reset file input
           if (fileInputRef.current) {
             fileInputRef.current.value = ""
           }
+
+          // Force refresh data
+          invalidateAllCaches()
+          await forceRefreshData(fetchPins, 1, itemsPerPage)
         }
       } catch (error) {
         if (isMountedRef.current) {

@@ -1090,7 +1090,7 @@ swiper-slide.swiper-slide-active {
 /* Extra small devices */
 @media (max-width: 380px) {
   .gallery-image {
-    border-radius: 32px !important;
+    border-radius: 42px !important;
   }
 }
 
