@@ -1,1094 +1,864 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from "react"
-import {
-  Row,
-  Col,
-  Card,
-  Button,
-  Form,
-  Table,
-  Badge,
-  Alert,
-  Tabs,
-  Tab,
-  Modal,
-  Spinner,
-  InputGroup,
-  Dropdown,
-  DropdownButton,
-  Pagination,
-  OverlayTrigger,
-  Tooltip,
-  Toast,
-  ToastContainer,
-} from "react-bootstrap"
-import {
-  FaPlus,
-  FaSync,
-  FaTrash,
-  FaFilter,
-  FaSearch,
-  FaExclamationTriangle,
-  FaEye,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaBoxes,
-  FaBarcode,
-  FaLock,
-  FaLockOpen,
-  FaEdit,
-  FaCalendarAlt,
-} from "react-icons/fa"
+import { useState, useRef, useEffect } from "react";
+import styled from "styled-components";
 
-const initialForm = {
-  product: { name: "", productionDate: "" },
-  code: "",
-}
+const PageContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url("/assets/serialnumber/serialnumber.avif");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 75px clamp(24px, 5vw, 80px) 40px;
 
-const initialBatch = {
-  productName: "",
-  productionDate: "",
-  count: 100,
-  digits: 6,
-  startFrom: "",
-}
+  @media (max-width: 1024px) {
+    padding: 75px 24px 40px;
+  }
+`;
 
-export default function VerifikasiOrisinalManagement() {
-  const isMountedRef = useRef(false)
+const ContentWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 1400px;
+`;
 
-  // States
-  const [isClient, setIsClient] = useState(false)
-  const [serials, setSerials] = useState([])
-  const [filteredSerials, setFilteredSerials] = useState([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [limit, setLimit] = useState(50)
-  const [search, setSearch] = useState("")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [loading, setLoading] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [deletingId, setDeletingId] = useState(null)
-  const [form, setForm] = useState(initialForm)
-  const [batch, setBatch] = useState(initialBatch)
-  const [activeTab, setActiveTab] = useState("manual")
-  const [error, setError] = useState("")
-  const [toasts, setToasts] = useState([])
-  const [selectedIds, setSelectedIds] = useState(new Set())
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
-  const [bulkDeleting, setBulkDeleting] = useState(false)
-  const [showEditDateModal, setShowEditDateModal] = useState(false)
-  const [editingSerial, setEditingSerial] = useState(null)
-  const [editDate, setEditDate] = useState("")
+const Card = styled.div`
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50px;
+  padding: 40px 40px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 
-  // Modal states
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [serialToDelete, setSerialToDelete] = useState(null)
+  @media (max-width: 768px) {
+    padding: 32px 32px;
+  }
 
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-    verified: 0,
-    used: 0,
-  })
+  @media (max-width: 484px) {
+    border-radius: 30px;
+    padding: 24px 24px;
+  }
+`;
 
-  // Toast helper
-  const addToast = useCallback((message, type = "success", duration = 5000) => {
-    const id = Date.now()
-    const toast = { id, message, type, duration }
-    setToasts((prev) => [...prev, toast])
+const Title = styled.h1`
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-top: -15px;
+  margin-bottom: 10px;
+  text-align: center;
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, duration)
-  }, [])
+  @media (max-width: 768px) {
+    font-size: 28px;
+  }
+  @media (max-width: 484px) {
+    font-size: 24px;
+  }
+  @media (max-width: 426px) {
+    margin-top: -10px;
+  }
+`;
 
-  // Fetch data
-  const fetchData = useCallback(async () => {
-    if (!isMountedRef.current) return
+const Description = styled.p`
+  font-size: 16px;
+  color: #000;
+  text-align: center;
+  margin-bottom: 25px;
+  line-height: 1.6;
 
-    setLoading(true)
-    setError("")
+  @media (max-width: 768px) {
+    font-size: 14px;
+  }
+  @media (max-width: 484px) {
+    font-size: 11px;
+  }
+  @media (max-width: 426px) {
+    font-size: 12px;
+    margin-bottom: 15px;
+  }
+`;
 
-    try {
-      const params = new URLSearchParams()
-      params.set("page", String(page))
-      params.set("limit", String(limit))
-      if (search) params.set("search", search)
-      if (filterStatus === "true" || filterStatus === "false") params.set("active", filterStatus)
+const InputContainer = styled.div`
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 32px;
+`;
 
-      const res = await fetch(`/api/admin/serials?${params.toString()}`, { cache: "no-store" })
-      if (!res.ok) throw new Error("Gagal mengambil data")
+const CodeInput = styled.input`
+  width: 56px;
+  height: 56px;
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  outline: none;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  color: #1a1a1a;
 
-      const data = await res.json()
+  &:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
 
-      if (isMountedRef.current) {
-        setSerials(data.items || [])
-        setFilteredSerials(data.items || [])
-        setTotalPages(data.totalPages || 1)
-        setTotal(data.total || 0)
+  &:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+  }
 
-        // Calculate stats
-        const items = data.items || []
-        setStats({
-          total: items.length,
-          active: items.filter((s) => s.isActive).length,
-          inactive: items.filter((s) => !s.isActive).length,
-          verified: items.reduce((sum, s) => sum + (s.verificationCount || 0), 0),
-          used: items.filter((s) => s.isVerified).length,
-        })
-      }
-    } catch (e) {
-      console.error(e)
-      if (isMountedRef.current) {
-        setError(e.message || "Gagal memuat data")
-        addToast(e.message || "Gagal memuat data", "error")
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
+  @media (max-width: 768px) {
+    font-size: 20px;
+    width: 48px;
+    height: 48px;
+  }
+  @media (max-width: 484px) {
+    width: 40px;
+    height: 40px;
+  }
+`;
+
+const ButtonRow = styled.div`
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: stretch;
+`;
+
+const PrimaryButton = styled.button`
+  flex: 1;
+  max-width: 240px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #f5ab1d 0%, #f5ab1d 100%);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.03);
+    box-shadow: 0 8px 20px rgba(34, 197, 94, 0.35);
+  }
+
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 12px;
+    max-width: 210px;
+    flex: 0 0 210px;
+    font-size: 14px;
+  }
+  @media (max-width: 540px) {
+    padding: 10px 10px;
+    font-size: 12px;
+    max-width: 180px;
+    flex: 0 0 180px;
+  }
+  @media (max-width: 484px) {
+    padding: 10px 10px;
+    font-size: 12px;
+    max-width: 145px;
+    flex: 0 0 145px;
+  }
+`;
+
+const SecondaryButton = styled.button`
+  flex: 1;
+  max-width: 240px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f59e0b;
+  background: #fff;
+  border: 2px solid #f59e0b33;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: scale(1.03);
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 12px;
+    max-width: 210px;
+    flex: 0 0 210px;
+    font-size: 14px;
+  }
+  @media (max-width: 540px) {
+    padding: 10px 10px;
+    font-size: 12px;
+    max-width: 180px;
+    flex: 0 0 180px;
+  }
+  @media (max-width: 484px) {
+    padding: 10px 10px;
+    font-size: 12px;
+    max-width: 145px;
+    flex: 0 0 145px;
+  }
+`;
+
+const ResultOverlay = styled.div`
+  margin-top: 8px;
+  padding: 28px 22px;
+  border-radius: 16px;
+  text-align: center;
+  animation: fadeIn 0.25s ease;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
     }
-  }, [page, limit, search, filterStatus, addToast])
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const SuccessOverlay = styled(ResultOverlay)`
+  background: #ecfdf5;
+  border: 2px solid #10b981;
+  color: #065f46;
+`;
+
+const ErrorOverlay = styled(ResultOverlay)`
+  background: #fef2f2;
+  border: 2px solid #ef4444;
+  color: #7f1d1d;
+`;
+
+const IconCircle = styled.div`
+  width: 72px;
+  height: 72px;
+  border-radius: 9999px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  background: ${(p) => (p.variant === "success" ? "#10b981" : "#ef4444")};
+  box-shadow: 0 10px 18px
+    ${(p) => (p.variant === "success" ? "rgba(16,185,129,.35)" : "rgba(239,68,68,.35)")};
+  animation: scaleIn 0.4s ease-out;
+
+  @keyframes scaleIn {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+`;
+
+const CheckSvgStyled = styled.svg`
+  @keyframes drawCheck {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  path {
+    stroke-dasharray: 30;
+    stroke-dashoffset: 30;
+    animation: drawCheck 0.6s ease-out forwards;
+  }
+`;
+
+const CrossSvgStyled = styled.svg`
+  @keyframes drawCross1 {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes drawCross2 {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  path:first-child {
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: drawCross1 0.4s ease-out forwards;
+  }
+
+  path:last-child {
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: drawCross2 0.4s ease-out 0.2s forwards;
+  }
+`;
+
+const CheckSvg = () => (
+  <CheckSvgStyled width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M20 6L9 17l-5-5"
+      stroke="#fff"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </CheckSvgStyled>
+);
+
+const CrossSvg = () => (
+  <CrossSvgStyled width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M18 6L6 18"
+      stroke="#fff"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6 6l12 12"
+      stroke="#fff"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </CrossSvgStyled>
+);
+
+const OverlayTitle = styled.h3`
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 6px;
+`;
+
+const OverlayText = styled.p`
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 auto 12px;
+  max-width: 460px;
+`;
+
+const ActionsRow = styled.div`
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 10px;
+  }
+
+  @media (max-width: 548px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const DownloadLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #111827;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.25);
+  flex: 1;
+  max-width: 240px;
+  min-width: 180px;
+
+  &[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: default;
+    box-shadow: none;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(17, 24, 39, 0.35);
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 12px;
+    font-size: 14px;
+    max-width: 210px;
+    min-width: 160px;
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  @media (max-width: 548px) {
+    max-width: 100%;
+    flex: 1;
+  }
+
+  @media (max-width: 484px) {
+    padding: 10px 10px;
+    font-size: 12px;
+  }
+`;
+
+const OverlaySecondaryButton = styled.button`
+  flex: 1;
+  max-width: 240px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f59e0b;
+  background: #fff;
+  border: 2px solid #f59e0b33;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.25);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.35);
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 12px;
+    font-size: 14px;
+    max-width: 210px;
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  @media (max-width: 548px) {
+    max-width: 100%;
+    flex: 1;
+  }
+
+  @media (max-width: 484px) {
+    padding: 10px 10px;
+    font-size: 12px;
+  }
+`;
+
+// Hidden preload container
+const PreloadContainer = styled.div`
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+`;
+
+// Helper untuk build PDF URL
+function buildPdfUrlFromResult(result, fallbackCode) {
+  const safeCode = (result?.data?.code || fallbackCode || "").toUpperCase();
+  const product = result?.data?.product || {};
+
+  const params = new URLSearchParams({
+    code: safeCode,
+    name: product.name || "-",
+    batch: product.batch || "-",
+    productionDate: product.productionDate || "-",
+    warrantyUntil: product.warrantyUntil || "-",
+    issuedOn: result?.data?.issuedDate || new Date().toISOString(),
+  });
+
+  return `/api/verification-pdf?${params.toString()}`;
+}
+
+export default function VerifikasiOrisinalPage() {
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [result, setResult] = useState(null);
+  const inputRefs = useRef([]);
+  const [fingerprint, setFingerprint] = useState("");
+  const [locked, setLocked] = useState(false);
+  const cacheKey = "verificationCache";
+
+  // PDF related state
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [isPreparingPdf, setIsPreparingPdf] = useState(false);
+
+  // Preload semua assets certificate di background
+  useEffect(() => {
+    const assetsToPreload = [
+      "/assets/serialnumber/Surat Originalitas background.png",
+      "/assets/serialnumber/HLO ID 2.avif",
+      "/assets/serialnumber/logo hok.avif",
+      "/assets/serialnumber/ttd.avif",
+      "/assets/serialnumber/stamp.avif",
+      "/assets/serialnumber/serialnumber.avif",
+    ];
+
+    assetsToPreload.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+
+    // Preload fonts
+    const fontLinks = [
+      "/fonts/BAHNSCHRIFT.TTF",
+      "/fonts/CORRUPTED FILE.TTF",
+    ];
+
+    fontLinks.forEach((href) => {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "font";
+      link.type = "font/ttf";
+      link.href = href;
+      link.crossOrigin = "anonymous";
+      document.head.appendChild(link);
+    });
+  }, []);
 
   useEffect(() => {
-    isMountedRef.current = true
-    setIsClient(true)
+    if (inputRefs.current[0]) inputRefs.current[0].focus();
+  }, []);
+
+  async function hashString(input) {
+    const enc = new TextEncoder();
+    const data = enc.encode(input);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  useEffect(() => {
+    async function compute() {
+      try {
+        const ua = navigator.userAgent || "";
+        const lang = navigator.language || "";
+        const plat = navigator.platform || "";
+        const vendor = navigator.vendor || "";
+        const mem = (navigator.deviceMemory || 0).toString();
+        const cores = (navigator.hardwareConcurrency || 0).toString();
+        const tz = (new Date().getTimezoneOffset() || 0).toString();
+        const color =
+          window.screen && window.screen.colorDepth
+            ? window.screen.colorDepth.toString()
+            : "0";
+        const res = window.screen
+          ? `${window.screen.width}x${window.screen.height}`
+          : "0x0";
+        const seed = [ua, lang, plat, vendor, mem, cores, tz, color, res].join("|");
+        const fp = await hashString(seed);
+        setFingerprint(fp);
+      } catch {
+        setFingerprint("unknown");
+      }
+    }
+    compute();
+  }, []);
+
+  const handleChange = (index, value) => {
+    const sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (sanitizedValue.length <= 1) {
+      const newCode = [...code];
+      newCode[index] = sanitizedValue;
+      setCode(newCode);
+      setResult(null);
+      setLocked(false);
+      setPdfUrl(null);
+      if (sanitizedValue && index < 5) {
+        inputRefs.current[index + 1]?.focus();
+      }
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === "Backspace") {
+      if (!code[index] && index > 0) {
+        inputRefs.current[index - 1]?.focus();
+      } else {
+        const newCode = [...code];
+        newCode[index] = "";
+        setCode(newCode);
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData
+      .getData("text")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase();
+    if (pastedData) {
+      const newCode = [...code];
+      for (let i = 0; i < Math.min(pastedData.length, 6); i++) {
+        newCode[i] = pastedData[i];
+      }
+      setCode(newCode);
+      const nextEmptyIndex = newCode.findIndex((c) => !c);
+      const focusIndex = nextEmptyIndex !== -1 ? nextEmptyIndex : 5;
+      inputRefs.current[focusIndex]?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    const fullCode = code.join("").toUpperCase();
+
+    if (fullCode.length !== 6) {
+      setResult({
+        success: false,
+        message: "Mohon masukkan kode verifikasi lengkap (6 karakter)",
+      });
+      setLocked(true);
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+      setPdfUrl(null);
+      setIsPreparingPdf(false);
+
+      const res = await fetch("/api/verify-serial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: fullCode, fingerprint }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setResult({
+          success: false,
+          message:
+            data?.message ||
+            (res.status === 403
+              ? "Kode ini sudah digunakan."
+              : res.status === 404
+              ? "Kode tidak ditemukan atau tidak aktif."
+              : "Verifikasi gagal. Coba lagi."),
+        });
+        setLocked(true);
+      } else {
+        setResult({
+          success: true,
+          message: data.message,
+          product: data.product,
+          data: data.data,
+        });
+        setLocked(true);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ fingerprint, at: Date.now() }));
+        } catch {}
+      }
+    } catch (e) {
+      setResult({
+        success: false,
+        message: "Terjadi kesalahan jaringan. Coba lagi.",
+      });
+      setLocked(true);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleClear = () => {
+    setCode(["", "", "", "", "", ""]);
+    setResult(null);
+    setLocked(false);
+    setPdfUrl(null);
+    setIsPreparingPdf(false);
+    inputRefs.current[0]?.focus();
+  };
+
+  const isComplete = code.every((c) => c !== "");
+
+  const showForm = !result;
+
+  // PRE-GENERATE PDF setelah verifikasi sukses
+  useEffect(() => {
+    let active = true;
+    let currentObjectUrl = null;
+
+    const preparePdf = async () => {
+      if (!result || !result.success || !result.data) return;
+
+      const fullCode = (result.data.code || code.join("").toUpperCase()).toUpperCase();
+      const url = buildPdfUrlFromResult(result, fullCode);
+
+      setIsPreparingPdf(true);
+      setPdfUrl(null);
+
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to generate PDF");
+        }
+
+        const blob = await res.blob();
+
+        if (!active) return;
+
+        currentObjectUrl = URL.createObjectURL(blob);
+        setPdfUrl(currentObjectUrl);
+      } catch (err) {
+        console.error("Error preparing PDF", err);
+        if (active) {
+          setPdfUrl(null);
+        }
+      } finally {
+        if (active) {
+          setIsPreparingPdf(false);
+        }
+      }
+    };
+
+    if (result?.success) {
+      preparePdf();
+    } else {
+      setPdfUrl(null);
+      setIsPreparingPdf(false);
+    }
 
     return () => {
-      isMountedRef.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (isClient) {
-      fetchData()
-    }
-  }, [isClient, page, filterStatus, fetchData])
-
-  // Create serial
-  const onCreate = async (e) => {
-    e.preventDefault()
-    setCreating(true)
-    setError("")
-
-    try {
-      const code = String(form.code || "")
-        .toUpperCase()
-        .trim()
-      if (!/^\d{6}$/.test(code)) {
-        throw new Error("Kode harus 6 digit angka (contoh: 000001)")
+      active = false;
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
       }
-
-      const payload = {
-        code,
-        productName: form.product.name || "",
-        productionDate: form.product.productionDate || "",
-      }
-
-      const res = await fetch("/api/admin/serials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || data?.error || "Gagal membuat serial")
-
-      setForm(initialForm)
-      fetchData()
-      addToast("Serial berhasil ditambahkan", "success")
-    } catch (e) {
-      setError(e.message || "Gagal membuat serial")
-      addToast(e.message || "Gagal membuat serial", "error")
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  // Batch create
-  const onBatch = async (e) => {
-    e.preventDefault()
-    setCreating(true)
-    setError("")
-
-    try {
-      const payload = {
-        productName: batch.productName || "",
-        productionDate: batch.productionDate || "",
-        count: Number(batch.count || 0),
-        digits: Number(batch.digits || 6),
-        startFrom: batch.startFrom ? String(batch.startFrom) : undefined,
-      }
-
-      if (payload.count < 1) throw new Error("Jumlah minimal 1")
-      if (payload.digits < 4 || payload.digits > 12) throw new Error("Digit harus 4-12")
-      if (payload.startFrom && !/^\d+$/.test(payload.startFrom)) throw new Error("startFrom harus angka")
-      if (payload.startFrom && payload.startFrom.length !== payload.digits)
-        throw new Error(`startFrom harus ${payload.digits} digit`)
-
-      const res = await fetch("/api/admin/serials/batch-process-serials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || data?.error || "Gagal batch")
-
-      setBatch(initialBatch)
-      fetchData()
-      addToast(`Batch selesai. Dibuat: ${data.created}, dilewati: ${data.skipped}`, "success")
-    } catch (e) {
-      setError(e.message || "Gagal batch")
-      addToast(e.message || "Gagal batch", "error")
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  // Delete serial
-  const handleDeleteSerial = async () => {
-    if (!serialToDelete) return
-
-    setDeletingId(serialToDelete._id)
-    try {
-      const res = await fetch(`/api/admin/serials/${serialToDelete._id}`, { method: "DELETE" })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || data?.error || "Gagal menghapus")
-
-      setShowDeleteModal(false)
-      setSerialToDelete(null)
-      fetchData()
-      addToast("Serial berhasil dihapus", "success")
-    } catch (e) {
-      setError(e.message || "Gagal menghapus")
-      addToast(e.message || "Gagal menghapus", "error")
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  // Bulk delete serials
-  const handleBulkDelete = async () => {
-    const ids = Array.from(selectedIds)
-    if (ids.length === 0) return
-    setBulkDeleting(true)
-    try {
-      const res = await fetch("/api/admin/serials/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || data?.error || "Gagal menghapus massal")
-      setShowBulkDeleteModal(false)
-      setSelectedIds(new Set())
-      fetchData()
-      addToast(`Berhasil menghapus ${data.deleted ?? ids.length} item`, "success")
-    } catch (e) {
-      setError(e.message || "Gagal menghapus massal")
-      addToast(e.message || "Gagal menghapus massal", "error")
-    } finally {
-      setBulkDeleting(false)
-    }
-  }
-
-  // Toggle active status
-  const onToggleActive = async (id, isActive) => {
-    try {
-      const res = await fetch(`/api/admin/serials/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !isActive }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || data?.error || "Gagal update")
-
-      fetchData()
-      addToast(`Serial berhasil ${!isActive ? "diaktifkan" : "dinonaktifkan"}`, "success")
-    } catch (e) {
-      setError(e.message || "Gagal update")
-      addToast(e.message || "Gagal update", "error")
-    }
-  }
-
-  // Edit production date
-  const handleEditDate = async () => {
-    if (!editingSerial) return
-
-    try {
-      const res = await fetch(`/api/admin/serials/${editingSerial._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productionDate: editDate }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || data?.error || "Gagal update tanggal produksi")
-
-      setShowEditDateModal(false)
-      setEditingSerial(null)
-      fetchData()
-      addToast("Tanggal produksi berhasil diubah", "success")
-    } catch (e) {
-      setError(e.message || "Gagal update tanggal produksi")
-      addToast(e.message || "Gagal update tanggal produksi", "error")
-    }
-  }
-
-  // Handle search
-  const handleSearchChange = useCallback((value) => {
-    setSearch(value)
-  }, [])
-
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    fetchData()
-    addToast("Data berhasil diperbarui", "success")
-  }, [fetchData, addToast])
-
-  // Handle page change
-  const handlePageChange = useCallback((newPage) => {
-    setPage(newPage)
-  }, [])
-
-  // Handle items per page change
-  const handleItemsPerPageChange = useCallback((e) => {
-    const newLimit = Number.parseInt(e.target.value, 10)
-    setLimit(newLimit)
-    setPage(1)
-  }, [])
-
-  // Handle bulk selection
-  const handleBulkSelect = useCallback(
-    (id, checked) => {
-      const newSelectedIds = new Set(selectedIds)
-      if (checked) {
-        newSelectedIds.add(id)
-      } else {
-        newSelectedIds.delete(id)
-      }
-      setSelectedIds(newSelectedIds)
-    },
-    [selectedIds],
-  )
-
-  // Stats cards data
-  const statsCards = [
-    {
-      title: "Total Serial",
-      value: total,
-      variant: "primary",
-      icon: FaBarcode,
-    },
-    {
-      title: "Serial Aktif",
-      value: stats.active,
-      variant: "success",
-      icon: FaCheckCircle,
-    },
-    {
-      title: "Sudah Digunakan",
-      value: stats.used,
-      variant: "warning",
-      icon: FaLock,
-    },
-    {
-      title: "Total Verifikasi",
-      value: stats.verified,
-      variant: "info",
-      icon: FaEye,
-    },
-  ]
-
-  // Render pagination
-  const renderPagination = () => {
-    if (totalPages <= 1) return null
-
-    const items = []
-    const maxVisiblePages = 5
-    let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2))
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1)
-    }
-
-    items.push(<Pagination.Prev key="prev" disabled={page === 1} onClick={() => handlePageChange(page - 1)} />)
-
-    if (startPage > 1) {
-      items.push(
-        <Pagination.Item key={1} onClick={() => handlePageChange(1)}>
-          1
-        </Pagination.Item>,
-      )
-      if (startPage > 2) {
-        items.push(<Pagination.Ellipsis key="ellipsis1" />)
-      }
-    }
-
-    for (let p = startPage; p <= endPage; p++) {
-      items.push(
-        <Pagination.Item key={p} active={p === page} onClick={() => handlePageChange(p)}>
-          {p}
-        </Pagination.Item>,
-      )
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        items.push(<Pagination.Ellipsis key="ellipsis2" />)
-      }
-      items.push(
-        <Pagination.Item key={totalPages} onClick={() => handlePageChange(totalPages)}>
-          {totalPages}
-        </Pagination.Item>,
-      )
-    }
-
-    items.push(<Pagination.Next key="next" disabled={page === totalPages} onClick={() => handlePageChange(page + 1)} />)
-
-    return (
-      <div className="d-flex justify-content-between align-items-center mt-3">
-        <div className="d-flex align-items-center">
-          <span className="me-2">Items per page:</span>
-          <Form.Select size="sm" value={limit} onChange={handleItemsPerPageChange} style={{ width: "80px" }}>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </Form.Select>
-          <span className="ms-3">
-            Showing {filteredSerials.length > 0 ? (page - 1) * limit + 1 : 0} - {Math.min(page * limit, total)} of{" "}
-            {total}
-          </span>
-        </div>
-        <Pagination size="sm" className="mb-0">
-          {items}
-        </Pagination>
-      </div>
-    )
-  }
-
-  // Select helpers
-  const isPageAllSelected = serials.length > 0 && serials.every((s) => selectedIds.has(s._id))
-
-  const toggleSelect = useCallback((id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
-  const toggleSelectAllPage = useCallback(() => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (isPageAllSelected) {
-        serials.forEach((s) => next.delete(s._id))
-      } else {
-        serials.forEach((s) => next.add(s._id))
-      }
-      return next
-    })
-  }, [isPageAllSelected, serials])
-
-  if (!isClient) {
-    return (
-      <div className="adminpanelmanajemenpinpage">
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
-          <div className="text-center">
-            <Spinner animation="border" variant="primary" />
-            <p className="mt-3 text-muted">Memuat aplikasi...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+    };
+  }, [result, code]);
 
   return (
-    <div className="adminpanelmanajemenpinpage">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="mb-0">Manajemen Serial Number</h1>
-      </div>
+    <>
+      {/* Preload semua assets certificate di hidden container */}
+      <PreloadContainer>
+        <img src="/assets/serialnumber/Surat Originalitas background.png" alt="" />
+        <img src="/assets/serialnumber/HLO ID 2.avif" alt="" />
+        <img src="/assets/serialnumber/logo hok.avif" alt="" />
+        <img src="/assets/serialnumber/ttd.avif" alt="" />
+        <img src="/assets/serialnumber/stamp.avif" alt="" />
+        <img src="/assets/serialnumber/serialnumber.avif" alt="" />
+      </PreloadContainer>
 
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError("")} className="mb-4">
-          <FaExclamationTriangle className="me-2" />
-          {error}
-        </Alert>
-      )}
+      <PageContainer>
+        <ContentWrapper>
+          <Card>
+            <Title>Verifikasi Keaslian Produk</Title>
 
-      {/* Stats Cards */}
-      <Row className="mb-4">
-        {statsCards.map((stat, index) => (
-          <Col md={3} key={index}>
-            <Card className={`text-center h-100 border-${stat.variant}`}>
-              <Card.Body>
-                <div className="d-flex justify-content-center align-items-center mb-2">
-                  <stat.icon className={`text-${stat.variant} me-2`} size={24} />
-                  <h3 className="mb-0">{stat.value.toLocaleString("id-ID")}</h3>
-                </div>
-                <p className="mb-0 text-muted">{stat.title}</p>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+            {showForm ? (
+              <>
+                <Description>
+                  <span>Masukkan 6 kode Serial Number yang terdapat pada</span>
+                  <br />
+                  <span>hangtag produk Anda untuk memastikan keasliannya.</span>
+                </Description>
 
-      {/* Action Tabs */}
-      <Card className="mb-4 shadow-sm">
-        <Card.Header>
-          <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="border-0" fill>
-            <Tab
-              eventKey="manual"
-              title={
-                <>
-                  <FaPlus className="me-2" />
-                  Tambah Manual
-                </>
-              }
-            >
-              <div className="p-3">
-                <Form onSubmit={onCreate}>
-                  <Row>
-                    <Col md={4}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Nama Produk (opsional)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={form.product.name}
-                          onChange={(e) => setForm((s) => ({ ...s, product: { ...s.product, name: e.target.value } }))}
-                          placeholder="Masukkan nama produk"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={4}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Tanggal (opsional)</Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={form.product.productionDate || ""}
-                          onChange={(e) =>
-                            setForm((s) => ({ ...s, product: { ...s.product, productionDate: e.target.value } }))
-                          }
-                          placeholder="YYYY-MM-DD"
-                        />
-                        <Form.Text muted>Gunakan format YYYY-MM-DD</Form.Text>
-                      </Form.Group>
-                    </Col>
-                    <Col md={4}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Kode Serial (6 digit)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={form.code}
-                          onChange={(e) => setForm((s) => ({ ...s, code: e.target.value }))}
-                          placeholder="000001"
-                          maxLength={12}
-                          style={{ textTransform: "uppercase" }}
-                        />
-                        <Form.Text muted>Masukkan kode 6 digit angka</Form.Text>
-                      </Form.Group>
-                    </Col>
-                    <Col md={12} className="d-flex align-items-start">
-                      <Button type="submit" variant="primary" disabled={creating}>
-                        {creating ? (
-                          <>
-                            <Spinner animation="border" size="sm" className="me-2" />
-                          </>
-                        ) : (
-                          <>
-                            <FaPlus className="me-2" /> Tambah
-                          </>
-                        )}
-                      </Button>
-                    </Col>
-                  </Row>
-                </Form>
-              </div>
-            </Tab>
-            <Tab
-              eventKey="batch"
-              title={
-                <>
-                  <FaBoxes className="me-2" />
-                  Batch Sequential
-                </>
-              }
-            >
-              <div className="p-3">
-                <Form onSubmit={onBatch}>
-                  <Row>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Nama Produk</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={batch.productName}
-                          onChange={(e) => setBatch((s) => ({ ...s, productName: e.target.value }))}
-                          placeholder="opsional"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Tanggal Produksi</Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={batch.productionDate}
-                          onChange={(e) => setBatch((s) => ({ ...s, productionDate: e.target.value }))}
-                          placeholder="YYYY-MM-DD"
-                        />
-                        <Form.Text muted>(opsional)</Form.Text>
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Jumlah</Form.Label>
-                        <Form.Control
-                          type="number"
-                          min={1}
-                          max={100000}
-                          value={batch.count}
-                          onChange={(e) => setBatch((s) => ({ ...s, count: Number(e.target.value || 0) }))}
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Digit</Form.Label>
-                        <Form.Control
-                          type="number"
-                          min={4}
-                          max={12}
-                          value={batch.digits}
-                          onChange={(e) => setBatch((s) => ({ ...s, digits: Number(e.target.value || 6) }))}
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Mulai Dari (opsional)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={batch.startFrom}
-                          onChange={(e) => setBatch((s) => ({ ...s, startFrom: e.target.value }))}
-                          placeholder="000001"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={2} className="d-flex align-items-start">
-                      <Button
-                        type="submit"
-                        variant="warning"
-                        className="w-100"
-                        disabled={creating}
-                        style={{ marginTop: "35px" }}
-                      >
-                        {creating ? (
-                          <>
-                            <Spinner animation="border" size="sm" className="me-2" />
-                          </>
-                        ) : (
-                          <>
-                            <FaBoxes className="me-2" /> Batch
-                          </>
-                        )}
-                      </Button>
-                    </Col>
-                  </Row>
-                </Form>
-              </div>
-            </Tab>
-          </Tabs>
-        </Card.Header>
-      </Card>
-
-      {/* Serial List */}
-      <Card className="shadow-sm">
-        <Card.Header className="bg-light">
-          <div className="d-flex justify-content-between align-items-center">
-            <span className="fw-bold">Daftar Serial Number</span>
-            <div className="d-flex gap-2">
-              {selectedIds.size > 0 && (
-                <Button variant="danger" size="sm" onClick={() => setShowBulkDeleteModal(true)} disabled={bulkDeleting}>
-                  <FaTrash className="me-1" />
-                  {bulkDeleting ? "Menghapus..." : `Hapus (${selectedIds.size})`}
-                </Button>
-              )}
-              <Button variant="outline-primary" size="sm" onClick={handleRefresh} disabled={loading}>
-                <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
-                {loading ? "Memuat..." : "Refresh"}
-              </Button>
-            </div>
-          </div>
-        </Card.Header>
-        <Card.Body>
-          {/* Search and Filter */}
-          <Row className="mb-3">
-            <Col md={8}>
-              <InputGroup>
-                <InputGroup.Text>
-                  <FaSearch />
-                </InputGroup.Text>
-                <Form.Control
-                  placeholder="Cari code atau nama produk..."
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                />
-                {search && (
-                  <Button variant="outline-secondary" onClick={() => handleSearchChange("")}>
-                    &times;
-                  </Button>
-                )}
-              </InputGroup>
-            </Col>
-            <Col md={4} className="d-flex justify-content-end">
-              <DropdownButton
-                title={
-                  <>
-                    <FaFilter className="me-1" />
-                    {filterStatus === "all" && "Semua Status"}
-                    {filterStatus === "true" && "Aktif"}
-                    {filterStatus === "false" && "Nonaktif"}
-                  </>
-                }
-                variant="outline-secondary"
-              >
-                <Dropdown.Item active={filterStatus === "all"} onClick={() => setFilterStatus("all")}>
-                  <FaEye className="me-2" />
-                  Semua Status
-                </Dropdown.Item>
-                <Dropdown.Item active={filterStatus === "true"} onClick={() => setFilterStatus("true")}>
-                  <FaCheckCircle className="me-2 text-success" />
-                  Aktif
-                </Dropdown.Item>
-                <Dropdown.Item active={filterStatus === "false"} onClick={() => setFilterStatus("false")}>
-                  <FaTimesCircle className="me-2 text-danger" />
-                  Nonaktif
-                </Dropdown.Item>
-              </DropdownButton>
-            </Col>
-          </Row>
-
-          {/* Table */}
-          <div className="table-responsive" style={{ maxHeight: "500px", overflowY: "auto" }}>
-            <Table striped bordered hover responsive className="mb-0">
-              <thead className="table-dark sticky-top">
-                <tr>
-                  <th style={{ width: "36px" }}>
-                    <Form.Check
-                      type="checkbox"
-                      checked={isPageAllSelected}
-                      onChange={toggleSelectAllPage}
-                      aria-label="Pilih semua di halaman ini"
+                <InputContainer>
+                  {code.map((digit, index) => (
+                    <CodeInput
+                      key={index}
+                      ref={(el) => (inputRefs.current[index] = el)}
+                      type="text"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      onPaste={handlePaste}
+                      disabled={isVerifying || locked}
                     />
-                  </th>
-                  <th>Code</th>
-                  <th>Produk</th>
-                  <th>Tanggal Produksi</th>
-                  <th>Verifikasi</th>
-                  <th>Status Penggunaan</th>
-                  <th>Status</th>
-                  <th style={{ width: "150px" }}>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && serials.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="text-center py-4">
-                      <Spinner animation="border" size="sm" className="me-2" />
-                      Loading...
-                    </td>
-                  </tr>
-                ) : serials.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="text-center py-4 text-muted">
-                      {search ? "Tidak ada serial yang sesuai dengan pencarian" : "Belum ada serial yang dibuat"}
-                    </td>
-                  </tr>
-                ) : (
-                  serials.map((s) => (
-                    <tr key={s._id}>
-                      <td>
-                        <Form.Check
-                          type="checkbox"
-                          checked={selectedIds.has(s._id)}
-                          onChange={() => toggleSelect(s._id)}
-                        />
-                      </td>
-                      <td>
-                        <code className="bg-light px-2 py-1 rounded">{s.code}</code>
-                      </td>
-                      <td>{s.product?.name || "-"}</td>
-                      <td>{s.product?.productionDate || "-"}</td>
-                      <td>
-                        <Badge bg="info">{s.verificationCount || 0}x</Badge>
-                      </td>
-                      <td>
-                        {s.isVerified ? (
-                          <Badge bg="warning" className="d-flex align-items-center" style={{ width: "fit-content" }}>
-                            <FaLock className="me-1" />
-                            Sudah Digunakan
-                          </Badge>
-                        ) : (
-                          <Badge bg="secondary" className="d-flex align-items-center" style={{ width: "fit-content" }}>
-                            <FaLockOpen className="me-1" />
-                            Belum Digunakan
-                          </Badge>
-                        )}
-                      </td>
-                      <td>
-                        {s.isActive ? (
-                          <Badge bg="success" className="d-flex align-items-center" style={{ width: "fit-content" }}>
-                            <FaCheckCircle className="me-1" />
-                            Aktif
-                          </Badge>
-                        ) : (
-                          <Badge bg="danger" className="d-flex align-items-center" style={{ width: "fit-content" }}>
-                            <FaTimesCircle className="me-1" />
-                            Nonaktif
-                          </Badge>
-                        )}
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <OverlayTrigger
-                            placement="top"
-                            overlay={<Tooltip>{s.isActive ? "Nonaktifkan" : "Aktifkan"}</Tooltip>}
-                          >
-                            <Button
-                              variant={s.isActive ? "outline-warning" : "outline-success"}
-                              size="sm"
-                              onClick={() => onToggleActive(s._id, s.isActive)}
-                            >
-                              {s.isActive ? <FaTimesCircle /> : <FaCheckCircle />}
-                            </Button>
-                          </OverlayTrigger>
-                          <OverlayTrigger placement="top" overlay={<Tooltip>Edit Tanggal Produksi</Tooltip>}>
-                            <Button
-                              variant="outline-secondary"
-                              size="sm"
-                              onClick={() => {
-                                setEditingSerial(s)
-                                setEditDate(s.product?.productionDate || "")
-                                setShowEditDateModal(true)
-                              }}
-                            >
-                              <FaEdit />
-                            </Button>
-                          </OverlayTrigger>
-                          <OverlayTrigger placement="top" overlay={<Tooltip>Hapus Serial</Tooltip>}>
-                            <Button
-                              variant="outline-danger"
-                              size="sm"
-                              onClick={() => {
-                                setSerialToDelete(s)
-                                setShowDeleteModal(true)
-                              }}
-                              disabled={deletingId === s._id}
-                            >
-                              <FaTrash />
-                            </Button>
-                          </OverlayTrigger>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  ))}
+                </InputContainer>
+
+                <ButtonRow>
+                  <PrimaryButton
+                    onClick={handleVerify}
+                    disabled={!isComplete || isVerifying || locked}
+                  >
+                    {isVerifying ? "Memverifikasi..." : "Verifikasi Produk"}
+                  </PrimaryButton>
+                  <SecondaryButton onClick={handleClear} disabled={isVerifying}>
+                    Hapus Kode
+                  </SecondaryButton>
+                </ButtonRow>
+              </>
+            ) : result.success ? (
+              <SuccessOverlay role="status" aria-live="polite">
+                <IconCircle variant="success" aria-hidden="true">
+                  <CheckSvg />
+                </IconCircle>
+                <OverlayTitle>Produk Asli</OverlayTitle>
+                <OverlayText>
+                  Produk ini terverifikasi keasliannya! Dokumen keterangan asli
+                  sedang/ sudah disiapkan untuk diunduh.
+                </OverlayText>
+
+                {isPreparingPdf && (
+                  <OverlayText>
+                    Sedang menyiapkan dokumen PDF... Mohon tunggu sebentar.
+                  </OverlayText>
                 )}
-              </tbody>
-            </Table>
-          </div>
 
-          <div className="mt-3 d-flex justify-content-between align-items-center">
-            <div className="text-muted">
-              Menampilkan {serials.length.toLocaleString("id-ID")} dari {total.toLocaleString("id-ID")} Serial
-              {selectedIds.size > 0 && (
-                <span className="ms-3">
-                  Dipilih: <strong>{selectedIds.size.toLocaleString("id-ID")}</strong>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {renderPagination()}
-        </Card.Body>
-      </Card>
-
-      {/* Toast Notifications */}
-      <ToastContainer position="top-end" className="p-3">
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            bg={toast.type === "error" ? "danger" : toast.type}
-            show={true}
-            onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-            delay={toast.duration}
-            autohide
-          >
-            <Toast.Header>
-              <strong className="me-auto">
-                {toast.type === "success" && <FaCheckCircle className="me-2" />}
-                {toast.type === "error" && <FaTimesCircle className="me-2" />}
-                {toast.type === "warning" && <FaExclamationTriangle className="me-2" />}
-                {toast.type === "info" && <FaEye className="me-2" />}
-                Notifikasi
-              </strong>
-            </Toast.Header>
-            <Toast.Body className={toast.type === "error" ? "text-white" : ""}>{toast.message}</Toast.Body>
-          </Toast>
-        ))}
-      </ToastContainer>
-
-      {/* Delete Modal */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FaTrash className="me-2 text-danger" /> Konfirmasi Hapus
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>
-            Apakah Anda yakin ingin menghapus serial <strong className="text-danger">{serialToDelete?.code}</strong>?
-          </p>
-          {serialToDelete?.isVerified && (
-            <Alert variant="warning" className="mb-2">
-              <FaExclamationTriangle className="me-2" />
-              Serial ini sudah pernah diverifikasi!
-            </Alert>
-          )}
-          <Alert variant="warning" className="mb-0">
-            <FaExclamationTriangle className="me-2" />
-            Tindakan ini tidak dapat dibatalkan.
-          </Alert>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-            Batal
-          </Button>
-          <Button variant="danger" onClick={handleDeleteSerial} disabled={deletingId}>
-            {deletingId ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-2" />
-                Menghapus...
-              </>
+                <ActionsRow>
+                  <DownloadLink
+                    href={pdfUrl || "#"}
+                    download="keterangan-produk-terverifikasi.pdf"
+                    aria-disabled={(!pdfUrl).toString()}
+                    onClick={(e) => {
+                      if (!pdfUrl) {
+                        e.preventDefault();
+                      }
+                    }}
+                  >
+                    {pdfUrl
+                      ? "Unduh Dokumen"
+                      : isPreparingPdf
+                      ? "Menyiapkan Dokumen..."
+                      : "Menyiapkan Dokumen..."}
+                  </DownloadLink>
+                  <OverlaySecondaryButton onClick={handleClear}>
+                    Serial Number Baru
+                  </OverlaySecondaryButton>
+                </ActionsRow>
+              </SuccessOverlay>
             ) : (
-              <>
-                <FaTrash className="me-2" />
-                Hapus
-              </>
+              <ErrorOverlay role="status" aria-live="polite">
+                <IconCircle variant="error" aria-hidden="true">
+                  <CrossSvg />
+                </IconCircle>
+                <OverlayTitle>Verifikasi Gagal</OverlayTitle>
+                <OverlayText>
+                  {result.message ||
+                    "Serial number salah, sudah digunakan, tidak ditemukan, atau tidak aktif."}
+                </OverlayText>
+                <ActionsRow>
+                  <OverlaySecondaryButton onClick={handleClear}>
+                    Coba Lagi
+                  </OverlaySecondaryButton>
+                </ActionsRow>
+              </ErrorOverlay>
             )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Bulk Delete Modal */}
-      <Modal show={showBulkDeleteModal} onHide={() => setShowBulkDeleteModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FaTrash className="me-2 text-danger" /> Hapus Serial Terpilih
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>
-            Anda akan menghapus <strong className="text-danger">{selectedIds.size}</strong> serial terpilih.
-          </p>
-          <Alert variant="warning" className="mb-0">
-            <FaExclamationTriangle className="me-2" />
-            Tindakan ini tidak dapat dibatalkan.
-          </Alert>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBulkDeleteModal(false)} disabled={bulkDeleting}>
-            Batal
-          </Button>
-          <Button variant="danger" onClick={handleBulkDelete} disabled={bulkDeleting || selectedIds.size === 0}>
-            {bulkDeleting ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-2" />
-                Menghapus...
-              </>
-            ) : (
-              <>
-                <FaTrash className="me-2" />
-                Hapus Terpilih
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-{/* Edit Date Modal */}
-      <Modal show={showEditDateModal} onHide={() => setShowEditDateModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FaCalendarAlt className="me-2" /> Edit Tanggal Serial
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p className="mb-3">
-            Serial: <code className="bg-light px-2 py-1 rounded">{editingSerial?.code}</code>
-          </p>
-          <Form.Group className="mb-3">
-            <Form.Label>Tanggal Produksi (Production Date)</Form.Label>
-            <Form.Control
-              type="date"
-              value={editDate || ""}
-              onChange={(e) => setEditDate(e.target.value)}
-              placeholder="YYYY-MM-DD"
-            />
-            <Form.Text muted>Tanggal pembuatan produk</Form.Text>
-          </Form.Group>
-          <Alert variant="info" className="mb-0">
-            <FaCalendarAlt className="me-2" />
-            <strong>Issued Date (Tanggal Penerbitan Sertifikat)</strong> akan otomatis mengikuti tanggal produksi yang Anda masukkan.
-          </Alert>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowEditDateModal(false)}>
-            Batal
-          </Button>
-          <Button
-            variant="primary"
-            onClick={async () => {
-              if (!editingSerial?._id) return
-              try {
-                const payload = {}
-                
-                if (editDate) {
-                  payload.product = { productionDate: editDate }
-                  payload.issuedDate = editDate // Sync issuedDate with productionDate
-                } else {
-                  // If empty, set both to empty/null
-                  payload.product = { productionDate: "" }
-                  payload.issuedDate = new Date().toISOString() // Reset to current date
-                }
-                
-                const res = await fetch(`/api/admin/serials/${editingSerial._id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                })
-                const data = await res.json()
-                if (!res.ok) throw new Error(data?.message || data?.error || "Gagal menyimpan tanggal")
-                addToast("Tanggal serial berhasil diperbarui (production date + issued date)", "success")
-                setShowEditDateModal(false)
-                setEditingSerial(null)
-                setEditDate("")
-                fetchData()
-              } catch (e) {
-                addToast(e.message || "Gagal menyimpan tanggal", "error")
-              }
-            }}
-          >
-            Simpan
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </div>
-  )
+          </Card>
+        </ContentWrapper>
+      </PageContainer>
+    </>
+  );
 }

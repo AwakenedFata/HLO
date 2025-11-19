@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import styled from "styled-components"
+import { useState, useRef, useEffect } from "react";
+import styled from "styled-components";
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -17,7 +17,7 @@ const PageContainer = styled.div`
   @media (max-width: 1024px) {
     padding: 75px 24px 40px;
   }
-`
+`;
 
 const ContentWrapper = styled.div`
   display: flex;
@@ -25,7 +25,7 @@ const ContentWrapper = styled.div`
   justify-content: center;
   width: 100%;
   max-width: 1400px;
-`
+`;
 
 const Card = styled.div`
   background: rgba(255, 255, 255, 0.5);
@@ -43,7 +43,7 @@ const Card = styled.div`
     border-radius: 30px;
     padding: 24px 24px;
   }
-`
+`;
 
 const Title = styled.h1`
   font-size: 32px;
@@ -52,6 +52,7 @@ const Title = styled.h1`
   margin-top: -15px;
   margin-bottom: 10px;
   text-align: center;
+
   @media (max-width: 768px) {
     font-size: 28px;
   }
@@ -61,7 +62,7 @@ const Title = styled.h1`
   @media (max-width: 426px) {
     margin-top: -10px;
   }
-`
+`;
 
 const Description = styled.p`
   font-size: 16px;
@@ -69,6 +70,7 @@ const Description = styled.p`
   text-align: center;
   margin-bottom: 25px;
   line-height: 1.6;
+
   @media (max-width: 768px) {
     font-size: 14px;
   }
@@ -79,14 +81,14 @@ const Description = styled.p`
     font-size: 12px;
     margin-bottom: 15px;
   }
-`
+`;
 
 const InputContainer = styled.div`
   display: flex;
   gap: 12px;
   justify-content: center;
   margin-bottom: 32px;
-`
+`;
 
 const CodeInput = styled.input`
   width: 56px;
@@ -100,14 +102,17 @@ const CodeInput = styled.input`
   transition: all 0.2s ease;
   text-transform: uppercase;
   color: #1a1a1a;
+
   &:focus {
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
+
   &:disabled {
     background-color: #f5f5f5;
     cursor: not-allowed;
   }
+
   @media (max-width: 768px) {
     font-size: 20px;
     width: 48px;
@@ -117,14 +122,14 @@ const CodeInput = styled.input`
     width: 40px;
     height: 40px;
   }
-`
+`;
 
 const ButtonRow = styled.div`
   display: flex;
   gap: 12px;
   justify-content: center;
   align-items: stretch;
-`
+`;
 
 const PrimaryButton = styled.button`
   flex: 1;
@@ -138,14 +143,17 @@ const PrimaryButton = styled.button`
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
+
   &:hover:not(:disabled) {
     transform: scale(1.03);
     box-shadow: 0 8px 20px rgba(34, 197, 94, 0.35);
   }
+
   &:disabled {
     background: #ccc;
     cursor: not-allowed;
   }
+
   @media (max-width: 768px) {
     padding: 12px 12px;
     max-width: 210px;
@@ -164,7 +172,7 @@ const PrimaryButton = styled.button`
     max-width: 145px;
     flex: 0 0 145px;
   }
-`
+`;
 
 const SecondaryButton = styled.button`
   flex: 1;
@@ -178,9 +186,11 @@ const SecondaryButton = styled.button`
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
+
   &:hover {
     transform: scale(1.03);
   }
+
   @media (max-width: 768px) {
     padding: 12px 12px;
     max-width: 210px;
@@ -199,7 +209,7 @@ const SecondaryButton = styled.button`
     max-width: 145px;
     flex: 0 0 145px;
   }
-`
+`;
 
 const ResultOverlay = styled.div`
   margin-top: 8px;
@@ -207,6 +217,7 @@ const ResultOverlay = styled.div`
   border-radius: 16px;
   text-align: center;
   animation: fadeIn 0.25s ease;
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -217,19 +228,19 @@ const ResultOverlay = styled.div`
       transform: translateY(0);
     }
   }
-`
+`;
 
 const SuccessOverlay = styled(ResultOverlay)`
   background: #ecfdf5;
   border: 2px solid #10b981;
   color: #065f46;
-`
+`;
 
 const ErrorOverlay = styled(ResultOverlay)`
   background: #fef2f2;
   border: 2px solid #ef4444;
   color: #7f1d1d;
-`
+`;
 
 const IconCircle = styled.div`
   width: 72px;
@@ -256,7 +267,7 @@ const IconCircle = styled.div`
       opacity: 1;
     }
   }
-`
+`;
 
 const CheckSvgStyled = styled.svg`
   @keyframes drawCheck {
@@ -270,7 +281,7 @@ const CheckSvgStyled = styled.svg`
     stroke-dashoffset: 30;
     animation: drawCheck 0.6s ease-out forwards;
   }
-`
+`;
 
 const CrossSvgStyled = styled.svg`
   @keyframes drawCross1 {
@@ -296,33 +307,51 @@ const CrossSvgStyled = styled.svg`
     stroke-dashoffset: 20;
     animation: drawCross2 0.4s ease-out 0.2s forwards;
   }
-`
+`;
 
 const CheckSvg = () => (
   <CheckSvgStyled width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M20 6L9 17l-5-5"
+      stroke="#fff"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </CheckSvgStyled>
-)
+);
 
 const CrossSvg = () => (
   <CrossSvgStyled width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M18 6L6 18" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M6 6l12 12" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M18 6L6 18"
+      stroke="#fff"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6 6l12 12"
+      stroke="#fff"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </CrossSvgStyled>
-)
+);
 
 const OverlayTitle = styled.h3`
   font-size: 22px;
   font-weight: 800;
   margin-bottom: 6px;
-`
+`;
 
 const OverlayText = styled.p`
   font-size: 14px;
   line-height: 1.6;
   margin: 0 auto 12px;
   max-width: 460px;
-`
+`;
 
 const ActionsRow = styled.div`
   display: flex;
@@ -339,7 +368,7 @@ const ActionsRow = styled.div`
     flex-direction: column;
     align-items: stretch;
   }
-`
+`;
 
 const DownloadLink = styled.a`
   display: inline-flex;
@@ -358,6 +387,13 @@ const DownloadLink = styled.a`
   flex: 1;
   max-width: 240px;
   min-width: 180px;
+
+  &[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: default;
+    box-shadow: none;
+  }
+
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 24px rgba(17, 24, 39, 0.35);
@@ -380,7 +416,7 @@ const DownloadLink = styled.a`
     padding: 10px 10px;
     font-size: 12px;
   }
-`
+`;
 
 const OverlaySecondaryButton = styled.button`
   flex: 1;
@@ -395,6 +431,7 @@ const OverlaySecondaryButton = styled.button`
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 8px 18px rgba(245, 158, 11, 0.25);
+
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 24px rgba(245, 158, 11, 0.35);
@@ -416,120 +453,151 @@ const OverlaySecondaryButton = styled.button`
     padding: 10px 10px;
     font-size: 12px;
   }
-`
+`;
+
+// Helper buat bikin URL /api/verification-pdf dengan aman
+function buildPdfUrlFromResult(result, fallbackCode) {
+  const safeCode = (result?.data?.code || fallbackCode || "").toUpperCase();
+  const product = result?.data?.product || {};
+
+  const params = new URLSearchParams({
+    code: safeCode,
+    name: product.name || "-",
+    batch: product.batch || "-",
+    productionDate: product.productionDate || "-",
+    warrantyUntil: product.warrantyUntil || "-",
+    issuedOn: result?.data?.issuedDate || new Date().toISOString(),
+  });
+
+  return `/api/verification-pdf?${params.toString()}`;
+}
 
 export default function VerifikasiOrisinalPage() {
-  const [code, setCode] = useState(["", "", "", "", "", ""])
-  const [isVerifying, setIsVerifying] = useState(false)
-  const [result, setResult] = useState(null)
-  const inputRefs = useRef([])
-  const [fingerprint, setFingerprint] = useState("")
-  const [locked, setLocked] = useState(false)
-  const cacheKey = "verificationCache"
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [result, setResult] = useState(null);
+  const inputRefs = useRef([]);
+  const [fingerprint, setFingerprint] = useState("");
+  const [locked, setLocked] = useState(false);
+  const cacheKey = "verificationCache";
+
+  // PDF related state
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [isPreparingPdf, setIsPreparingPdf] = useState(false);
 
   useEffect(() => {
-    if (inputRefs.current[0]) inputRefs.current[0].focus()
-  }, [])
+    if (inputRefs.current[0]) inputRefs.current[0].focus();
+  }, []);
 
   async function hashString(input) {
-    const enc = new TextEncoder()
-    const data = enc.encode(input)
-    const hash = await crypto.subtle.digest("SHA-256", data)
+    const enc = new TextEncoder();
+    const data = enc.encode(input);
+    const hash = await crypto.subtle.digest("SHA-256", data);
     return Array.from(new Uint8Array(hash))
       .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
+      .join("");
   }
 
   useEffect(() => {
     async function compute() {
       try {
-        const ua = navigator.userAgent || ""
-        const lang = navigator.language || ""
-        const plat = navigator.platform || ""
-        const vendor = navigator.vendor || ""
-        const mem = (navigator.deviceMemory || 0).toString()
-        const cores = (navigator.hardwareConcurrency || 0).toString()
-        const tz = (new Date().getTimezoneOffset() || 0).toString()
-        const color = window.screen && window.screen.colorDepth ? window.screen.colorDepth.toString() : "0"
-        const res = window.screen ? `${window.screen.width}x${window.screen.height}` : "0x0"
-        const seed = [ua, lang, plat, vendor, mem, cores, tz, color, res].join("|")
-        const fp = await hashString(seed)
-        setFingerprint(fp)
+        const ua = navigator.userAgent || "";
+        const lang = navigator.language || "";
+        const plat = navigator.platform || "";
+        const vendor = navigator.vendor || "";
+        const mem = (navigator.deviceMemory || 0).toString();
+        const cores = (navigator.hardwareConcurrency || 0).toString();
+        const tz = (new Date().getTimezoneOffset() || 0).toString();
+        const color =
+          window.screen && window.screen.colorDepth
+            ? window.screen.colorDepth.toString()
+            : "0";
+        const res = window.screen
+          ? `${window.screen.width}x${window.screen.height}`
+          : "0x0";
+        const seed = [ua, lang, plat, vendor, mem, cores, tz, color, res].join("|");
+        const fp = await hashString(seed);
+        setFingerprint(fp);
       } catch {
-        setFingerprint("unknown")
+        setFingerprint("unknown");
       }
     }
-    compute()
-  }, [])
+    compute();
+  }, []);
 
   const handleChange = (index, value) => {
-    const sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+    const sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
     if (sanitizedValue.length <= 1) {
-      const newCode = [...code]
-      newCode[index] = sanitizedValue
-      setCode(newCode)
-      setResult(null)
-      setLocked(false)
+      const newCode = [...code];
+      newCode[index] = sanitizedValue;
+      setCode(newCode);
+      setResult(null);
+      setLocked(false);
+      setPdfUrl(null);
       if (sanitizedValue && index < 5) {
-        inputRefs.current[index + 1]?.focus()
+        inputRefs.current[index + 1]?.focus();
       }
     }
-  }
+  };
 
   const handleKeyDown = (index, e) => {
     if (e.key === "Backspace") {
       if (!code[index] && index > 0) {
-        inputRefs.current[index - 1]?.focus()
+        inputRefs.current[index - 1]?.focus();
       } else {
-        const newCode = [...code]
-        newCode[index] = ""
-        setCode(newCode)
+        const newCode = [...code];
+        newCode[index] = "";
+        setCode(newCode);
       }
     } else if (e.key === "ArrowLeft" && index > 0) {
-      inputRefs.current[index - 1]?.focus()
+      inputRefs.current[index - 1]?.focus();
     } else if (e.key === "ArrowRight" && index < 5) {
-      inputRefs.current[index + 1]?.focus()
+      inputRefs.current[index + 1]?.focus();
     }
-  }
+  };
 
   const handlePaste = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     const pastedData = e.clipboardData
       .getData("text")
       .replace(/[^a-zA-Z0-9]/g, "")
-      .toUpperCase()
+      .toUpperCase();
     if (pastedData) {
-      const newCode = [...code]
+      const newCode = [...code];
       for (let i = 0; i < Math.min(pastedData.length, 6); i++) {
-        newCode[i] = pastedData[i]
+        newCode[i] = pastedData[i];
       }
-      setCode(newCode)
-      const nextEmptyIndex = newCode.findIndex((c) => !c)
-      const focusIndex = nextEmptyIndex !== -1 ? nextEmptyIndex : 5
-      inputRefs.current[focusIndex]?.focus()
+      setCode(newCode);
+      const nextEmptyIndex = newCode.findIndex((c) => !c);
+      const focusIndex = nextEmptyIndex !== -1 ? nextEmptyIndex : 5;
+      inputRefs.current[focusIndex]?.focus();
     }
-  }
+  };
 
   const handleVerify = async () => {
-    const fullCode = code.join("").toUpperCase()
+    const fullCode = code.join("").toUpperCase();
 
     if (fullCode.length !== 6) {
       setResult({
         success: false,
         message: "Mohon masukkan kode verifikasi lengkap (6 karakter)",
-      })
-      setLocked(true)
-      return
+      });
+      setLocked(true);
+      return;
     }
 
     try {
-      setIsVerifying(true)
+      setIsVerifying(true);
+      setPdfUrl(null);
+      setIsPreparingPdf(false);
+
       const res = await fetch("/api/verify-serial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: fullCode, fingerprint }),
-      })
-      const data = await res.json()
+      });
+
+      const data = await res.json();
 
       if (!res.ok || !data.success) {
         setResult({
@@ -539,56 +607,102 @@ export default function VerifikasiOrisinalPage() {
             (res.status === 403
               ? "Kode ini sudah digunakan."
               : res.status === 404
-                ? "Kode tidak ditemukan atau tidak aktif."
-                : "Verifikasi gagal. Coba lagi."),
-        })
-        setLocked(true)
+              ? "Kode tidak ditemukan atau tidak aktif."
+              : "Verifikasi gagal. Coba lagi."),
+        });
+        setLocked(true);
       } else {
         setResult({
           success: true,
           message: data.message,
           product: data.product,
           data: data.data,
-        })
-        setLocked(true)
+        });
+        setLocked(true);
         try {
-          localStorage.setItem(cacheKey, JSON.stringify({ fingerprint, at: Date.now() }))
+          localStorage.setItem(cacheKey, JSON.stringify({ fingerprint, at: Date.now() }));
         } catch {}
       }
     } catch (e) {
       setResult({
         success: false,
         message: "Terjadi kesalahan jaringan. Coba lagi.",
-      })
-      setLocked(true)
+      });
+      setLocked(true);
     } finally {
-      setIsVerifying(false)
+      setIsVerifying(false);
     }
-  }
+  };
 
   const handleClear = () => {
-    setCode(["", "", "", "", "", ""])
-    setResult(null)
-    setLocked(false)
-    inputRefs.current[0]?.focus()
-  }
+    setCode(["", "", "", "", "", ""]);
+    setResult(null);
+    setLocked(false);
+    setPdfUrl(null);
+    setIsPreparingPdf(false);
+    inputRefs.current[0]?.focus();
+  };
 
-  const isComplete = code.every((c) => c !== "")
+  const isComplete = code.every((c) => c !== "");
 
-  const showForm = !result
+  const showForm = !result;
 
-  const pdfHref =
-    result?.success && result?.data
-      ? (() => {
-          const params = new URLSearchParams({
-            code: result.data.code || code.join("").toUpperCase(),
-            name: result.data.product?.name || "-",
-            productionDate: result.data.product?.productionDate || "-",
-            issuedOn: result.data.issuedDate || new Date().toISOString(),
-          })
-          return `/api/verification-pdf?${params.toString()}`
-        })()
-      : "#"
+  // PRE-GENERATE PDF setelah verifikasi sukses
+  useEffect(() => {
+    let active = true;
+    let currentObjectUrl = null;
+
+    const preparePdf = async () => {
+      if (!result || !result.success || !result.data) return;
+
+      const fullCode = (result.data.code || code.join("").toUpperCase()).toUpperCase();
+      const url = buildPdfUrlFromResult(result, fullCode);
+
+      setIsPreparingPdf(true);
+      setPdfUrl(null);
+
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to generate PDF");
+        }
+
+        const blob = await res.blob();
+
+        if (!active) return;
+
+        currentObjectUrl = URL.createObjectURL(blob);
+        setPdfUrl(currentObjectUrl);
+      } catch (err) {
+        console.error("Error preparing PDF", err);
+        if (active) {
+          setPdfUrl(null);
+        }
+      } finally {
+        if (active) {
+          setIsPreparingPdf(false);
+        }
+      }
+    };
+
+    if (result?.success) {
+      preparePdf();
+    } else {
+      setPdfUrl(null);
+      setIsPreparingPdf(false);
+    }
+
+    return () => {
+      active = false;
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+    };
+  }, [result, code]);
 
   return (
     <PageContainer>
@@ -621,7 +735,10 @@ export default function VerifikasiOrisinalPage() {
               </InputContainer>
 
               <ButtonRow>
-                <PrimaryButton onClick={handleVerify} disabled={!isComplete || isVerifying || locked}>
+                <PrimaryButton
+                  onClick={handleVerify}
+                  disabled={!isComplete || isVerifying || locked}
+                >
                   {isVerifying ? "Memverifikasi..." : "Verifikasi Produk"}
                 </PrimaryButton>
                 <SecondaryButton onClick={handleClear} disabled={isVerifying}>
@@ -636,19 +753,36 @@ export default function VerifikasiOrisinalPage() {
               </IconCircle>
               <OverlayTitle>Produk Asli</OverlayTitle>
               <OverlayText>
-                Produk ini terverifikasi keasliannya! Silakan download dokumen keterangan asli produk di bawah.
+                Produk ini terverifikasi keasliannya! Dokumen keterangan asli
+                sedang/ sudah disiapkan untuk diunduh.
               </OverlayText>
+
+              {isPreparingPdf && (
+                <OverlayText>
+                  Sedang menyiapkan dokumen PDF... Mohon tunggu sebentar.
+                </OverlayText>
+              )}
 
               <ActionsRow>
                 <DownloadLink
-                  href={pdfHref}
+                  href={pdfUrl || "#"}
                   download="keterangan-produk-terverifikasi.pdf"
-                  target="_blank"
-                  rel="noopener"
+                  aria-disabled={(!pdfUrl).toString()}
+                  onClick={(e) => {
+                    if (!pdfUrl) {
+                      e.preventDefault();
+                    }
+                  }}
                 >
-                  Unduh Dokumen
+                  {pdfUrl
+                    ? "Unduh Dokumen"
+                    : isPreparingPdf
+                    ? "Menyiapkan Dokumen..."
+                    : "Menyiapkan Dokumen..."}
                 </DownloadLink>
-                <OverlaySecondaryButton onClick={handleClear}>Serial Number</OverlaySecondaryButton>
+                <OverlaySecondaryButton onClick={handleClear}>
+                  Serial Number
+                </OverlaySecondaryButton>
               </ActionsRow>
             </SuccessOverlay>
           ) : (
@@ -658,15 +792,18 @@ export default function VerifikasiOrisinalPage() {
               </IconCircle>
               <OverlayTitle>Verifikasi Gagal</OverlayTitle>
               <OverlayText>
-                {result.message || "Serial number salah, sudah digunakan, tidak ditemukan, atau tidak aktif."}
+                {result.message ||
+                  "Serial number salah, sudah digunakan, tidak ditemukan, atau tidak aktif."}
               </OverlayText>
               <ActionsRow>
-                <OverlaySecondaryButton onClick={handleClear}>Serial Number</OverlaySecondaryButton>
+                <OverlaySecondaryButton onClick={handleClear}>
+                  Serial Number
+                </OverlaySecondaryButton>
               </ActionsRow>
             </ErrorOverlay>
           )}
         </Card>
       </ContentWrapper>
     </PageContainer>
-  )
-}
+  );
+} 

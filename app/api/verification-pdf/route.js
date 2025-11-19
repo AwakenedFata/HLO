@@ -1,5 +1,3 @@
-import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -7,27 +5,58 @@ export const dynamic = "force-dynamic";
 
 let _browser = null;
 
-// Create/reuse browser (super important for performance)
+// Reuse browser instance selama instance server masih hidup
 async function getBrowser() {
   if (_browser) return _browser;
 
-  const executablePath = await chromium.executablePath();
+  const isDev = process.env.NODE_ENV === "development";
 
-  _browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: {
-      width: 794,
-      height: 1123,
-      deviceScaleFactor: 2,
-    },
-    executablePath,
-    headless: chromium.headless,
-  });
+  if (isDev) {
+    const puppeteer = await import("puppeteer");
+
+    _browser = await puppeteer.default.launch({
+      headless: true,
+      defaultViewport: {
+        width: 794,
+        height: 1123,
+        deviceScaleFactor: 2, // Kembali ke 2 karena assets sudah preload
+      },
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-web-security",
+        "--font-render-hinting=none", // Improves font rendering
+      ],
+    });
+
+    console.log("🟢 [DEV] Using local Chrome");
+  } else {
+    const chromium = await import("@sparticuz/chromium");
+    const puppeteerCore = await import("puppeteer-core");
+
+    const executablePath = await chromium.default.executablePath();
+
+    _browser = await puppeteerCore.default.launch({
+      args: [...chromium.default.args, "--font-render-hinting=none"],
+      defaultViewport: {
+        width: 794,
+        height: 1123,
+        deviceScaleFactor: 2,
+      },
+      executablePath,
+      headless: chromium.default.headless,
+    });
+
+    console.log("🔵 [PROD] Using @sparticuz/chromium");
+  }
 
   return _browser;
 }
 
 export async function GET(request) {
+  let page;
+
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
@@ -42,22 +71,44 @@ export async function GET(request) {
     console.log("[PDF] Rendering:", targetUrl);
 
     const browser = await getBrowser();
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
-    // Faster: only wait DOM ready, not full network idle
+    // Set cache untuk mempercepat asset loading
+    await page.setCacheEnabled(true);
+
+    // Navigate dengan wait strategy yang lebih efisien
+    // Karena assets sudah di-preload, kita bisa langsung load2 saja
     await page.goto(targetUrl, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "load",
       timeout: 60000,
     });
 
-    // Ensure fonts fully loaded
+    // Pastikan semua resources sudah loaded
     await page.evaluate(async () => {
-      try {
+      // Tunggu fonts ready
+      if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
-      } catch (_) {}
+      }
+
+      // Tunggu images complete
+      const images = Array.from(document.images || []);
+      await Promise.all(
+        images
+          .filter((img) => !img.complete)
+          .map(
+            (img) =>
+              new Promise((resolve) => {
+                img.onload = img.onerror = resolve;
+                // Timeout per image 5 detik
+                setTimeout(resolve, 5000);
+              })
+          )
+      );
+
+      // Short delay untuk final paint
+      await new Promise((r) => setTimeout(r, 100));
     });
 
-    // Generate PDF (A4, clean margins)
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
@@ -65,13 +116,13 @@ export async function GET(request) {
       margin: { top: 0, bottom: 0, left: 0, right: 0 },
     });
 
-    await page.close();
-
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="certificate-${code}.pdf"`,
+        // Cache yang agresif karena certificate immutable per code
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch (err) {
@@ -83,5 +134,30 @@ export async function GET(request) {
       },
       { status: 500 }
     );
+  } finally {
+    if (page) {
+      try {
+        await page.close();
+      } catch (_) {}
+    }
   }
 }
+
+// Cleanup on shutdown
+process.on("SIGTERM", async () => {
+  if (_browser) {
+    try {
+      await _browser.close();
+    } catch (_) {}
+    _browser = null;
+  }
+});
+
+process.on("SIGINT", async () => {
+  if (_browser) {
+    try {
+      await _browser.close();
+    } catch (_) {}
+    _browser = null;
+  }
+});
