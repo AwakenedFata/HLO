@@ -310,7 +310,7 @@ function AdminLayout({ children }) {
               </Link>
             </li>
             <li className="nav-item">
-              <Link href="/admin/verifikasi-orisinal" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
+              <Link href="/admin/serial-number" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
                 <MdConfirmationNumber className="me-2" /> Serial Number
               </Link>
             </li>

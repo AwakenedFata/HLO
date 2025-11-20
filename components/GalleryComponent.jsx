@@ -357,7 +357,7 @@ function GalleryComponent() {
     return (
       <GallerySection>
         <GalleryBgContainer>
-          <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
+          <GalleryBg src="/assets/Gallery/Background.avif" alt="Background" />
         </GalleryBgContainer>
         <Container>
           <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
@@ -374,7 +374,7 @@ function GalleryComponent() {
     return (
       <GallerySection>
         <GalleryBgContainer>
-          <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
+          <GalleryBg src="/assets/Gallery/Background.avif" alt="Background" />
         </GalleryBgContainer>
         <Container>
           <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
@@ -391,7 +391,7 @@ function GalleryComponent() {
     return (
       <GallerySection>
         <GalleryBgContainer>
-          <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
+          <GalleryBg src="/assets/Gallery/Background.avif" alt="Background" />
         </GalleryBgContainer>
         <Container>
           <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
@@ -408,7 +408,7 @@ function GalleryComponent() {
     <GallerySection>
       {/* Background */}
       <GalleryBgContainer>
-        <GalleryBg src="/assets/Gallery/Background.png" alt="Background" />
+        <GalleryBg src="/assets/Gallery/Background.avif" alt="Background" />
       </GalleryBgContainer>
 
       <Container>
