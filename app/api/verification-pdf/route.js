@@ -26,6 +26,7 @@ async function getBrowser() {
         "--disable-dev-shm-usage",
         "--disable-web-security",
         "--font-render-hinting=none",
+        "--disable-gpu",
       ],
     })
 
@@ -37,7 +38,11 @@ async function getBrowser() {
     const executablePath = await chromium.default.executablePath()
 
     _browser = await puppeteerCore.default.launch({
-      args: [...chromium.default.args, "--font-render-hinting=none"],
+      args: [
+        ...chromium.default.args,
+        "--font-render-hinting=none",
+        "--disable-gpu",
+      ],
       defaultViewport: {
         width: 794,
         height: 1123,
@@ -72,18 +77,25 @@ export async function GET(request) {
     const browser = await getBrowser()
     page = await browser.newPage()
 
+    // Set cache and disable animations
     await page.setCacheEnabled(true)
+    await page.setJavaScriptEnabled(true)
 
+    // Navigate to page
     await page.goto(targetUrl, {
-      waitUntil: "load",
+      waitUntil: ["load", "networkidle0"],
       timeout: 60000,
     })
 
+    // Wait for fonts and images to load completely
     await page.evaluate(async () => {
+      // Wait for fonts
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready
+        console.log('[Puppeteer] Fonts ready')
       }
 
+      // Wait for all images
       const images = Array.from(document.images || [])
       await Promise.all(
         images
@@ -96,16 +108,40 @@ export async function GET(request) {
               }),
           ),
       )
+      console.log('[Puppeteer] Images loaded')
 
-      await new Promise((r) => setTimeout(r, 100))
+      // Wait for window.pdfReady signal from component
+      await new Promise((resolve) => {
+        const checkReady = () => {
+          if (window.pdfReady === true) {
+            console.log('[Puppeteer] PDF ready signal received')
+            resolve()
+          } else {
+            setTimeout(checkReady, 100)
+          }
+        }
+        checkReady()
+        // Timeout after 10 seconds
+        setTimeout(resolve, 10000)
+      })
+
+      // Additional delay to ensure everything is painted
+      await new Promise((r) => setTimeout(r, 500))
     })
 
+    console.log("[PDF] All assets loaded, generating PDF...")
+
+    // Generate PDF with high quality settings
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: true,
       margin: { top: 0, bottom: 0, left: 0, right: 0 },
+      displayHeaderFooter: false,
+      scale: 1,
     })
+
+    console.log("[PDF] PDF generated successfully")
 
     return new NextResponse(pdfBuffer, {
       status: 200,

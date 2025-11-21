@@ -17,9 +17,39 @@ export default async function PdfRenderPage({ searchParams }) {
 
   return (
     <>
-      <link rel="preload" href="/fonts/BAHNSCHRIFT.TTF" as="font" type="font/ttf" crossOrigin="anonymous" />
-      <link rel="preload" href="/fonts/CORRUPTED FILE.TTF" as="font" type="font/ttf" crossOrigin="anonymous" />
-      <link rel="preload" href="/assets/serialnumber/Surat Originalitas.png" as="image" />
+      <head>
+        <link rel="preload" href="/fonts/BAHNSCHRIFT.TTF" as="font" type="font/ttf" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/CORRUPTED FILE.TTF" as="font" type="font/ttf" crossOrigin="anonymous" />
+        <link rel="preload" href="/assets/serialnumber/Surat Originalitas ver 2.png" as="image" />
+        <style dangerouslySetInnerHTML={{__html: `
+          @font-face {
+            font-family: "Corrupted File";
+            src: url("/fonts/CORRUPTED FILE.TTF") format("truetype");
+            font-weight: normal;
+            font-style: normal;
+            font-display: block;
+          }
+          
+          @font-face {
+            font-family: "Bahnschrift";
+            src: url("/fonts/BAHNSCHRIFT.TTF") format("truetype");
+            font-weight: normal;
+            font-style: normal;
+            font-display: block;
+          }
+
+          * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+          }
+
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: "Bahnschrift", sans-serif;
+          }
+        `}} />
+      </head>
 
       <div
         className="pdf-page w-100 min-vh-100"
@@ -29,6 +59,7 @@ export default async function PdfRenderPage({ searchParams }) {
           alignItems: "flex-start",
           padding: 0,
           margin: 0,
+          background: "#f5f5f5",
         }}
       >
         <PdfPage serialNumber={code} issuedOn={issuedOn} location={location} />
