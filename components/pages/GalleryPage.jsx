@@ -1,7 +1,8 @@
 "use client"
 import styled from "styled-components"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import GalleryCard from "@/components/cards/GalleryCard"
+import Image from "next/image"
 
 const WrapperGalleryPage = styled.div`
   padding-top: 32px;
@@ -22,8 +23,6 @@ const BannerWrapper = styled.div`
   width: 100%;
   height: clamp(100px, 28vw, 360px);
   margin-bottom: 32px;
-  background: #f0f0f0;
-  overflow: hidden;
 
   @media (min-width: 640px) {
     margin-bottom: 40px;
@@ -31,14 +30,6 @@ const BannerWrapper = styled.div`
 
   @media (min-width: 1024px) {
     margin-bottom: 50px;
-  }
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    display: block;
   }
 `
 
@@ -144,14 +135,15 @@ const PaginationDots = styled.span`
 
 const GalleryPage = ({ banner, galleries }) => {
   const [currentPage, setCurrentPage] = useState(1)
-  const [bannerLoaded, setBannerLoaded] = useState(false)
   const itemsPerPage = 6
 
-  const totalPages = Math.ceil(galleries.length / itemsPerPage)
-
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = galleries.slice(indexOfFirstItem, indexOfLastItem)
+  const { totalPages, currentItems } = useMemo(() => {
+    const total = Math.ceil(galleries.length / itemsPerPage)
+    const indexOfLastItem = currentPage * itemsPerPage
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage
+    const items = galleries.slice(indexOfFirstItem, indexOfLastItem)
+    return { totalPages: total, currentItems: items }
+  }, [galleries, currentPage, itemsPerPage])
 
   const getPaginationNumbers = () => {
     const delta = 2
@@ -205,24 +197,24 @@ const GalleryPage = ({ banner, galleries }) => {
       <Wrapper>
         {banner && (
           <BannerWrapper>
-            <img
-              src={banner.imageUrl || "/placeholder.svg"}
+            <Image
+              src={banner.imageUrl || "/placeholder.svg?height=320&width=1200&query=gallery%20banner"}
               alt="Gallery Banner"
-              loading="eager"
-              decoding="async"
-              onLoad={() => setBannerLoaded(true)}
-              style={{ opacity: bannerLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
+              fill
+              priority
+              sizes="100vw"
+              style={{
+                objectFit: "cover",
+                objectPosition: "center",
+              }}
+              quality={75}
             />
           </BannerWrapper>
         )}
 
         <Grid>
-          {currentItems.map((item, index) => (
-            <GalleryCard 
-              key={item._id} 
-              item={item}
-              priority={index < 3}
-            />
+          {currentItems.map((item) => (
+            <GalleryCard key={item._id} item={item} />
           ))}
         </Grid>
 
