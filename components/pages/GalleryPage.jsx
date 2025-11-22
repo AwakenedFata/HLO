@@ -1,7 +1,8 @@
 "use client"
 import styled from "styled-components"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import GalleryCard from "@/components/cards/GalleryCard"
+import Image from "next/image"
 
 const WrapperGalleryPage = styled.div`
   padding-top: 32px;
@@ -29,12 +30,6 @@ const BannerWrapper = styled.div`
 
   @media (min-width: 1024px) {
     margin-bottom: 50px;
-  }
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 `
 
@@ -142,11 +137,13 @@ const GalleryPage = ({ banner, galleries }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
 
-  const totalPages = Math.ceil(galleries.length / itemsPerPage)
-
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = galleries.slice(indexOfFirstItem, indexOfLastItem)
+  const { totalPages, currentItems } = useMemo(() => {
+    const total = Math.ceil(galleries.length / itemsPerPage)
+    const indexOfLastItem = currentPage * itemsPerPage
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage
+    const items = galleries.slice(indexOfFirstItem, indexOfLastItem)
+    return { totalPages: total, currentItems: items }
+  }, [galleries, currentPage, itemsPerPage])
 
   const getPaginationNumbers = () => {
     const delta = 2
@@ -200,9 +197,17 @@ const GalleryPage = ({ banner, galleries }) => {
       <Wrapper>
         {banner && (
           <BannerWrapper>
-            <img
+            <Image
               src={banner.imageUrl || "/placeholder.svg?height=320&width=1200&query=gallery%20banner"}
               alt="Gallery Banner"
+              fill
+              priority
+              sizes="100vw"
+              style={{
+                objectFit: "cover",
+                objectPosition: "center",
+              }}
+              quality={75}
             />
           </BannerWrapper>
         )}
