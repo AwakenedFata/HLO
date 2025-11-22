@@ -1,12 +1,13 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import { Container } from "react-bootstrap";
-import GalleryFrame from "@/components/GalleryFrame";
-import styled from "styled-components";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
+import { Container } from "react-bootstrap"
+import GalleryFrame from "@/components/GalleryFrame"
+import styled from "styled-components"
+import { useRouter } from "next/navigation"
+import { useGallery } from "@/hooks/useGallery"
 
-// Styled components based on main.css
+// Styled components
 const GallerySection = styled.div`
   position: relative;
   padding: 20px 0;
@@ -16,7 +17,7 @@ const GallerySection = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
-`;
+`
 
 const GalleryBgContainer = styled.div`
   position: absolute;
@@ -24,13 +25,13 @@ const GalleryBgContainer = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-`;
+`
 
 const GalleryBg = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
-`;
+`
 
 const GalleryTitle = styled.div`
   font-family: "Gilroy", sans-serif;
@@ -62,13 +63,13 @@ const GalleryTitle = styled.div`
       font-size: 1.8rem;
     }
   }
-`;
+`
 
 const GalleryCarouselContainer = styled.div`
   padding: 0 0 20px;
   position: relative;
   overflow-x: hidden;
-`;
+`
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -77,7 +78,7 @@ const LoadingContainer = styled.div`
   height: 300px;
   color: white;
   font-size: 1.2rem;
-`;
+`
 
 const ErrorContainer = styled.div`
   display: flex;
@@ -87,136 +88,116 @@ const ErrorContainer = styled.div`
   color: #ff6b6b;
   font-size: 1.2rem;
   text-align: center;
-`;
+`
 
 function GalleryComponent() {
-  const swiperElRef = useRef(null);
-  const [screenSize, setScreenSize] = useState("desktop"); // desktop | tablet | mobile
-  const [swiperInitialized, setSwiperInitialized] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [galleryData, setGalleryData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const router = useRouter();
+  const swiperElRef = useRef(null)
+  const [screenSize, setScreenSize] = useState("desktop")
+  const [swiperInitialized, setSwiperInitialized] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const router = useRouter()
 
-  // Mark component as mounted (client-side)
+  const { galleryData, loading, error } = useGallery()
+
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    setMounted(true)
+  }, [])
 
-  // Fetch gallery data from database
   useEffect(() => {
-    if (!mounted) return;
-
-    const fetchGalleryData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/seksi-galeri");
-        const result = await response.json();
-
-        if (result.success) {
-          setGalleryData(result.data);
-        } else {
-          setError("Failed to load gallery data");
-        }
-      } catch (err) {
-        console.error("[v0] Error fetching gallery data:", err);
-        setError("Failed to load gallery data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchGalleryData();
-  }, [mounted]);
-
-  // Initialize Swiper
-  useEffect(() => {
-    if (!mounted || swiperInitialized) return;
+    if (!mounted || swiperInitialized) return
 
     const initSwiper = async () => {
-      const { register } = await import("swiper/element/bundle");
-      register();
-      setSwiperInitialized(true);
-    };
+      try {
+        const { register } = await import("swiper/element/bundle")
+        register()
+        setSwiperInitialized(true)
+      } catch (err) {
+        console.error("Swiper init error:", err)
+      }
+    }
 
-    initSwiper();
-  }, [mounted, swiperInitialized]);
+    initSwiper()
+  }, [mounted, swiperInitialized])
+
+  const handleImageClick = useCallback(
+    async (galleryItem) => {
+      try {
+        const res = await fetch(`/api/artikel-public/by-gallery/${galleryItem._id}`)
+        const data = await res.json()
+
+        if (data?.success && data?.article?.slug) {
+          router.push(`/article/${data.article.slug}`)
+        } else {
+          router.push("/gallery")
+        }
+      } catch (e) {
+        console.error("Error fetching article:", e)
+        router.push("/gallery")
+      }
+    },
+    [router],
+  )
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted) return
 
     const checkScreenSize = () => {
-      const width = window.innerWidth;
+      const width = window.innerWidth
       if (width < 768) {
-        setScreenSize("mobile");
+        setScreenSize("mobile")
       } else if (width >= 768 && width <= 992) {
-        setScreenSize("tablet");
+        setScreenSize("tablet")
       } else {
-        setScreenSize("desktop");
+        setScreenSize("desktop")
       }
-    };
-
-    // Set initial screen size
-    checkScreenSize();
-
-    window.addEventListener("resize", checkScreenSize);
-
-    const metaViewport = document.querySelector('meta[name="viewport"]');
-    if (!metaViewport) {
-      const meta = document.createElement("meta");
-      meta.name = "viewport";
-      meta.content =
-        "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
-      document.head.appendChild(meta);
     }
 
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, [mounted]);
+    checkScreenSize()
 
-  useEffect(() => {
-    if (!mounted || !swiperInitialized || !galleryData.length) return;
+    let resizeTimeout
+    const handleResize = () => {
+      clearTimeout(resizeTimeout)
+      resizeTimeout = setTimeout(checkScreenSize, 150)
+    }
 
-    const swiperEl = swiperElRef.current;
-    if (!swiperEl) return;
+    window.addEventListener("resize", handleResize)
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      clearTimeout(resizeTimeout)
+    }
+  }, [mounted])
 
-    let slidesPerView,
-      spaceBetween,
-      coverflowStretch,
-      coverflowDepth,
-      coverflowModifier;
-    let initialSlide = 1;
+  const swiperParams = useMemo(() => {
+    let slidesPerView, spaceBetween, coverflowStretch, coverflowDepth, coverflowModifier
+    let initialSlide = 1
 
     if (screenSize === "mobile") {
-      // Mobile: 1 slide only
-      slidesPerView = 1;
-      spaceBetween = 0;
-      coverflowStretch = 0;
-      coverflowDepth = 20;
-      coverflowModifier = 1;
-      initialSlide = 0;
+      slidesPerView = 1
+      spaceBetween = 0
+      coverflowStretch = 0
+      coverflowDepth = 20
+      coverflowModifier = 1
+      initialSlide = 0
     } else if (screenSize === "tablet") {
-      // Tablet (768px - 992px): 3 slides, closer spacing, spread out coverflow
-      slidesPerView = 3;
-      spaceBetween = 10; // closer than desktop
-      coverflowStretch = -20; // less stretch than desktop
-      coverflowDepth = 80;
-      coverflowModifier = 1.8;
+      slidesPerView = 3
+      spaceBetween = 10
+      coverflowStretch = -20
+      coverflowDepth = 80
+      coverflowModifier = 1.8
     } else {
-      // Desktop: Original 3 slides
-      slidesPerView = 3;
-      spaceBetween = -21;
-      coverflowStretch = -51;
-      coverflowDepth = 100;
-      coverflowModifier = 2;
+      slidesPerView = 3
+      spaceBetween = -21
+      coverflowStretch = -51
+      coverflowDepth = 100
+      coverflowModifier = 2
     }
 
-    const params = {
-      slidesPerView: slidesPerView,
+    return {
+      slidesPerView,
       grabCursor: true,
-      spaceBetween: spaceBetween,
+      spaceBetween,
       centeredSlides: true,
-      initialSlide: initialSlide,
+      initialSlide,
       effect: "coverflow",
       coverflowEffect: {
         rotate: 0,
@@ -233,7 +214,7 @@ function GalleryComponent() {
         el: ".swiper-pagination",
         clickable: true,
       },
-      loop: screenSize === "mobile" ? false : false,
+      loop: false,
       injectStyles: [
         `
         .swiper-pagination {
@@ -278,14 +259,12 @@ function GalleryComponent() {
           z-index: 1;
         }
 
-        /* Desktop: 3 slides with coverflow effect */
         @media (min-width: 993px) {
           .swiper-slide {
             padding: 40px 40px 80px;
           }
         }
 
-        /* Tablet (768px - 992px): 3 slides, closer spacing */
         @media (max-width: 992px) and (min-width: 768px) {
           .swiper-slide {
             padding: 30px 20px 70px;
@@ -295,7 +274,6 @@ function GalleryComponent() {
           }
         }
 
-        /* Mobile: 1 slide only */
         @media (max-width: 767px) {
           .swiper-slide {
             padding: 20px 10px 50px;
@@ -308,51 +286,28 @@ function GalleryComponent() {
         }
         `,
       ],
-      on: {
-        slideChange: (swiper) => {
-          console.log("[v0] Current slide:", swiper.realIndex);
-        },
-      },
-    };
-
-    Object.assign(swiperEl, params);
-    swiperEl.initialize();
-
-    // Hide extra bullets (max 3)
-    const timeoutId = setTimeout(() => {
-      const bullets = document.querySelectorAll(".swiper-pagination-bullet");
-      bullets.forEach((bullet, i) => {
-        if (i >= 3) bullet.style.display = "none";
-      });
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [screenSize, swiperInitialized, mounted, galleryData]);
-
-  const handleImageClick = async (galleryItem) => {
-    try {
-      console.log("[v0] Gallery item clicked:", galleryItem.title);
-      const res = await fetch(
-        `/api/artikel-public/by-gallery/${galleryItem._id}`
-      );
-      const data = await res.json();
-
-      if (data?.success && data?.article?.slug) {
-        // arahkan langsung ke artikel terkait
-        router.push(`/article/${data.article.slug}`);
-      } else {
-        // fallback bila artikel belum tersedia
-        console.warn("[v0] Artikel belum tersedia untuk galeri ini");
-        router.push("/gallery");
-      }
-    } catch (e) {
-      console.error("[v0] Error fetching related article:", e);
-      // fallback pada error
-      router.push("/gallery");
     }
-  };
+  }, [screenSize])
 
-  // Show static content during SSR and initial hydration
+  useEffect(() => {
+    if (!mounted || !swiperInitialized || !galleryData.length) return
+
+    const swiperEl = swiperElRef.current
+    if (!swiperEl) return
+
+    Object.assign(swiperEl, swiperParams)
+    swiperEl.initialize()
+
+    const timeoutId = setTimeout(() => {
+      const bullets = document.querySelectorAll(".swiper-pagination-bullet")
+      bullets.forEach((bullet, i) => {
+        if (i >= 3) bullet.style.display = "none"
+      })
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [swiperParams, swiperInitialized, mounted, galleryData.length])
+
   if (!mounted) {
     return (
       <GallerySection>
@@ -367,7 +322,7 @@ function GalleryComponent() {
           <LoadingContainer>Loading gallery...</LoadingContainer>
         </Container>
       </GallerySection>
-    );
+    )
   }
 
   if (loading) {
@@ -384,7 +339,7 @@ function GalleryComponent() {
           <LoadingContainer>Loading gallery...</LoadingContainer>
         </Container>
       </GallerySection>
-    );
+    )
   }
 
   if (error) {
@@ -401,33 +356,27 @@ function GalleryComponent() {
           <ErrorContainer>{error}</ErrorContainer>
         </Container>
       </GallerySection>
-    );
+    )
   }
 
   return (
     <GallerySection>
-      {/* Background */}
       <GalleryBgContainer>
         <GalleryBg src="/assets/Gallery/Background.avif" alt="Background" />
       </GalleryBgContainer>
 
       <Container>
-        {/* Title */}
         <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
           <h2>Gallery</h2>
           <h1>HOK Lampung Community</h1>
         </GalleryTitle>
 
-        {/* Gallery Swiper */}
         <GalleryCarouselContainer data-aos="zoom-in" data-aos-duration="1000">
           {swiperInitialized && galleryData.length > 0 && (
             <swiper-container ref={swiperElRef} init="false">
               {galleryData.slice(0, 3).map((item, index) => (
                 <swiper-slide key={item._id || index}>
-                  <GalleryFrame
-                    galleryItem={item}
-                    onImageClick={handleImageClick}
-                  />
+                  <GalleryFrame galleryItem={item} onImageClick={handleImageClick} />
                 </swiper-slide>
               ))}
             </swiper-container>
@@ -436,7 +385,7 @@ function GalleryComponent() {
         </GalleryCarouselContainer>
       </Container>
     </GallerySection>
-  );
+  )
 }
 
-export default GalleryComponent;
+export default GalleryComponent

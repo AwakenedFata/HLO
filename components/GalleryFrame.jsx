@@ -1,5 +1,6 @@
 "use client"
 import styled from "styled-components"
+import { memo } from "react"
 
 const FrameContainer = styled.div`
   position: relative;
@@ -29,6 +30,7 @@ const GalleryImage = styled.img`
   border-radius: 50px;
   position: relative;
   z-index: 1;
+  will-change: transform;
 
   &:hover {
     transform: scale(1.05);
@@ -46,13 +48,14 @@ const FrameOverlay = styled.img`
   z-index: 2;
   pointer-events: none;
   transition: transform 0.3s ease;
+  will-change: transform;
 
   ${FrameContainer}:hover & {
     transform: scale(1.05);
   }
 `
 
-const GalleryFrame = ({ galleryItem, onImageClick }) => {
+const GalleryFrame = memo(({ galleryItem, onImageClick }) => {
   const handleImageClick = () => {
     if (onImageClick) {
       onImageClick(galleryItem)
@@ -61,7 +64,9 @@ const GalleryFrame = ({ galleryItem, onImageClick }) => {
 
   return (
     <FrameContainer className="frame-container">
-      {galleryItem.frame && <FrameOverlay src={galleryItem.frame.imageUrl} alt="Frame" loading="lazy" />}
+      {galleryItem.frame && (
+        <FrameOverlay src={galleryItem.frame.imageUrl} alt="Frame" loading="lazy" decoding="async" />
+      )}
 
       <FrameWrapper>
         <GalleryImage
@@ -69,11 +74,14 @@ const GalleryFrame = ({ galleryItem, onImageClick }) => {
           alt={galleryItem.title}
           onClick={handleImageClick}
           loading="lazy"
+          decoding="async"
           className="gallery-image"
         />
       </FrameWrapper>
     </FrameContainer>
   )
-}
+})
+
+GalleryFrame.displayName = "GalleryFrame"
 
 export default GalleryFrame
