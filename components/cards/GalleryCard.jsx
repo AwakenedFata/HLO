@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { useRouter } from "next/navigation" // add router import for navigation on title click
+import { useRouter } from "next/navigation"
 import styled from "styled-components"
 import { SlLocationPin } from "react-icons/sl"
 import { Poppins } from "next/font/google"
@@ -34,45 +34,44 @@ const Card = styled.div`
 
 const ImageWrapper = styled.div`
   width: 100%;
-  height: 280px;
+  position: relative;
   overflow: hidden;
   border-radius: 20px;
-  position: relative;
   background: #f8f9fa;
-
-  /* Prefer aspect-ratio for stability */
   aspect-ratio: 16 / 10;
-
-  /* Fallback if aspect-ratio unsupported */
-  @supports not (aspect-ratio: 16/10) {
-    height: clamp(180px, 28vw, 250px);
-  }
+  cursor: pointer;
 
   @media (min-width: 1024px) {
     aspect-ratio: 16 / 9;
-    width: 100%;
-    height: 280px;
   }
 
   @media (max-width: 480px) {
-    height: 200px;
+    aspect-ratio: 16 / 11;
   }
 `
 
 const Image = styled.img`
   width: 100%;
   height: 100%;
-  cursor: pointer;
   object-fit: cover;
-  object-position: center center;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  object-position: center;
   display: block;
-  min-width: 100%;
-  min-height: 100%;
-
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  
   ${Card}:hover & {
-    transform: scale(1.02);
+    transform: scale(1.05);
   }
+`
+
+const LoadingOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  color: #999;
+  font-size: 14px;
 `
 
 const Content = styled.div`
@@ -188,7 +187,6 @@ const MetaText = styled.div`
   @media (min-width: 1024px) {
     font-size: 11px;
   }
-
 `
 
 const DateText = styled.div`
@@ -201,7 +199,6 @@ const DateText = styled.div`
   }
 `
 
-// Helper function to validate if URL is a valid Google Maps link
 const isValidGoogleMapsLink = (url) => {
   if (!url || typeof url !== "string") return false
 
@@ -215,14 +212,13 @@ const isValidGoogleMapsLink = (url) => {
   return googleMapsPatterns.some((pattern) => pattern.test(url))
 }
 
-const GalleryCard = ({ item }) => {
+const GalleryCard = ({ item, priority = false }) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
-  const router = useRouter() // add router import for navigation on title click
+  const router = useRouter()
 
   const formattedDate = item.uploadDate ? format(new Date(item.uploadDate), "dd-MM-yyyy") : ""
-
   const hasValidMapLink = item.mapLink && item.mapLink.trim() && isValidGoogleMapsLink(item.mapLink.trim())
 
   const handleImageClick = () => {
@@ -231,16 +227,6 @@ const GalleryCard = ({ item }) => {
 
   const handleCloseModal = () => {
     setIsModalOpen(false)
-  }
-
-  const handleImageLoad = () => {
-    setImageLoaded(true)
-    setImageError(false)
-  }
-
-  const handleImageError = () => {
-    setImageError(true)
-    setImageLoaded(false)
   }
 
   const handleTitleClick = async () => {
@@ -261,30 +247,18 @@ const GalleryCard = ({ item }) => {
   return (
     <>
       <Card>
-        <ImageWrapper>
+        <ImageWrapper onClick={handleImageClick}>
           {!imageLoaded && !imageError && (
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                color: "#6c757d",
-                fontSize: "14px",
-              }}
-            >
-              Loading...
-            </div>
+            <LoadingOverlay>Loading...</LoadingOverlay>
           )}
           <Image
-            src={item.imageUrl || "/placeholder.svg?height=400&width=600&query=gallery%20image" || "/placeholder.svg"}
+            src={item.imageUrl || "/placeholder.svg"}
             alt={item.title}
-            onClick={handleImageClick}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            style={{
-              opacity: imageLoaded ? 1 : 0,
-            }}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+            style={{ opacity: imageLoaded ? 1 : 0 }}
           />
         </ImageWrapper>
         <Content>

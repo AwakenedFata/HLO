@@ -22,6 +22,8 @@ const BannerWrapper = styled.div`
   width: 100%;
   height: clamp(100px, 28vw, 360px);
   margin-bottom: 32px;
+  background: #f0f0f0;
+  overflow: hidden;
 
   @media (min-width: 640px) {
     margin-bottom: 40px;
@@ -35,6 +37,8 @@ const BannerWrapper = styled.div`
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    display: block;
   }
 `
 
@@ -140,6 +144,7 @@ const PaginationDots = styled.span`
 
 const GalleryPage = ({ banner, galleries }) => {
   const [currentPage, setCurrentPage] = useState(1)
+  const [bannerLoaded, setBannerLoaded] = useState(false)
   const itemsPerPage = 6
 
   const totalPages = Math.ceil(galleries.length / itemsPerPage)
@@ -201,15 +206,23 @@ const GalleryPage = ({ banner, galleries }) => {
         {banner && (
           <BannerWrapper>
             <img
-              src={banner.imageUrl || "/placeholder.svg?height=320&width=1200&query=gallery%20banner"}
+              src={banner.imageUrl || "/placeholder.svg"}
               alt="Gallery Banner"
+              loading="eager"
+              decoding="async"
+              onLoad={() => setBannerLoaded(true)}
+              style={{ opacity: bannerLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
             />
           </BannerWrapper>
         )}
 
         <Grid>
-          {currentItems.map((item) => (
-            <GalleryCard key={item._id} item={item} />
+          {currentItems.map((item, index) => (
+            <GalleryCard 
+              key={item._id} 
+              item={item}
+              priority={index < 3}
+            />
           ))}
         </Grid>
 

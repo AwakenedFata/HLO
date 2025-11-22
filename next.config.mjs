@@ -18,10 +18,11 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
 
+  // SOLUSI SIMPLE: Unoptimized untuk S3, tapi pakai lazy loading native browser
   images: {
-    domains: ["placeholder.com"],
-    unoptimized: true,
-    formats: ["image/avif", "image/webp"],
+    domains: ["placeholder.com", "hoklampung.s3.us-east-1.amazonaws.com"],
+    unoptimized: true, // Karena S3 tidak support Next.js image optimization
+    formats: ['image/avif', 'image/webp'],
   },
 
   env: {
