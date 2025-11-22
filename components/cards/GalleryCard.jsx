@@ -1,16 +1,11 @@
 "use client"
-import { useState, useCallback, memo } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation" // add router import for navigation on title click
 import styled from "styled-components"
 import { SlLocationPin } from "react-icons/sl"
 import { Poppins } from "next/font/google"
 import { format } from "date-fns"
-import Image from "next/image"
-import dynamic from "next/dynamic"
-
-const ImageViewerModal = dynamic(() => import("@/components/modals/ImageViewerModal"), {
-  loading: () => <div style={{ padding: "20px", textAlign: "center" }}>Loading...</div>,
-})
+import ImageViewerModal from "@/components/modals/ImageViewerModal"
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
@@ -44,8 +39,11 @@ const ImageWrapper = styled.div`
   border-radius: 20px;
   position: relative;
   background: #f8f9fa;
+
+  /* Prefer aspect-ratio for stability */
   aspect-ratio: 16 / 10;
 
+  /* Fallback if aspect-ratio unsupported */
   @supports not (aspect-ratio: 16/10) {
     height: clamp(180px, 28vw, 250px);
   }
@@ -58,6 +56,22 @@ const ImageWrapper = styled.div`
 
   @media (max-width: 480px) {
     height: 200px;
+  }
+`
+
+const Image = styled.img`
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  object-fit: cover;
+  object-position: center center;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+
+  ${Card}:hover & {
+    transform: scale(1.02);
   }
 `
 
@@ -174,6 +188,7 @@ const MetaText = styled.div`
   @media (min-width: 1024px) {
     font-size: 11px;
   }
+
 `
 
 const DateText = styled.div`
@@ -186,6 +201,7 @@ const DateText = styled.div`
   }
 `
 
+// Helper function to validate if URL is a valid Google Maps link
 const isValidGoogleMapsLink = (url) => {
   if (!url || typeof url !== "string") return false
 
@@ -201,20 +217,33 @@ const isValidGoogleMapsLink = (url) => {
 
 const GalleryCard = ({ item }) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const router = useRouter()
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const router = useRouter() // add router import for navigation on title click
 
   const formattedDate = item.uploadDate ? format(new Date(item.uploadDate), "dd-MM-yyyy") : ""
+
   const hasValidMapLink = item.mapLink && item.mapLink.trim() && isValidGoogleMapsLink(item.mapLink.trim())
 
-  const handleImageClick = useCallback(() => {
+  const handleImageClick = () => {
     setIsModalOpen(true)
-  }, [])
+  }
 
-  const handleCloseModal = useCallback(() => {
+  const handleCloseModal = () => {
     setIsModalOpen(false)
-  }, [])
+  }
 
-  const handleTitleClick = useCallback(async () => {
+  const handleImageLoad = () => {
+    setImageLoaded(true)
+    setImageError(false)
+  }
+
+  const handleImageError = () => {
+    setImageError(true)
+    setImageLoaded(false)
+  }
+
+  const handleTitleClick = async () => {
     try {
       const res = await fetch(`/api/artikel-public/by-gallery/${item._id}`)
       const data = await res.json()
@@ -227,24 +256,35 @@ const GalleryCard = ({ item }) => {
       console.error("[v0] Error fetching related article:", err)
       alert("Terjadi kesalahan saat mengambil artikel")
     }
-  }, [item._id, router])
+  }
 
   return (
     <>
       <Card>
         <ImageWrapper>
+          {!imageLoaded && !imageError && (
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                color: "#6c757d",
+                fontSize: "14px",
+              }}
+            >
+              Loading...
+            </div>
+          )}
           <Image
-            src={item.imageUrl || "/placeholder.svg?height=400&width=600&query=gallery%20image"}
+            src={item.imageUrl || "/placeholder.svg?height=400&width=600&query=gallery%20image" || "/placeholder.svg"}
             alt={item.title}
-            fill
-            loading="lazy"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            style={{
-              objectFit: "cover",
-              objectPosition: "center center",
-            }}
-            quality={75}
             onClick={handleImageClick}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            style={{
+              opacity: imageLoaded ? 1 : 0,
+            }}
           />
         </ImageWrapper>
         <Content>
@@ -280,9 +320,9 @@ const GalleryCard = ({ item }) => {
         </Content>
       </Card>
 
-      {isModalOpen && <ImageViewerModal isOpen={isModalOpen} onClose={handleCloseModal} item={item} />}
+      <ImageViewerModal isOpen={isModalOpen} onClose={handleCloseModal} item={item} />
     </>
   )
 }
 
-export default memo(GalleryCard)
+export default GalleryCard
