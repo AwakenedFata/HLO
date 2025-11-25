@@ -179,7 +179,6 @@ export async function POST(request) {
 
     await connectToDatabase()
 
-    // PERUBAHAN: Gunakan pattern yang sama dengan Gallery
     let session
     try {
       session = await requireAdmin()
@@ -212,26 +211,49 @@ export async function POST(request) {
 
     const body = await request.json()
     
-    logger.info(`[POST ARTICLE] Received data: ${JSON.stringify({
+    logger.info(`[POST ARTICLE] Raw body received:`, {
       hasTitle: !!body.title,
       hasContent: !!body.content,
-      hasContentImages: !!body.contentImages,
-      contentImagesCount: body.contentImages?.length || 0,
-      hasTags: !!body.tags,
+      status: body.status,
+      publishedAt: body.publishedAt,
+      publishedAtType: typeof body.publishedAt,
       tagsType: typeof body.tags,
-    })}`)
+      tagsLength: Array.isArray(body.tags) ? body.tags.length : 'not-array',
+    })
     
+    // Normalisasi tags jika string
     if (body.tags && typeof body.tags === "string") {
       body.tags = body.tags
-        .split(" ")
+        .split(/[\s,]+/)
         .map((tag) => tag.replace(/^#/, "").trim())
         .filter(Boolean)
     }
 
+    // CRITICAL FIX: Clean publishedAt sebelum validasi
+    if (body.publishedAt === null || body.publishedAt === "" || body.publishedAt === undefined) {
+      delete body.publishedAt
+    }
+    
+    // Jika draft/archived, hapus publishedAt
+    if (body.status === "draft" || body.status === "archived") {
+      delete body.publishedAt
+    }
+
+    logger.info(`[POST ARTICLE] After normalization:`, {
+      status: body.status,
+      hasPublishedAt: 'publishedAt' in body,
+      publishedAt: body.publishedAt,
+      tags: body.tags,
+    })
+
     const validation = await validateRequest(articleCreationSchema, body)
     if (!validation.success) {
-      logger.error(`[POST ARTICLE] Validation failed: ${JSON.stringify(validation.error)}`)
-      return NextResponse.json(validation.error, { status: 400 })
+      logger.error(`[POST ARTICLE] Validation failed:`, validation.error)
+      return NextResponse.json({
+        status: "error",
+        message: "Validation failed",
+        errors: validation.error,
+      }, { status: 400 })
     }
 
     const {
@@ -249,17 +271,27 @@ export async function POST(request) {
 
     logger.info(`[POST ARTICLE] Creating article: "${title}" by admin ID: ${adminId}`)
 
+    // Prepare publishedAt
+    let finalPublishedAt = undefined
+    if (status === "published") {
+      if (publishedAt) {
+        finalPublishedAt = new Date(publishedAt)
+      } else {
+        finalPublishedAt = new Date()
+      }
+    }
+
     const article = await Article.create({
       title,
       content,
-      excerpt,
-      coverImage,
-      coverImageKey,
+      excerpt: excerpt || "",
+      coverImage: coverImage || "",
+      coverImageKey: coverImageKey || "",
       relatedGallery: relatedGallery || undefined,
-      tags: tags || [],
+      tags: Array.isArray(tags) ? tags : [],
       status: status || "draft",
-      publishedAt: publishedAt ? new Date(publishedAt) : status === "published" ? new Date() : undefined,
-      contentImages: contentImages || [],
+      publishedAt: finalPublishedAt,
+      contentImages: Array.isArray(contentImages) ? contentImages : [],
       createdBy: adminId,
       isActive: true,
     })
@@ -269,7 +301,7 @@ export async function POST(request) {
       { path: "relatedGallery", select: "title label" },
     ])
 
-    logger.info(`Article created by ${session.user.email}: ${title}`)
+    logger.info(`[POST ARTICLE] Article created successfully: ${article._id}`)
 
     return NextResponse.json(
       { success: true, article, message: "Artikel berhasil dibuat" },
@@ -285,8 +317,8 @@ export async function POST(request) {
       },
     )
   } catch (error) {
-    logger.error("Error creating article:", error)
-    logger.error("Error stack:", error.stack)
+    logger.error("[POST ARTICLE] Error:", error)
+    logger.error("[POST ARTICLE] Stack:", error.stack)
     
     return NextResponse.json(
       { 

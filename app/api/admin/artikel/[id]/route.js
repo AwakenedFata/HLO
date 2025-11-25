@@ -112,40 +112,79 @@ export async function PUT(request, { params }) {
     if (!id) return NextResponse.json({ error: "Article ID is required" }, { status: 400 })
 
     const body = await request.json()
+    
+    logger.info(`[PUT ARTICLE] Raw update data:`, {
+      id,
+      status: body.status,
+      publishedAt: body.publishedAt,
+      hasTitle: !!body.title,
+    })
 
-    // Tetap dukung normalisasi tags (fitur sudah ada)
+    // Normalisasi tags
     if (body.tags && typeof body.tags === "string") {
       body.tags = body.tags
-        .split(" ")
+        .split(/[\s,]+/)
         .map((tag) => tag.replace(/^#/, "").trim())
         .filter(Boolean)
     }
 
+    // CRITICAL FIX: Clean publishedAt
+    if (body.publishedAt === null || body.publishedAt === "" || body.publishedAt === undefined) {
+      delete body.publishedAt
+    }
+    
+    if (body.status === "draft" || body.status === "archived") {
+      delete body.publishedAt
+    }
+
     const validation = await validateRequest(articleUpdateSchema, body)
     if (!validation.success) {
-      logger.error(`[PUT ARTICLE] Validation failed: ${JSON.stringify(validation.error)}`)
-      return NextResponse.json(validation.error, { status: 400 })
+      logger.error(`[PUT ARTICLE] Validation failed:`, validation.error)
+      return NextResponse.json({
+        status: "error",
+        message: "Validation failed",
+        errors: validation.error,
+      }, { status: 400 })
     }
 
     const updateData = { ...validation.data }
-    if (updateData.status === "published" && !updateData.publishedAt) {
-      updateData.publishedAt = new Date()
-    } else if (updateData.publishedAt) {
-      updateData.publishedAt = new Date(updateData.publishedAt)
+    
+    // Handle publishedAt
+    if (updateData.status === "published") {
+      if (updateData.publishedAt) {
+        updateData.publishedAt = new Date(updateData.publishedAt)
+      } else {
+        updateData.publishedAt = new Date()
+      }
+    } else {
+      updateData.publishedAt = undefined
     }
+    
     updateData.updatedBy = adminId
     updateData.updatedAt = new Date()
 
-    logger.info(`[PUT ARTICLE] Updating article ${id} by admin ID: ${adminId}`)
+    logger.info(`[PUT ARTICLE] Final update data:`, {
+      id,
+      status: updateData.status,
+      publishedAt: updateData.publishedAt,
+      adminId,
+    })
 
-    const article = await Article.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+    const article = await Article.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    )
       .populate("createdBy", "username")
       .populate("updatedBy", "username")
       .populate("relatedGallery", "title label")
 
-    if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 })
+    if (!article) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404 })
+    }
 
-    logger.info(`Article ${id} updated by ${session.user.email}`)
+    logger.info(`[PUT ARTICLE] Article ${id} updated successfully`)
+    
     return NextResponse.json(
       { success: true, article, message: "Artikel berhasil diupdate" },
       {
@@ -159,8 +198,9 @@ export async function PUT(request, { params }) {
       },
     )
   } catch (error) {
-    logger.error("Error updating article:", error)
-    logger.error("Error stack:", error.stack)
+    logger.error("[PUT ARTICLE] Error:", error)
+    logger.error("[PUT ARTICLE] Stack:", error.stack)
+    
     return NextResponse.json(
       {
         status: "error",

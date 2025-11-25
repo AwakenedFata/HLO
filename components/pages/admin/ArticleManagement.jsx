@@ -818,6 +818,8 @@ function ArticleManagement() {
       .slice(0, 10)
   }
 
+// Ganti fungsi handleSubmit dengan yang ini:
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) return
@@ -831,34 +833,54 @@ function ArticleManagement() {
     try {
       const finalTags = processFinalTags()
 
-      let publishedAtValue = formData.publishedAt
+      // FIX: Pastikan publishedAt sesuai dengan status
+      let publishedAtValue = null
+      
       if (formData.status === "published") {
-        if (!formData.publishedAt) {
-          publishedAtValue = new Date().toISOString()
-        } else {
+        if (formData.publishedAt && formData.publishedAt.trim() !== "") {
           publishedAtValue = formatDateForSubmission(formData.publishedAt)
+        } else {
+          publishedAtValue = new Date().toISOString()
         }
       } else {
-        publishedAtValue = null
+        // Untuk draft/archived, publishedAt harus null atau undefined
+        publishedAtValue = undefined
       }
 
       const submitData = {
-        ...formData,
+        title: formData.title,
+        content: formData.content,
+        excerpt: formData.excerpt || "",
+        coverImage: formData.coverImage || "",
+        coverImageKey: formData.coverImageKey || "",
+        relatedGallery: formData.relatedGallery || undefined,
         tags: finalTags,
         status: formData.status || "draft",
         publishedAt: publishedAtValue,
+        contentImages: formData.contentImages || [],
       }
 
-      console.log("[Submit Debug] Final tags being sent:", finalTags)
-      console.log("[Submit Debug] Tag input remaining:", tagInput)
-      console.log("[Submit Debug] PublishedAt value:", publishedAtValue)
-      console.log("[Submit Debug] Original form publishedAt:", formData.publishedAt)
+      // Debug log
+      console.log("[Submit Debug] Final data being sent:", {
+        ...submitData,
+        contentLength: submitData.content.length,
+        tagsCount: submitData.tags.length,
+        hasPublishedAt: submitData.publishedAt !== undefined && submitData.publishedAt !== null,
+      })
 
       let response
       if (editingArticle) {
-        response = await api.put(`/api/admin/artikel/${editingArticle._id}`, submitData)
+        response = await api.put(`/api/admin/artikel/${editingArticle._id}`, submitData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
       } else {
-        response = await api.post("/api/admin/artikel", submitData)
+        response = await api.post("/api/admin/artikel", submitData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
       }
 
       if (response.data?.success) {
@@ -871,10 +893,16 @@ function ArticleManagement() {
       }
     } catch (error) {
       console.error("Error saving article:", error)
+      console.error("Error response:", error.response?.data)
+      
       if (error.response?.status === 401) {
         logout()
       } else {
-        addToast(error.response?.data?.message || "Gagal menyimpan artikel", "error")
+        const errorMessage = error.response?.data?.message 
+          || error.response?.data?.error 
+          || error.message 
+          || "Gagal menyimpan artikel"
+        addToast(errorMessage, "error")
       }
     } finally {
       setSubmitting(false)
