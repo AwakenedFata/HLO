@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { imageUploadSchema } from "@/lib/utils/validation"
-import { uploadToS3 } from "@/lib/utils/s3"
+import { uploadToS3 } from "@/lib/utils/r2"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 import { requireAdmin } from "@/lib/utils/auth"

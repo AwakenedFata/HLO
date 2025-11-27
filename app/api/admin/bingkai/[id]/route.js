@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import connectDB from "@/lib/db"
 import Frame from "@/lib/models/frame"
 import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
-import { deleteFromS3 } from "@/lib/utils/s3"
+import { deleteFromS3 } from "@/lib/utils/r2"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 

@@ -3,7 +3,7 @@ import connectDB from "@/lib/db"
 import Frame from "@/lib/models/frame"
 import { requireAdmin } from "@/lib/utils/auth"
 import { validateRequest, frameBulkDeleteSchema } from "@/lib/utils/validation"
-import { deleteFromS3 } from "@/lib/utils/s3"
+import { deleteFromS3 } from "@/lib/utils/r2"
 import logger from "@/lib/utils/logger-server"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
