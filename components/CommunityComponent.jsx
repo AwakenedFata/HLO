@@ -107,7 +107,7 @@ function CommunityComponent() {
   }
 
   return (
-    <div id="aboutus" className="aboutus-section w-100 min-vh-100 d-flex align-items-center">
+    <div id="community" className="aboutus-section w-100 min-vh-100 d-flex align-items-center">
       <Container>
         <Row className="align-items-center">
           {/* Kiri - About Us Card */}

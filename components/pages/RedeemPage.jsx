@@ -450,38 +450,74 @@ function RedeemPage() {
     invalidPin: false,
     usedPin: false,
     lowercasePin: false,
+    invalidLength: false,
+    invalidFormat: false,
   });
   const [isMobile, setIsMobile] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [isClient, setIsClient] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const bgRedeemFormAndLogo = "/assets/Redeem/1.avif";
   const bgRedeemMobile = "/assets/Redeem/2.avif";
 
+  // Handle mounting state
   useEffect(() => {
-    setIsClient(true);
+    setMounted(true);
   }, []);
 
+  // Handle window resize
   useEffect(() => {
-    if (!isClient) return;
+    if (!mounted) return;
+    
     const handleResize = () => {
       const width = window.innerWidth;
       setWindowWidth(width);
       setIsMobile(width <= 768);
     };
+    
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [isClient]);
+  }, [mounted]);
 
+  // Validasi format PIN: hanya huruf kapital, angka, dan tanda hubung
   const validatePinFormat = (pin) => {
-    return !/[a-z]/.test(pin);
+    // Cek tidak ada huruf kecil
+    if (/[a-z]/.test(pin)) {
+      return false;
+    }
+    // Cek hanya mengandung huruf kapital, angka, dan tanda hubung
+    if (!/^[A-Z0-9-]+$/.test(pin)) {
+      return false;
+    }
+    return true;
+  };
+
+  // Validasi panjang PIN: minimal 16 karakter, maksimal 21 (16 + prefix 5)
+  const validatePinLength = (pin) => {
+    return pin.length >= 16 && pin.length <= 21;
+  };
+
+  const handlePinCodeChange = (e) => {
+    const value = e.target.value.toUpperCase().trim();
+    setPinCode(value);
+    
+    // Reset semua error saat user mengetik
+    setError({
+      emptyFields: false,
+      invalidPin: false,
+      usedPin: false,
+      lowercasePin: false,
+      invalidLength: false,
+      invalidFormat: false,
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validasi field kosong
     const emptyFields = !pinCode || !idGame || !nama;
     if (emptyFields) {
       setError({
@@ -489,17 +525,48 @@ function RedeemPage() {
         invalidPin: false,
         usedPin: false,
         lowercasePin: false,
+        invalidLength: false,
+        invalidFormat: false,
       });
       return;
     }
 
-    if (!validatePinFormat(pinCode)) {
+    // Validasi panjang PIN (16-21 karakter)
+    if (!validatePinLength(pinCode)) {
       setError({
         emptyFields: false,
         invalidPin: false,
         usedPin: false,
-        lowercasePin: true,
+        lowercasePin: false,
+        invalidLength: true,
+        invalidFormat: false,
       });
+      return;
+    }
+
+    // Validasi format PIN (hanya huruf kapital, angka, dan tanda hubung)
+    if (!validatePinFormat(pinCode)) {
+      // Cek apakah mengandung huruf kecil
+      if (/[a-z]/.test(pinCode)) {
+        setError({
+          emptyFields: false,
+          invalidPin: false,
+          usedPin: false,
+          lowercasePin: true,
+          invalidLength: false,
+          invalidFormat: false,
+        });
+      } else {
+        // Format invalid (mengandung karakter tidak diperbolehkan)
+        setError({
+          emptyFields: false,
+          invalidPin: false,
+          usedPin: false,
+          lowercasePin: false,
+          invalidLength: false,
+          invalidFormat: true,
+        });
+      }
       return;
     }
 
@@ -528,11 +595,16 @@ function RedeemPage() {
         invalidPin: errMsg === "PIN code tidak ditemukan",
         usedPin: errMsg === "PIN code sudah digunakan",
         lowercasePin: errMsg === "PIN code harus huruf kapital semua",
+        invalidLength: false,
+        invalidFormat: false,
       });
+      
+      // Handle error yang tidak terduga
       if (
         errMsg !== "PIN code tidak ditemukan" &&
         errMsg !== "PIN code sudah digunakan" &&
-        errMsg !== "PIN code harus huruf kapital semua"
+        errMsg !== "PIN code harus huruf kapital semua" &&
+        !errMsg.includes("Validation failed")
       ) {
         alert("Terjadi kesalahan server. Coba lagi nanti.");
       }
@@ -540,6 +612,11 @@ function RedeemPage() {
       setIsLoading(false);
     }
   };
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <PageWrapper $isMobile={isMobile}>
@@ -566,31 +643,47 @@ function RedeemPage() {
                 type="text"
                 placeholder="PIN code"
                 value={pinCode}
-                onChange={(e) => {
-                  setPinCode(e.target.value);
-                  setError({
-                    emptyFields: false,
-                    invalidPin: false,
-                    usedPin: false,
-                    lowercasePin: false,
-                  });
-                }}
+                onChange={handlePinCodeChange}
                 $windowWidth={windowWidth}
+                maxLength={21}
+                suppressHydrationWarning
               />
-              {error.invalidPin && !error.emptyFields && (
-                <ErrorMessage>*PIN code tidak valid</ErrorMessage>
+              {error.invalidLength && !error.emptyFields && (
+                <ErrorMessage>
+                  *PIN code harus 16-21 karakter
+                </ErrorMessage>
               )}
-              {error.usedPin && !error.emptyFields && !error.invalidPin && (
-                <ErrorMessage>*PIN code sudah pernah digunakan</ErrorMessage>
+              {error.invalidFormat && 
+                !error.emptyFields && 
+                !error.invalidLength &&
+                !error.lowercasePin && (
+                <ErrorMessage>
+                  *PIN code hanya boleh berisi huruf kapital, angka, dan tanda (-)
+                </ErrorMessage>
               )}
               {error.lowercasePin &&
-                !error.usedPin &&
                 !error.emptyFields &&
-                !error.invalidPin && (
+                !error.invalidLength &&
+                !error.invalidFormat && (
                   <ErrorMessage>
                     *PIN code harus huruf kapital semua
                   </ErrorMessage>
                 )}
+              {error.invalidPin && 
+                !error.emptyFields && 
+                !error.invalidLength &&
+                !error.lowercasePin &&
+                !error.invalidFormat && (
+                <ErrorMessage>*PIN code tidak valid</ErrorMessage>
+              )}
+              {error.usedPin && 
+                !error.emptyFields && 
+                !error.invalidPin &&
+                !error.invalidLength &&
+                !error.lowercasePin &&
+                !error.invalidFormat && (
+                <ErrorMessage>*PIN code sudah pernah digunakan</ErrorMessage>
+              )}
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -600,6 +693,7 @@ function RedeemPage() {
                 value={idGame}
                 onChange={(e) => setIdGame(e.target.value)}
                 $windowWidth={windowWidth}
+                suppressHydrationWarning
               />
             </Form.Group>
 
@@ -610,6 +704,7 @@ function RedeemPage() {
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
                 $windowWidth={windowWidth}
+                suppressHydrationWarning
               />
             </Form.Group>
 
@@ -623,6 +718,7 @@ function RedeemPage() {
               type="submit"
               disabled={isLoading}
               $windowWidth={windowWidth}
+              suppressHydrationWarning
             >
               {isLoading ? "Processing..." : "Submit"}
             </StyledButton>

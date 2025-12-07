@@ -1,27 +1,27 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Container, Row, Col } from "react-bootstrap"
-import Link from "next/link"
-import { IoLogoInstagram } from "react-icons/io5"
-import { FaWhatsapp, FaFacebookF, FaTelegramPlane } from "react-icons/fa"
-import { FaXTwitter } from "react-icons/fa6"
-import { GoMail } from "react-icons/go"
-import { TfiEmail } from "react-icons/tfi"
+import { useState, useEffect } from "react";
+import { Container, Row, Col } from "react-bootstrap";
+import Link from "next/link";
+import { IoLogoInstagram } from "react-icons/io5";
+import { FaWhatsapp, FaFacebookF, FaTelegramPlane } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
+import { GoMail } from "react-icons/go";
+import { TfiEmail } from "react-icons/tfi";
 
 function FooterComponent() {
-  const [currentYear, setCurrentYear] = useState(2023)
-  const [email, setEmail] = useState("")
-  const [status, setStatus] = useState("")
+  const [currentYear, setCurrentYear] = useState(2023);
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
-    setCurrentYear(new Date().getFullYear())
-  }, [])
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   const handleSubscribe = async () => {
     if (!email) {
-      setStatus("Email tidak boleh kosong.")
-      return
+      setStatus("Email tidak boleh kosong.");
+      return;
     }
 
     try {
@@ -29,15 +29,15 @@ function FooterComponent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
-      })
+      });
 
-      const data = await res.json()
-      setStatus(data.message || data.error)
-      setEmail("")
+      const data = await res.json();
+      setStatus(data.message || data.error);
+      setEmail("");
     } catch (error) {
-      setStatus("Terjadi kesalahan. Coba lagi.")
+      setStatus("Terjadi kesalahan. Coba lagi.");
     }
-  }
+  };
 
   return (
     <footer className="footer">
@@ -47,11 +47,16 @@ function FooterComponent() {
           {/* Left Column - Logo and Newsletter */}
           <Col lg={4} md={12} className="footer-left-col">
             <div className="footer-logo-container">
-              <img src="/assets/logo footter.png" alt="HOK Lampung Community" className="footer-logo" />
+              <img
+                src="/assets/logo footter.png"
+                alt="HOK Lampung Community"
+                className="footer-logo"
+              />
             </div>
             <p className="footer-text">
-              Jangan lewatkan info terbaru seputar event, turnamen, dan kabar menarik dari HOK Lampung! Masukkan email
-              kamu untuk tetap terhubung bersama komunitas kami.
+              Jangan lewatkan info terbaru seputar event, turnamen, dan kabar
+              menarik dari HOK Lampung! Masukkan email kamu untuk tetap
+              terhubung bersama komunitas kami.
             </p>
             <div className="newsletter-form">
               <div className="input-group">
@@ -63,7 +68,12 @@ function FooterComponent() {
                   onChange={(e) => setEmail(e.target.value)}
                   suppressHydrationWarning
                 />
-                <button className="btn btn-submit" type="button" onClick={handleSubscribe} suppressHydrationWarning>
+                <button
+                  className="btn btn-submit"
+                  type="button"
+                  onClick={handleSubscribe}
+                  suppressHydrationWarning
+                >
                   <GoMail />
                 </button>
               </div>
@@ -76,16 +86,16 @@ function FooterComponent() {
             <h5 className="footer-heading">About</h5>
             <ul className="footer-links">
               <li>
-                <Link href="/#aboutus">Tentang Kami</Link>
+                <Link href="/#community">Tentang Kami</Link>
               </li>
               <li>
-                <Link href="https://wa.me/6285709346954">Event & Turnamen</Link>
+                <Link href="/aboutus/maknalogo">Profile Logo</Link>
               </li>
               <li>
-                <Link href="/partners">Partner & Sponsor</Link>
+                <Link href="/#partners">Partner & Sponsor</Link>
               </li>
               <li>
-                <Link href="/contact-us">Bantuan & Dukungan</Link>
+                <Link href="/#contact-us">Bantuan & Dukungan</Link>
               </li>
             </ul>
           </Col>
@@ -95,15 +105,29 @@ function FooterComponent() {
             <h5 className="footer-heading">Service</h5>
             <ul className="footer-links">
               <li>
-                <Link href="https://wa.me/6285709346954">Info Turnamen</Link>
+                <a
+                  href="https://whatsapp.com/channel/0029Vb7zKjz1SWt5WHmcWB31"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Event & Turnamen
+                </a>
               </li>
               <li>
-                <a href="https://wa.me/6285709346954" target="_blank" rel="noopener noreferrer">
+                <a
+                  href="https://wa.me/6285709346954"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Daftar Member
                 </a>
               </li>
               <li>
-                <a href="https://chat.whatsapp.com/CDyNXvgyxwMG0c7idouoQR" target="_blank" rel="noopener noreferrer">
+                <a
+                  href="https://chat.whatsapp.com/CDyNXvgyxwMG0c7idouoQR"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Forum Diskusi
                 </a>
               </li>
@@ -119,7 +143,11 @@ function FooterComponent() {
             <ul className="contact-info-footer">
               <li>
                 <div className="contact-icon-footer whatsapp-icon">
-                  <a href="https://wa.me/6285709346954" target="_blank" rel="noopener noreferrer">
+                  <a
+                    href="https://wa.me/6285709346954"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <FaWhatsapp />
                   </a>
                 </div>
@@ -129,7 +157,11 @@ function FooterComponent() {
               </li>
               <li>
                 <div className="contact-icon-footer instagram-icon">
-                  <a href="https://www.instagram.com/hoklampung.official/" target="_blank" rel="noopener noreferrer">
+                  <a
+                    href="https://www.instagram.com/hoklampung.official/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <IoLogoInstagram />
                   </a>
                 </div>
@@ -214,13 +246,15 @@ function FooterComponent() {
           </Col>
           <Col lg={6} md={12} className="copyright-col">
             <div className="copyright-text">
-              <p>All rights reserved &copy; HOK Lampung Community {currentYear}</p>
+              <p>
+                All rights reserved &copy; HOK Lampung Community {currentYear}
+              </p>
             </div>
           </Col>
         </Row>
       </Container>
     </footer>
-  )
+  );
 }
 
-export default FooterComponent
+export default FooterComponent;

@@ -11,10 +11,21 @@ const limiter = rateLimit({
   limit: 10,
 })
 
-// Fungsi untuk validasi format PIN
+// Fungsi untuk validasi format PIN 16 digit
 const validatePinFormat = (pin) => {
-  // Cek apakah PIN mengandung huruf kecil
-  return !/[a-z]/.test(pin)
+  // Cek tidak ada huruf kecil
+  if (/[a-z]/.test(pin)) {
+    return { valid: false, reason: "lowercase" }
+  }
+  // Cek hanya mengandung huruf kapital, angka, dan tanda hubung
+  if (!/^[A-Z0-9-]+$/.test(pin)) {
+    return { valid: false, reason: "invalid_chars" }
+  }
+  // Cek panjang: minimal 16, maksimal 21 (16 + prefix 5)
+  if (pin.length < 16 || pin.length > 21) {
+    return { valid: false, reason: "invalid_length" }
+  }
+  return { valid: true }
 }
 
 export async function POST(request) {
@@ -39,10 +50,27 @@ export async function POST(request) {
       return NextResponse.json({ error: "Kode pin harus diisi" }, { status: 400 })
     }
 
-        // Validasi format PIN - harus huruf kapital semua
-    if (!validatePinFormat(pinCode)) {
-      logger.info(`Percobaan validasi pin gagal: PIN mengandung huruf kecil (${pinCode})`)
-      return NextResponse.json({ error: "PIN code harus huruf kapital semua" }, { status: 400 })
+    // Validasi format PIN dengan detail error
+    const formatValidation = validatePinFormat(pinCode)
+    if (!formatValidation.valid) {
+      let errorMessage = "PIN code tidak valid"
+      
+      switch (formatValidation.reason) {
+        case "lowercase":
+          errorMessage = "PIN code harus huruf kapital semua"
+          logger.info(`Percobaan validasi pin gagal: PIN mengandung huruf kecil (${pinCode})`)
+          break
+        case "invalid_chars":
+          errorMessage = "PIN code hanya boleh berisi huruf kapital, angka, dan tanda (-)"
+          logger.info(`Percobaan validasi pin gagal: PIN mengandung karakter tidak valid (${pinCode})`)
+          break
+        case "invalid_length":
+          errorMessage = "PIN code harus 16-21 karakter"
+          logger.info(`Percobaan validasi pin gagal: PIN panjang tidak sesuai (${pinCode.length} karakter)`)
+          break
+      }
+      
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
 
     // Cari pin di database
@@ -60,15 +88,16 @@ export async function POST(request) {
     }
 
     // Pin valid
-    logger.info(`Pin berhasil divalidasi: ${pinCode}`)
+    logger.info(`Pin berhasil divalidasi: ${pinCode} (16 digit)`)
     return NextResponse.json({
       status: "success",
-      message: "PIN code valid",
+      message: "PIN code valid (16 digit)",
       data: {
         pin: {
           id: pin._id,
           code: pin.code,
           isValid: pin.isValid,
+          length: pin.code.length,
         },
       },
     })

@@ -8,6 +8,7 @@
   --admin-danger: #ff6b6b;
   --admin-dark: #1a1612; 
   --admin-card: #2d2419;
+
   --admin-light: #f6f8fd;
   --admin-border: rgba(245, 171, 29, 0.2);
   --admin-hover: rgba(245, 171, 29, 0.1);
@@ -1009,4 +1010,61 @@ canvas {
 /* Error states */
 .error-glow {
   box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+}
+
+/* Form Error Validation Styles */
+
+/* Ensure error messages display properly */
+.invalid-feedback {
+  display: block !important;
+  color: var(--admin-danger);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  font-weight: 400;
+}
+
+/* Error state for form inputs */
+.form-control.is-invalid,
+.form-select.is-invalid,
+.contact-input.is-invalid {
+  border-color: var(--admin-danger);
+  background-color: rgba(255, 107, 107, 0.05);
+  box-shadow: 0 0 0 0.25rem rgba(255, 107, 107, 0.15);
+}
+
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus,
+.contact-input.is-invalid:focus {
+  border-color: var(--admin-danger);
+  box-shadow: 0 0 0 0.25rem rgba(255, 107, 107, 0.25);
+}
+
+/* Button success and error states */
+.kontak-button.btn-success,
+.btn.btn-success {
+  background: linear-gradient(135deg, #00f5a0 0%, #00d9f5 100%);
+  border: none;
+  color: var(--admin-dark);
+}
+
+.kontak-button.btn-danger,
+.btn.btn-danger {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+  border: none;
+  color: white;
+}
+
+/* Remove default validation icons */
+.form-control.is-invalid,
+.form-select.is-invalid,
+.contact-input.is-invalid {
+  background-image: none;
+  padding-right: 0.75rem;
+}
+
+/* Smooth transition for error states */
+.form-control,
+.form-select,
+.contact-input {
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out;
 }

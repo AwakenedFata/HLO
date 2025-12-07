@@ -38,8 +38,7 @@ function SponsorsComponent() {
 
   return (
     <div
-      id="partners"
-      className="sponsors-section w-100 min-vh-100 d-flex align-items-center position-relative overflow-container"
+      id="partners" className="sponsors-section w-100 min-vh-100 d-flex align-items-center position-relative overflow-container"
     >
       <Container>
         {/* Title */}
@@ -74,7 +73,7 @@ function SponsorsComponent() {
                         onTouchEnd={handleTouchEnd}
                       >
                         <img
-                          src="/assets/Sponsor & Partner/persegi panjang.png"
+                          src="/assets/SponsorAndPartner/persegi-panjang.png"
                           alt="Card Background"
                           className="sponsor-card-bg"
                         />
@@ -118,7 +117,7 @@ function SponsorsComponent() {
                           onTouchEnd={handleTouchEnd}
                         >
                           <img
-                            src="/assets/Sponsor & Partner/persegi panjang.png"
+                            src="/assets/SponsorAndPartner/persegi-panjang.png"
                             alt="Card Background"
                             className="sponsor-card-bg"
                           />

@@ -43,7 +43,7 @@ export async function POST(request) {
     const parsed = Papa.parse(fileContent, { 
       header: true, 
       skipEmptyLines: true,
-      delimiter: ",", // Explicit comma delimiter untuk mengatasi auto-detect error
+      delimiter: ",",
     })
     
     if (parsed.errors.length > 0) {
@@ -63,22 +63,42 @@ export async function POST(request) {
     existingPinDocs.forEach((p) => existingPins.add(p.code))
 
     for (const [idx, row] of parsed.data.entries()) {
-      const code = row["PIN Code"]?.trim()
+      const code = row["PIN Code"]?.trim().toUpperCase()
+      
       if (!code) {
         errors.push(`Row ${idx + 1}: Empty PIN code`)
         continue
       }
+      
+      // Validasi format: harus 16 karakter atau lebih (jika ada prefix max 21)
+      if (code.length < 16) {
+        errors.push(`Row ${idx + 1}: PIN code "${code}" harus minimal 16 karakter`)
+        continue
+      }
+      
+      if (code.length > 21) {
+        errors.push(`Row ${idx + 1}: PIN code "${code}" maksimal 21 karakter (16 digit + prefix 5 karakter)`)
+        continue
+      }
+      
+      // Validasi karakter: hanya huruf kapital, angka, dan tanda hubung
+      if (!/^[A-Z0-9-]+$/.test(code)) {
+        errors.push(`Row ${idx + 1}: PIN code "${code}" hanya boleh berisi huruf kapital, angka, dan tanda -`)
+        continue
+      }
+      
       if (existingPins.has(code)) {
         errors.push(`PIN ${code} already exists in the database`)
         continue
       }
+      
       existingPins.add(code)
       pins.push({
         code,
         used: false,
         processed: false,
         createdAt: new Date(),
-        createdBy: adminId, // Admin._id
+        createdBy: adminId,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       })
     }
@@ -95,14 +115,14 @@ export async function POST(request) {
       importedCount += result.length
     }
 
-    logger.info(`${importedCount} PIN imported by ${session.user.email}`)
+    logger.info(`${importedCount} PIN (16 digit) imported by ${session.user.email}`)
 
     return NextResponse.json(
       {
         success: true,
         imported: importedCount,
         errors: errors.length > 0 ? errors : undefined,
-        message: `Successfully imported ${importedCount} PINs${errors.length > 0 ? ` with ${errors.length} errors` : ""}`,
+        message: `Successfully imported ${importedCount} PINs (16 digit)${errors.length > 0 ? ` with ${errors.length} errors` : ""}`,
       },
       {
         headers: {

@@ -13,6 +13,7 @@ import {
   FaTimes,
   FaRegImages,
   FaExclamationCircle,
+  FaEnvelope,
 } from "react-icons/fa"
 import { RiArticleFill } from "react-icons/ri"
 import { AiFillProduct } from "react-icons/ai";
@@ -305,8 +306,8 @@ function AdminLayout({ children }) {
               </Link>
             </li>
             <li className="nav-item">
-              <Link href="/admin/product" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
-                <AiFillProduct className="me-2" /> Manajemen Produk
+              <Link href="/admin/mails" className="nav-link d-flex align-items-center" onClick={handleNavLinkClick}>
+                <FaEnvelope className="me-2" /> User's Mails
               </Link>
             </li>
             <li className="nav-item">

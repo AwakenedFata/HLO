@@ -7,11 +7,12 @@ import JoinUsComponent from "@/components/JoinUsComponent"
 import ContactFormComponent from "@/components/ContactFormComponent"
 import GalleryComponent from "@/components/GalleryComponent"
 
+
 const HomePage = () => {
   return (
     <div className="main-background">
       <HeroComponent />
-      <CommunityComponent id="aboutus" class="aboutus" />
+      <CommunityComponent />
       <GalleryComponent />
       <JoinUsComponent />
       <SponsorsComponent />

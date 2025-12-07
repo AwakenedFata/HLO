@@ -14,7 +14,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/svg+xml" href="/logoheading.png" />
+        <link rel="icon" type="image/svg+xml" href="/logosvg.png" />
         <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@700&display=swap" rel="stylesheet" />
       </head>
       <body>

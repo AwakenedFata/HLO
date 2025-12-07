@@ -5,20 +5,31 @@ import logger from "@/lib/utils/logger-server"
 import { validateRequest, pinRedemptionSchema } from "@/lib/utils/validation"
 import { rateLimit } from "@/lib/utils/rate-limit"
 
-// Rate limiter for PIN redemption (5 attempts per hour)
 const limiter = rateLimit({
   interval: 60 * 60 * 1000, // 1 hour
   uniqueTokenPerInterval: 500, // Max 500 users per interval
   limit: 5,
 })
 
-// Fungsi untuk validasi format PIN - harus huruf kapital semua
+// Validasi format PIN untuk 16 digit
 const validatePinFormat = (pin) => {
-  return !/[a-z]/.test(pin)
+  // Cek tidak ada huruf kecil
+  if (/[a-z]/.test(pin)) {
+    return { valid: false, reason: "lowercase" }
+  }
+  // Cek hanya mengandung huruf kapital, angka, dan tanda hubung
+  if (!/^[A-Z0-9-]+$/.test(pin)) {
+    return { valid: false, reason: "invalid_chars" }
+  }
+  // Cek panjang: minimal 16, maksimal 21 (16 + prefix 5)
+  if (pin.length < 16 || pin.length > 21) {
+    return { valid: false, reason: "invalid_length" }
+  }
+  return { valid: true }
 }
+
 export async function POST(request) {
   try {
-    // Apply rate limiting
     const ip = request.headers.get("x-forwarded-for") || "unknown"
     const limitResult = await limiter.check(ip)
 
@@ -35,21 +46,35 @@ export async function POST(request) {
 
     const body = await request.json()
 
-    // Validate request
     const validation = await validateRequest(pinRedemptionSchema, body)
     if (!validation.success) {
       logger.warn(`Invalid PIN redemption request: ${JSON.stringify(validation.error)}`)
       return NextResponse.json(validation.error, { status: 400 })
     }
 
-    // Sanitasi input untuk mencegah NoSQL injection
     const { pinCode, idGame, nama } = validation.data
 
-    
-    // Validasi format PIN - harus huruf kapital semua
-    if (!validatePinFormat(pinCode)) {
-      logger.info(`Percobaan penggunaan pin gagal: PIN mengandung huruf kecil (${pinCode})`)
-      return NextResponse.json({ error: "PIN code harus huruf kapital semua" }, { status: 400 })
+    // Validasi format PIN dengan detail error
+    const formatValidation = validatePinFormat(pinCode)
+    if (!formatValidation.valid) {
+      let errorMessage = "PIN code tidak valid"
+      
+      switch (formatValidation.reason) {
+        case "lowercase":
+          errorMessage = "PIN code harus huruf kapital semua"
+          logger.info(`Percobaan penggunaan pin gagal: PIN mengandung huruf kecil (${pinCode})`)
+          break
+        case "invalid_chars":
+          errorMessage = "PIN code hanya boleh berisi huruf kapital, angka, dan tanda (-)"
+          logger.info(`Percobaan penggunaan pin gagal: PIN mengandung karakter tidak valid (${pinCode})`)
+          break
+        case "invalid_length":
+          errorMessage = "PIN code harus 16-21 karakter"
+          logger.info(`Percobaan penggunaan pin gagal: PIN panjang tidak sesuai (${pinCode.length} karakter)`)
+          break
+      }
+      
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
 
     // Cari pin di database
@@ -60,13 +85,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "PIN code tidak ditemukan" }, { status: 404 })
     }
 
-    // Periksa apakah pin masih valid
     if (pin.used) {
       logger.info(`Percobaan penggunaan pin gagal: Pin sudah digunakan (${pinCode})`)
       return NextResponse.json({ error: "PIN code sudah digunakan" }, { status: 409 })
     }
 
-    // ✅ PERBAIKAN: Simpan data dengan struktur yang benar
     const now = new Date()
 
     pin.used = true
@@ -80,7 +103,7 @@ export async function POST(request) {
 
     await pin.save()
 
-    logger.info(`Penggunaan pin berhasil: ${pinCode} untuk game ${idGame} oleh ${nama}`)
+    logger.info(`Penggunaan pin berhasil: ${pinCode} (16 digit) untuk game ${idGame} oleh ${nama}`)
 
     // Emit event untuk update real-time
     if (global.pinUpdateEmitter) {
@@ -90,6 +113,11 @@ export async function POST(request) {
         redeemedBy: pin.redeemedBy,
         redeemedAt: now,
       })
+    }
+
+    // Broadcast event untuk komponen lain
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pin-redeemed"))
     }
 
     return NextResponse.json(

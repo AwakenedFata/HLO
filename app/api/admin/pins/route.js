@@ -31,7 +31,6 @@ export async function GET(request) {
       )
     }
 
-    // PERBAIKAN: Gunakan pattern yang sama dengan Gallery
     const guard = await requireAdminSession()
     if (!guard.ok) {
       return NextResponse.json({ status: "error", message: guard.message }, { status: guard.status })
@@ -75,7 +74,7 @@ export async function GET(request) {
       "redeemedBy.idGame": 1,
       "redeemedBy.redeemedAt": 1,
     })
-      .sort({ code: 1 }) // Ascending sort by PIN code (alphanumeric)
+      .sort({ code: 1 })
       .skip(skip)
       .limit(limit)
       .lean()
@@ -184,6 +183,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Maksimum 1000 PIN dapat dibuat dalam satu permintaan" }, { status: 400 })
     }
 
+    // Validasi prefix tidak lebih dari 5 karakter
+    if (prefix && prefix.length > 5) {
+      return NextResponse.json({ error: "Prefix maksimal 5 karakter" }, { status: 400 })
+    }
+
     const batchSize = 100
     const pins = []
     const now = new Date()
@@ -192,20 +196,21 @@ export async function POST(request) {
       const batchCount = Math.min(batchSize, count - i)
       const batchPins = []
       for (let j = 0; j < batchCount; j++) {
-        const code = await generateUniquePin(prefix)
+        // Generate 16 digit PIN (atau 16 - prefix.length untuk bagian random)
+        const code = await generateUniquePin(prefix, 16)
         batchPins.push({ code, used: false, processed: false, createdAt: now, createdBy: adminId })
       }
       const result = await PinCode.insertMany(batchPins, { ordered: true })
       pins.push(...result)
     }
 
-    logger.info(`${pins.length} PIN baru dibuat oleh ${session.user.email}`)
+    logger.info(`${pins.length} PIN baru (16 digit) dibuat oleh ${session.user.email}`)
 
     return NextResponse.json(
       {
         success: true,
         count: pins.length,
-        message: `Berhasil generate ${pins.length} PIN baru`,
+        message: `Berhasil generate ${pins.length} PIN baru (16 digit)`,
         timestamp: now.toISOString(),
       },
       {

@@ -1,11 +1,11 @@
 const gallery1 = "/assets/Gallery/kiri.png";
 const gallery2 = "/assets/Gallery/tengah.png";
 const gallery3 = "/assets/Gallery/kanan.png";
-const partner1 = "/assets/Sponsor & Partner/ESI.png";
-const partner2 = "/assets/Sponsor & Partner/Ace Logo Revamp PNG black.png";
-const partner3 = "/assets/Sponsor & Partner/VNX.png";
-const partner4 = "/assets/serialnumber/HLO ID 2.avif";
-const partner5 = "/assets/Sponsor & Partner/vincent production.png";
+const partner1 = "/assets/SponsorAndPartner/ESI.png";
+const partner2 = "/assets/SponsorAndPartner/Ace-Logo-Revamp-PNG-black.png";
+const partner3 = "/assets/SponsorAndPartner/VNX.png";
+const partner4 = "/assets/serialnumber/HLO-ID-2.avif";
+const partner5 = "/assets/SponsorAndPartner/vincent-production.png";
 
 const platformWhatsapp = "/assets/platforms/whatsapp-icon.png";
 const platformInstagram = "/assets/platforms/instagram-logo.png";
