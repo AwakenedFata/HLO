@@ -67,7 +67,7 @@ export const partners = [
     id: 4,
     image: partner4,
     name: "HLO",
-    url: "https://www.instagram.com/hlostore.official?igsh=eGFqODh1enBwcXUzhttps://www.instagram.com/hlostore.official?igsh=eGFqODh1enBwcXUz",
+    url: "https://www.instagram.com/hlo.officialid?igsh=MXdkamlnbnZucXUwZg==",
   },
   {
     id: 5,
