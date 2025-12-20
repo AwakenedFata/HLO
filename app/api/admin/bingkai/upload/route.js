@@ -46,10 +46,54 @@ export async function POST(request) {
     const formData = await request.formData()
     const file = formData.get("file")
 
-    // Direct Zod validation for File objects
+    if (!file) {
+      return NextResponse.json(
+        { error: "Validation failed", message: "File gambar harus diupload" },
+        { status: 400 }
+      )
+    }
+
+    // Check file size before validation
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Validation failed", message: "Ukuran file maksimal 10MB" },
+        { status: 400 }
+      )
+    }
+
+    const fileType = file.type?.toLowerCase()
+    const fileName = file.name?.toLowerCase()
+    const validTypes = ["image/jpeg", "image/jpg", "image/avif", "image/png", "image/webp"]
+    const validExtensions = [".jpg", ".jpeg", ".avif", ".png", ".webp"]
+
+    const isValidType = fileType && validTypes.includes(fileType)
+    const isValidExtension = fileName && validExtensions.some((ext) => fileName.endsWith(ext))
+
+    if (!isValidType && !isValidExtension) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          message: "Format file harus JPG, PNG, AVIF, atau WebP",
+          details: {
+            received: fileType || "unknown",
+            fileName: fileName || "unknown",
+          },
+        },
+        { status: 400 }
+      )
+    }
+
     const validationResult = imageUploadSchema.safeParse({ file })
     if (!validationResult.success) {
-      return NextResponse.json({ message: "Validation failed", errors: validationResult.error.errors }, { status: 400 })
+      logger.warn("Frame upload validation failed:", validationResult.error.errors)
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          message: "File gambar tidak valid",
+          errors: validationResult.error.errors,
+        },
+        { status: 400 }
+      )
     }
 
     const bytes = await file.arrayBuffer()
@@ -63,7 +107,7 @@ export async function POST(request) {
     }
 
     const uploadResult = await uploadToS3(fileForUpload, "frames")
-    logger.info(`Frame image uploaded to S3 by ${adminUser?.email || "admin"}: ${uploadResult.key}`)
+    logger.info(`Frame image uploaded to S3 by ${adminUser?.email || "admin"}: ${uploadResult.key} (${file.type})`)
 
     return NextResponse.json(
       {

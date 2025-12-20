@@ -130,6 +130,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         disabled={loading}
                         className={`contact-input ${fieldErrors.name ? "is-invalid" : ""}`}
+                        suppressHydrationWarning
                       />
                       {fieldErrors.name && <div className="invalid-feedback d-block">{fieldErrors.name}</div>}
                     </Form.Group>
@@ -144,6 +145,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         disabled={loading}
                         className={`contact-input ${fieldErrors.email ? "is-invalid" : ""}`}
+                        suppressHydrationWarning
                       />
                       {fieldErrors.email && <div className="invalid-feedback d-block">{fieldErrors.email}</div>}
                     </Form.Group>
@@ -158,6 +160,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         disabled={loading}
                         className={`contact-input ${fieldErrors.subject ? "is-invalid" : ""}`}
+                        suppressHydrationWarning
                       />
                       {fieldErrors.subject && <div className="invalid-feedback d-block">{fieldErrors.subject}</div>}
                     </Form.Group>
@@ -173,6 +176,7 @@ function ContactFormComponent() {
                         onChange={handleChange}
                         disabled={loading}
                         className={`contact-input ${fieldErrors.message ? "is-invalid" : ""}`}
+                        suppressHydrationWarning
                       />
                       {fieldErrors.message && <div className="invalid-feedback d-block">{fieldErrors.message}</div>}
                     </Form.Group>
@@ -190,6 +194,7 @@ function ContactFormComponent() {
                         : ""
                     }`}
                     disabled={loading}
+                    suppressHydrationWarning
                   >
                     {renderButtonText()}
                   </button>

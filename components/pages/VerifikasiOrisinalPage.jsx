@@ -439,12 +439,23 @@ const OverlaySecondaryButton = styled.button`
 
 function buildPdfUrlFromResult(result, fallbackCode) {
   const safeCode = (result?.data?.code || fallbackCode || "").toUpperCase()
-  const fullLocation = result?.data?.verificationLocation?.fullLocation || "Indonesia"
+  
+  let locationParam = ""
+  
+  if (result?.data?.verificationLocation) {
+    const loc = result.data.verificationLocation
+    
+    if (loc.denied === true || !loc.fullLocation || loc.fullLocation.trim() === "") {
+      locationParam = "" 
+    } else {
+      locationParam = loc.fullLocation
+    }
+  }
 
   const params = new URLSearchParams({
     code: safeCode,
     issuedOn: result?.data?.verifiedAt || new Date().toISOString(),
-    location: fullLocation,
+    location: locationParam,
   })
 
   return `/api/verification-pdf?${params.toString()}`
@@ -481,7 +492,10 @@ async function getBrowserLocation() {
             resolve(null)
           }
         },
-        () => resolve(null),
+        () => {
+          console.log("[Location] User denied permission")
+          resolve(null)
+        },
         { enableHighAccuracy: false, timeout: 3000 },
       )
     })
@@ -601,7 +615,7 @@ export default function VerifikasiOrisinalPage() {
         body: JSON.stringify({
           code: fullCode,
           fingerprint,
-          browserLocation,
+          browserLocation, 
         }),
       })
 
@@ -655,7 +669,6 @@ export default function VerifikasiOrisinalPage() {
 
   const showForm = !result
 
-  // Pre-generate PDF setelah verifikasi sukses
   useEffect(() => {
     let active = true
     let currentObjectUrl = null

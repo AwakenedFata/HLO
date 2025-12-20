@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { revalidatePath } from 'next/cache'
 import connectToDatabase from "@/lib/db"
 import Banner from "@/lib/models/banner"
 import { requireAdmin, requireAdminSession } from "@/lib/utils/auth"
@@ -52,7 +53,16 @@ export async function GET(request, { params }) {
 
     logger.info(`Banner item ${id} fetched by ${session.user.email}`)
 
-    return NextResponse.json({ success: true, banner })
+    return NextResponse.json(
+      { success: true, banner },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        }
+      }
+    )
   } catch (error) {
     const status = error?.statusCode || 500
     if (status === 401 || status === 403) {
@@ -116,15 +126,24 @@ export async function PUT(request, { params }) {
 
     logger.info(`Banner item ${id} updated by ${session.user.email}`)
 
+    try {
+      revalidatePath('/gallery')
+      revalidatePath('/', 'layout')
+      logger.info('Gallery page revalidated after banner update')
+    } catch (revalError) {
+      logger.warn('Failed to revalidate paths:', revalError)
+    }
+
     return NextResponse.json(
       { success: true, banner, message: "Banner item berhasil diupdate" },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
+          "Pragma": "no-cache",
+          "Expires": "0",
           "X-Data-Updated": "true",
           "X-Update-Type": "banner-updated",
+          "X-Revalidated": "true",
         },
       },
     )
@@ -169,7 +188,6 @@ export async function DELETE(request, { params }) {
     const banner = await Banner.findById(id)
     if (!banner) return NextResponse.json({ error: "Banner item not found" }, { status: 404 })
 
-    // best-effort delete from S3
     try {
       if (banner.imageKey) {
         await deleteFromS3(banner.imageKey)
@@ -183,15 +201,24 @@ export async function DELETE(request, { params }) {
 
     logger.info(`Banner item ${id} deleted by ${session.user.email}`)
 
+    try {
+      revalidatePath('/gallery')
+      revalidatePath('/', 'layout')
+      logger.info('Gallery page revalidated after banner deletion')
+    } catch (revalError) {
+      logger.warn('Failed to revalidate paths:', revalError)
+    }
+
     return NextResponse.json(
       { success: true, message: "Banner item berhasil dihapus" },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
+          "Pragma": "no-cache",
+          "Expires": "0",
           "X-Data-Updated": "true",
           "X-Update-Type": "banner-deleted",
+          "X-Revalidated": "true",
         },
       },
     )

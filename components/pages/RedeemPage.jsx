@@ -32,6 +32,10 @@ const PageWrapper = styled.div`
   @media (max-width: 410px) {
     padding: 60px 15px 40px 15px;
   }
+
+  @media (max-width: 380px) {
+    padding: 100px 15px 40px 15px;
+  }
 `;
 
 const RedeemContainer = styled.div`
@@ -461,12 +465,10 @@ function RedeemPage() {
   const bgRedeemFormAndLogo = "/assets/Redeem/1.avif";
   const bgRedeemMobile = "/assets/Redeem/2.avif";
 
-  // Handle mounting state
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle window resize
   useEffect(() => {
     if (!mounted) return;
     
@@ -481,20 +483,17 @@ function RedeemPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, [mounted]);
 
-  // Validasi format PIN: hanya huruf kapital, angka, dan tanda hubung
   const validatePinFormat = (pin) => {
     // Cek tidak ada huruf kecil
     if (/[a-z]/.test(pin)) {
       return false;
     }
-    // Cek hanya mengandung huruf kapital, angka, dan tanda hubung
     if (!/^[A-Z0-9-]+$/.test(pin)) {
       return false;
     }
     return true;
   };
 
-  // Validasi panjang PIN: minimal 16 karakter, maksimal 21 (16 + prefix 5)
   const validatePinLength = (pin) => {
     return pin.length >= 16 && pin.length <= 21;
   };
@@ -503,7 +502,6 @@ function RedeemPage() {
     const value = e.target.value.toUpperCase().trim();
     setPinCode(value);
     
-    // Reset semua error saat user mengetik
     setError({
       emptyFields: false,
       invalidPin: false,
@@ -517,7 +515,6 @@ function RedeemPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validasi field kosong
     const emptyFields = !pinCode || !idGame || !nama;
     if (emptyFields) {
       setError({
@@ -531,7 +528,6 @@ function RedeemPage() {
       return;
     }
 
-    // Validasi panjang PIN (16-21 karakter)
     if (!validatePinLength(pinCode)) {
       setError({
         emptyFields: false,
@@ -544,9 +540,7 @@ function RedeemPage() {
       return;
     }
 
-    // Validasi format PIN (hanya huruf kapital, angka, dan tanda hubung)
     if (!validatePinFormat(pinCode)) {
-      // Cek apakah mengandung huruf kecil
       if (/[a-z]/.test(pinCode)) {
         setError({
           emptyFields: false,
@@ -557,7 +551,6 @@ function RedeemPage() {
           invalidFormat: false,
         });
       } else {
-        // Format invalid (mengandung karakter tidak diperbolehkan)
         setError({
           emptyFields: false,
           invalidPin: false,

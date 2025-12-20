@@ -5,9 +5,9 @@ import VerifikasiOrisinalComponent from "@/components/pages/VerifikasiOrisinalPa
 function VerifikasiOrisinalPage() {
   return (
     <div className="serial-number-page w-100 min-vh-100">
-      <VerifikasiOrisinalPage />
+      <VerifikasiOrisinalComponent />
     </div>
   )
 }
 
-export default VerifikasiOrisinalComponent
+export default VerifikasiOrisinalPage

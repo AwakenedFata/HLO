@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 async function getLocationFromIP(ip) {
   const safeIP = ip === "::1" || ip === "127.0.0.1" ? "8.8.8.8" : ip.trim()
 
-  console.log("[v1] Resolving location for IP:", safeIP)
+  console.log("Resolving location for IP:", safeIP)
 
   const normalize = (region, country) => {
     const locationParts = []
@@ -21,7 +21,6 @@ async function getLocationFromIP(ip) {
     }
   }
 
-  // API 1: ipinfo.io
   try {
     const res = await fetch(`https://ipinfo.io/${safeIP}/json?token=9fcba8ab0a930d`, {
       cache: "no-store",
@@ -39,7 +38,6 @@ async function getLocationFromIP(ip) {
     console.error("[v1] ipinfo failed:", e)
   }
 
-  // API 2: ip-api.com
   try {
     const res = await fetch(`http://ip-api.com/json/${safeIP}?fields=66846719`, { cache: "no-store" })
 
@@ -55,7 +53,6 @@ async function getLocationFromIP(ip) {
     console.error("[v1] ip-api failed:", e)
   }
 
-  // API 3: geoip-db.com
   try {
     const res = await fetch(`https://geoip-db.com/json/${safeIP}`, { cache: "no-store" })
 
@@ -103,7 +100,16 @@ export async function POST(request) {
     let location
     const browserLoc = body.browserLocation
 
-    if (browserLoc?.country) {
+    if (browserLoc === null || browserLoc === undefined) {
+      console.log("User denied location permission")
+      location = {
+        province: "",
+        country: "",
+        fullLocation: "", 
+        denied: true, 
+      }
+    } else if (browserLoc?.country) {
+      // User memberikan izin lokasi
       const locationParts = []
       if (browserLoc.region) locationParts.push(browserLoc.region)
       if (browserLoc.country) locationParts.push(browserLoc.country)
@@ -112,9 +118,11 @@ export async function POST(request) {
         province: browserLoc.region || "",
         country: browserLoc.country || "",
         fullLocation: locationParts.join(", "),
+        denied: false,
       }
     } else {
       location = await getLocationFromIP(ip)
+      location.denied = false
     }
 
     console.log("[v1] Final location:", location)

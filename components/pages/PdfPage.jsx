@@ -233,7 +233,14 @@ export default function PdfPage({ serialNumber = "", issuedOn = "", location = "
     }
   } catch {}
 
-  const locationString = location ? String(location).trim() : "Lampung, Indonesia"
+  let locationString = "—" 
+  
+  if (location && String(location).trim()) {
+    const trimmedLocation = String(location).trim()
+    if (trimmedLocation !== "" && trimmedLocation !== "undefined" && trimmedLocation !== "null") {
+      locationString = trimmedLocation
+    }
+  }
 
   useEffect(() => {
     const imagesToPreload = ["/assets/serialnumber/Surat Originalitas ver 2.png"]
@@ -262,24 +269,20 @@ export default function PdfPage({ serialNumber = "", issuedOn = "", location = "
         if (document.fonts && document.fonts.ready) {
           await document.fonts.ready
           
-          // Double check fonts are actually loaded
           const bahnschriftLoaded = document.fonts.check('16px "Bahnschrift"')
           const corruptedLoaded = document.fonts.check('20px "Corrupted File"')
           
           console.log('Bahnschrift loaded:', bahnschriftLoaded)
           console.log('Corrupted File loaded:', corruptedLoaded)
           
-          // Wait a bit more to ensure fonts are rendered
           await new Promise(resolve => setTimeout(resolve, 300))
           
           setFontsLoaded(true)
           
-          // Signal to parent window that PDF is ready
           if (window.parent) {
             window.pdfReady = true
           }
         } else {
-          // Fallback for browsers without Font Loading API
           setTimeout(() => {
             setFontsLoaded(true)
             if (window.parent) {
@@ -289,7 +292,6 @@ export default function PdfPage({ serialNumber = "", issuedOn = "", location = "
         }
       } catch (error) {
         console.error('Font loading error:', error)
-        // Still proceed after timeout
         setTimeout(() => {
           setFontsLoaded(true)
           if (window.parent) {

@@ -1,9 +1,13 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useSession } from "next-auth/react"
-import ReactCrop, { centerCrop, makeAspectCrop, convertToPixelCrop } from "react-image-crop"
-import "react-image-crop/dist/ReactCrop.css"
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import ReactCrop, {
+  centerCrop,
+  makeAspectCrop,
+  convertToPixelCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import {
   Row,
   Col,
@@ -26,9 +30,9 @@ import {
   Toast,
   ToastContainer,
   Image,
-} from "react-bootstrap"
-import { useRouter } from "next/navigation"
-import axios from "axios"
+} from "react-bootstrap";
+import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
   FaPlus,
   FaSync,
@@ -51,14 +55,14 @@ import {
   FaLink,
   FaExpand,
   FaSearchPlus,
-} from "react-icons/fa"
+} from "react-icons/fa";
 
 // API instance
 // ---- Cache buster helper to avoid stale image URLs ----
 const withBuster = (url) => {
-  if (!url) return url
+  if (!url) return url;
   try {
-    const lower = url.toLowerCase()
+    const lower = url.toLowerCase();
     const isSigned =
       lower.includes("x-amz-") ||
       lower.includes("x-amz-signature") ||
@@ -66,40 +70,40 @@ const withBuster = (url) => {
       lower.includes("signature=") ||
       lower.includes("x-goog-signature") ||
       lower.includes("policy=") ||
-      lower.includes("expires=")
-    if (isSigned) return url // don't append anything for signed URLs to avoid 403
-    const sep = url.includes("?") ? "&" : "?"
-    return `${url}${sep}t=${Date.now()}`
+      lower.includes("expires=");
+    if (isSigned) return url; // don't append anything for signed URLs to avoid 403
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}t=${Date.now()}`;
   } catch {
-    return url
+    return url;
   }
-}
+};
 
 const api = axios.create({
   timeout: 30000,
-})
+});
 
 function GalleryManagement() {
-  const { status } = useSession()
-  const router = useRouter()
-  const fileInputRef = useRef(null)
-  const bannerFileInputRef = useRef(null)
-  const isMountedRef = useRef(false)
+  const { status } = useSession();
+  const router = useRouter();
+  const fileInputRef = useRef(null);
+  const bannerFileInputRef = useRef(null);
+  const isMountedRef = useRef(false);
 
   // Basic state
-  const [isClient, setIsClient] = useState(false)
-  const [authError, setAuthError] = useState(false)
-  const [galleries, setGalleries] = useState([])
-  const [filteredGalleries, setFilteredGalleries] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [dataLoaded, setDataLoaded] = useState(false)
-  const [error, setError] = useState("")
+  const [isClient, setIsClient] = useState(false);
+  const [authError, setAuthError] = useState(false);
+  const [galleries, setGalleries] = useState([]);
+  const [filteredGalleries, setFilteredGalleries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [error, setError] = useState("");
 
   // Toast notifications
-  const [toasts, setToasts] = useState([])
+  const [toasts, setToasts] = useState([]);
 
   // Form state
-  const [activeTab, setActiveTab] = useState("add")
+  const [activeTab, setActiveTab] = useState("add");
   const [formData, setFormData] = useState({
     title: "",
     label: "",
@@ -108,24 +112,24 @@ function GalleryManagement() {
     uploadDate: new Date().toISOString().split("T")[0],
     imageUrl: "",
     imageKey: "",
-  })
-  const [uploading, setUploading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  });
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Banner management state
   const [bannerData, setBannerData] = useState({
     imageUrl: "",
     imageKey: "",
-  })
-  const [currentBanner, setCurrentBanner] = useState(null)
-  const [bannerPreviewImage, setBannerPreviewImage] = useState(null)
-  const [selectedBannerFile, setSelectedBannerFile] = useState(null)
-  const [bannerUploading, setBannerUploading] = useState(false)
-  const [bannerSubmitting, setBannerSubmitting] = useState(false)
+  });
+  const [currentBanner, setCurrentBanner] = useState(null);
+  const [bannerPreviewImage, setBannerPreviewImage] = useState(null);
+  const [selectedBannerFile, setSelectedBannerFile] = useState(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerSubmitting, setBannerSubmitting] = useState(false);
 
   // Edit state
-  const [editingGallery, setEditingGallery] = useState(null)
-  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingGallery, setEditingGallery] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({
@@ -133,58 +137,58 @@ function GalleryManagement() {
     active: 0,
     inactive: 0,
     thisMonth: 0,
-  })
+  });
 
   // Selection and modals
-  const [selectedGalleries, setSelectedGalleries] = useState([])
-  const [selectAll, setSelectAll] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [galleryToDelete, setGalleryToDelete] = useState(null)
-  const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false)
-  const [deletingMultiple, setDeletingMultiple] = useState(false)
+  const [selectedGalleries, setSelectedGalleries] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [galleryToDelete, setGalleryToDelete] = useState(null);
+  const [showDeleteMultipleModal, setShowDeleteMultipleModal] = useState(false);
+  const [deletingMultiple, setDeletingMultiple] = useState(false);
 
   // Filtering and search
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [searchTerm, setSearchTerm] = useState("")
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
-  const [totalItems, setTotalItems] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const [previewImage, setPreviewImage] = useState(null)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [showCropModal, setShowCropModal] = useState(false)
-  const [crop, setCrop] = useState()
-  const [completedCrop, setCompletedCrop] = useState()
-  const [aspectRatio, setAspectRatio] = useState(16 / 9)
-  const [imgRef, setImgRef] = useState()
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [crop, setCrop] = useState();
+  const [completedCrop, setCompletedCrop] = useState();
+  const [aspectRatio, setAspectRatio] = useState(16 / 9);
+  const [imgRef, setImgRef] = useState();
 
   // Image viewer modal states
-  const [showImageModal, setShowImageModal] = useState(false)
-  const [selectedImageUrl, setSelectedImageUrl] = useState("")
-  const [selectedImageTitle, setSelectedImageTitle] = useState("")
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState("");
+  const [selectedImageTitle, setSelectedImageTitle] = useState("");
 
-  const [bannerToDelete, setBannerToDelete] = useState(null)
-  const [showBannerDeleteModal, setShowBannerDeleteModal] = useState(false)
-  const [bannerDeleting, setBannerDeleting] = useState(false)
-  const [showBannerCropModal, setShowBannerCropModal] = useState(false)
-  const [bannerCrop, setBannerCrop] = useState()
-  const [bannerCompletedCrop, setBannerCompletedCrop] = useState()
-  const [bannerCropImage, setBannerCropImage] = useState(null)
-  const [bannerImgRef, setBannerImgRef] = useState()
+  const [bannerToDelete, setBannerToDelete] = useState(null);
+  const [showBannerDeleteModal, setShowBannerDeleteModal] = useState(false);
+  const [bannerDeleting, setBannerDeleting] = useState(false);
+  const [showBannerCropModal, setShowBannerCropModal] = useState(false);
+  const [bannerCrop, setBannerCrop] = useState();
+  const [bannerCompletedCrop, setBannerCompletedCrop] = useState();
+  const [bannerCropImage, setBannerCropImage] = useState(null);
+  const [bannerImgRef, setBannerImgRef] = useState();
 
-  const [bannerAspectRatio, setBannerAspectRatio] = useState(16 / 5)
+  const [bannerAspectRatio, setBannerAspectRatio] = useState(16 / 5);
 
   // Frame management state
-  const [frames, setFrames] = useState([])
+  const [frames, setFrames] = useState([]);
   const [frameStats, setFrameStats] = useState({
     total: 0,
     active: 0,
     inactive: 0,
     thisMonth: 0,
-  })
+  });
   const [frameFormData, setFrameFormData] = useState({
     relatedGallery: "",
     imageUrl: "",
@@ -192,55 +196,57 @@ function GalleryManagement() {
     originalName: "",
     fileSize: 0,
     mimeType: "",
-  })
-  const [frameUploading, setFrameUploading] = useState(false)
-  const [frameSubmitting, setFrameSubmitting] = useState(false)
-  const [framePreviewImage, setFramePreviewImage] = useState(null)
-  const [selectedFrameFile, setSelectedFrameFile] = useState(null)
-  const frameFileInputRef = useRef(null)
-  const [showFrameDeleteModal, setShowFrameDeleteModal] = useState(false)
-  const [frameToDelete, setFrameToDelete] = useState(null)
-  const [frameDeleting, setFrameDeleting] = useState(false)
+  });
+  const [frameUploading, setFrameUploading] = useState(false);
+  const [frameSubmitting, setFrameSubmitting] = useState(false);
+  const [framePreviewImage, setFramePreviewImage] = useState(null);
+  const [selectedFrameFile, setSelectedFrameFile] = useState(null);
+  const frameFileInputRef = useRef(null);
+  const [showFrameDeleteModal, setShowFrameDeleteModal] = useState(false);
+  const [frameToDelete, setFrameToDelete] = useState(null);
+  const [frameDeleting, setFrameDeleting] = useState(false);
 
-  const [noCrop, setNoCrop] = useState(false)
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState("16-9")
+  const [noCrop, setNoCrop] = useState(false);
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState("16-9");
 
   // Toast helper
   const addToast = useCallback((message, type = "success", duration = 5000) => {
-    const id = Date.now()
+    const id = Date.now();
     const toast = {
       id,
       message,
       type,
       duration,
-    }
-    setToasts((prev) => [...prev, toast])
+    };
+    setToasts((prev) => [...prev, toast]);
 
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, duration)
-  }, [])
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, duration);
+  }, []);
 
   const checkAuth = useCallback(() => {
     if (status !== "authenticated") {
-      console.log("⏳ Waiting for authentication..., current status:", status)
-      return null
+      console.log("⏳ Waiting for authentication..., current status:", status);
+      return null;
     }
-    return true
-  }, [status])
+    return true;
+  }, [status]);
 
   // Fetch galleries
   const fetchGalleries = useCallback(
     async (page = 1, limit = 20) => {
-      if (!isMountedRef.current) return
+      if (!isMountedRef.current) return;
 
       if (status !== "authenticated") {
-        console.log("⏳ Waiting for authentication before fetching galleries...")
-        return
+        console.log(
+          "⏳ Waiting for authentication before fetching galleries..."
+        );
+        return;
       }
 
-      setLoading(true)
-      setError("")
+      setLoading(true);
+      setError("");
 
       try {
         const params = {
@@ -248,122 +254,127 @@ function GalleryManagement() {
           limit,
           search: searchTerm,
           status: filterStatus,
-        }
+        };
 
         const response = await api.get("/api/admin/galeri", {
           params,
-        })
+        });
 
         if (isMountedRef.current) {
-          setGalleries(response.data.galleries)
-          setFilteredGalleries(response.data.galleries)
-          setStats(response.data.stats)
-          setCurrentPage(response.data.pagination.current)
-          setTotalPages(response.data.pagination.total)
-          setTotalItems(response.data.pagination.totalItems)
-          setDataLoaded(true)
+          setGalleries(response.data.galleries);
+          setFilteredGalleries(response.data.galleries);
+          setStats(response.data.stats);
+          setCurrentPage(response.data.pagination.current);
+          setTotalPages(response.data.pagination.total);
+          setTotalItems(response.data.pagination.totalItems);
+          setDataLoaded(true);
         }
       } catch (error) {
-        if (!isMountedRef.current) return
+        if (!isMountedRef.current) return;
 
         if (error.response?.status === 401) {
-          setAuthError(true)
-          router.push("/admin/login")
+          setAuthError(true);
+          router.push("/admin/login");
         } else {
-          setError("Gagal mengambil data gallery: " + (error.response?.data?.error || error.message))
+          setError(
+            "Gagal mengambil data gallery: " +
+              (error.response?.data?.error || error.message)
+          );
         }
       } finally {
         if (isMountedRef.current) {
-          setLoading(false)
+          setLoading(false);
         }
       }
     },
-    [status, searchTerm, filterStatus, router],
-  )
+    [status, searchTerm, filterStatus, router]
+  );
 
   // Fetch current banner
   const fetchCurrentBanner = useCallback(async () => {
     if (status !== "authenticated") {
-      console.log("⏳ Waiting for authentication before fetching banner...")
-      return null
+      console.log("⏳ Waiting for authentication before fetching banner...");
+      return null;
     }
 
     try {
       const response = await api.get("/api/admin/banner/current", {
         params: { _t: Date.now() },
         headers: { "Cache-Control": "no-cache" },
-      })
+      });
 
       if (response.data.success && response.data.banner) {
         const banner = {
           ...response.data.banner,
           // gunakan URL asli (signed URL) tanpa menambah query agar tidak invalid
           imageUrl: response.data.banner.imageUrl,
-        }
-        setCurrentBanner(banner)
-        return banner
+        };
+        setCurrentBanner(banner);
+        return banner;
       } else {
-        setCurrentBanner(null)
-        return null
+        setCurrentBanner(null);
+        return null;
       }
     } catch (error) {
-      console.log("No current banner found or error fetching banner:", error)
-      setCurrentBanner(null)
-      return null
+      console.log("No current banner found or error fetching banner:", error);
+      setCurrentBanner(null);
+      return null;
     }
-  }, [status])
+  }, [status]);
 
   const handleBannerDelete = async () => {
-    if (!bannerToDelete) return
+    if (!bannerToDelete) return;
 
-    setBannerDeleting(true)
+    setBannerDeleting(true);
     try {
-      const token = checkAuth()
-      if (!token) return
+      const token = checkAuth();
+      if (!token) return;
 
-      const response = await api.delete(`/api/admin/banner/${bannerToDelete._id}`)
+      const response = await api.delete(
+        `/api/admin/banner/${bannerToDelete._id}`
+      );
 
       if (response.data.success) {
-        setCurrentBanner(null)
-        await fetchCurrentBanner()
-        addToast("Banner berhasil dihapus!", "success")
-        setShowBannerDeleteModal(false)
-        setBannerToDelete(null)
+        setCurrentBanner(null);
+        await fetchCurrentBanner();
+        addToast("Banner berhasil dihapus!", "success");
+        setShowBannerDeleteModal(false);
+        setBannerToDelete(null);
       }
     } catch (error) {
-      console.error("Error deleting banner:", error)
-      addToast("Gagal menghapus banner. Silakan coba lagi.", "error")
+      console.error("Error deleting banner:", error);
+      addToast("Gagal menghapus banner. Silakan coba lagi.", "error");
     } finally {
-      setBannerDeleting(false)
+      setBannerDeleting(false);
     }
-  }
+  };
 
   const handleBannerFileSelect = (file) => {
     if (file) {
-      setBannerPreviewImage(null)
+      setBannerPreviewImage(null);
       setBannerData({
         imageUrl: "",
         imageKey: "",
-      })
+      });
 
-      setSelectedBannerFile(file)
-      const reader = new FileReader()
+      setSelectedBannerFile(file);
+      const reader = new FileReader();
       reader.onload = () => {
-        setBannerCropImage(reader.result)
-        setShowBannerCropModal(true)
-      }
+        setBannerCropImage(reader.result);
+        setShowBannerCropModal(true);
+      };
       reader.onerror = (error) => {
-        console.error("Error reading file:", error)
-        addToast("Gagal membaca file gambar", "error")
-      }
-      reader.readAsDataURL(file)
+        console.error("Error reading file:", error);
+        addToast("Gagal membaca file gambar", "error");
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   const onImageLoad = useCallback(
     (e) => {
       if (aspectRatio) {
-        const { width, height } = e.currentTarget
+        const { width, height } = e.currentTarget;
         setCrop(
           centerCrop(
             makeAspectCrop(
@@ -373,21 +384,21 @@ function GalleryManagement() {
               },
               aspectRatio,
               width,
-              height,
+              height
             ),
             width,
-            height,
-          ),
-        )
+            height
+          )
+        );
       }
-      setImgRef(e.currentTarget)
+      setImgRef(e.currentTarget);
     },
-    [aspectRatio],
-  )
+    [aspectRatio]
+  );
 
   const onBannerImageLoad = useCallback(
     (e) => {
-      const { width, height } = e.currentTarget
+      const { width, height } = e.currentTarget;
       setBannerCrop(
         centerCrop(
           makeAspectCrop(
@@ -397,42 +408,46 @@ function GalleryManagement() {
             },
             bannerAspectRatio,
             width,
-            height,
+            height
           ),
           width,
-          height,
-        ),
-      )
-      setBannerImgRef(e.currentTarget)
+          height
+        )
+      );
+      setBannerImgRef(e.currentTarget);
     },
-    [bannerAspectRatio],
-  )
+    [bannerAspectRatio]
+  );
 
   const createBannerCroppedImage = useCallback(async () => {
     try {
-      if (!bannerImgRef || !bannerCompletedCrop) return null
+      if (!bannerImgRef || !bannerCompletedCrop) return null;
 
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
       if (!ctx) {
-        throw new Error("No 2d context")
+        throw new Error("No 2d context");
       }
 
-      const pixelRatio = window.devicePixelRatio
-      const pixelCrop = convertToPixelCrop(bannerCompletedCrop, bannerImgRef.naturalWidth, bannerImgRef.naturalHeight)
+      const pixelRatio = window.devicePixelRatio;
+      const pixelCrop = convertToPixelCrop(
+        bannerCompletedCrop,
+        bannerImgRef.naturalWidth,
+        bannerImgRef.naturalHeight
+      );
 
-      const scaleX = bannerImgRef.naturalWidth / bannerImgRef.width
-      const scaleY = bannerImgRef.naturalHeight / bannerImgRef.height
+      const scaleX = bannerImgRef.naturalWidth / bannerImgRef.width;
+      const scaleY = bannerImgRef.naturalHeight / bannerImgRef.height;
 
-      canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio)
-      canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio)
+      canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio);
+      canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio);
 
-      ctx.scale(pixelRatio, pixelRatio)
-      ctx.imageSmoothingQuality = "high"
+      ctx.scale(pixelRatio, pixelRatio);
+      ctx.imageSmoothingQuality = "high";
 
-      const cropX = pixelCrop.x * scaleX
-      const cropY = pixelCrop.y * scaleY
+      const cropX = pixelCrop.x * scaleX;
+      const cropY = pixelCrop.y * scaleY;
 
       ctx.drawImage(
         bannerImgRef,
@@ -443,8 +458,8 @@ function GalleryManagement() {
         0,
         0,
         pixelCrop.width * scaleX,
-        pixelCrop.height * scaleY,
-      )
+        pixelCrop.height * scaleY
+      );
 
       return new Promise((resolve, reject) => {
         canvas.toBlob(
@@ -453,120 +468,128 @@ function GalleryManagement() {
               const croppedFile = new File([blob], selectedBannerFile.name, {
                 type: selectedBannerFile.type,
                 lastModified: Date.now(),
-              })
-              resolve(croppedFile)
+              });
+              resolve(croppedFile);
             } else {
-              reject(new Error("Failed to create blob from canvas"))
+              reject(new Error("Failed to create blob from canvas"));
             }
           },
           selectedBannerFile.type,
-          0.95,
-        )
-      })
+          0.95
+        );
+      });
     } catch (error) {
-      console.error("Error creating cropped image:", error)
-      return null
+      console.error("Error creating cropped image:", error);
+      return null;
     }
-  }, [bannerImgRef, bannerCompletedCrop, selectedBannerFile])
+  }, [bannerImgRef, bannerCompletedCrop, selectedBannerFile]);
 
   const handleBannerCropSave = async () => {
     try {
-      const croppedFile = await createBannerCroppedImage()
+      const croppedFile = await createBannerCroppedImage();
       if (croppedFile) {
-        setSelectedBannerFile(croppedFile)
+        setSelectedBannerFile(croppedFile);
 
-        const previewUrl = URL.createObjectURL(croppedFile)
-        setBannerPreviewImage(previewUrl)
+        const previewUrl = URL.createObjectURL(croppedFile);
+        setBannerPreviewImage(previewUrl);
 
-        setShowBannerCropModal(false)
-        setBannerCropImage(null)
-        setBannerCrop(undefined)
+        setShowBannerCropModal(false);
+        setBannerCropImage(null);
+        setBannerCrop(undefined);
 
-        await handleBannerUpload(croppedFile)
+        await handleBannerUpload(croppedFile);
       }
     } catch (error) {
-      console.error("Error saving cropped banner:", error)
-      addToast("Gagal memproses gambar. Silakan coba lagi.", "error")
+      console.error("Error saving cropped banner:", error);
+      addToast("Gagal memproses gambar. Silakan coba lagi.", "error");
     }
-  }
+  };
 
   const handleBannerUpload = useCallback(
     async (fileToUpload = null) => {
-      const file = fileToUpload || selectedBannerFile
+      const file = fileToUpload || selectedBannerFile;
 
       if (!file) {
-        addToast("Pilih file gambar banner terlebih dahulu", "error")
-        return
+        addToast("Pilih file gambar banner terlebih dahulu", "error");
+        return;
       }
 
-      setBannerUploading(true)
+      setBannerUploading(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
-        const formData = new FormData()
-        formData.append("file", file)
+        const formData = new FormData();
+        formData.append("file", file);
 
-        const uploadResponse = await api.post("/api/admin/banner/upload", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        })
+        const uploadResponse = await api.post(
+          "/api/admin/banner/upload",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
 
         if (uploadResponse.data.success) {
-          const imageUrl = uploadResponse.data.imageUrl
+          const imageUrl = uploadResponse.data.imageUrl;
 
           setBannerData({
             imageUrl: imageUrl,
             imageKey: uploadResponse.data.imageKey,
-          })
+          });
 
-          const currentPreview = bannerPreviewImage
-          setBannerPreviewImage(imageUrl)
+          const currentPreview = bannerPreviewImage;
+          setBannerPreviewImage(imageUrl);
 
           if (currentPreview && currentPreview.startsWith("blob:")) {
             setTimeout(() => {
-              URL.revokeObjectURL(currentPreview)
-            }, 1000)
+              URL.revokeObjectURL(currentPreview);
+            }, 1000);
           }
 
-          addToast("Banner berhasil diupload", "success")
+          addToast("Banner berhasil diupload", "success");
         }
       } catch (error) {
-        console.error("Banner upload error:", error)
-        addToast("Gagal mengupload banner: " + (error.response?.data?.error || error.message), "error")
+        console.error("Banner upload error:", error);
+        addToast(
+          "Gagal mengupload banner: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
       } finally {
-        setBannerUploading(false)
+        setBannerUploading(false);
       }
     },
-    [selectedBannerFile, checkAuth, addToast, bannerPreviewImage],
-  )
+    [selectedBannerFile, checkAuth, addToast, bannerPreviewImage]
+  );
 
   const handleBannerSubmit = useCallback(
     async (e) => {
-      e.preventDefault()
+      e.preventDefault();
 
       if (!bannerData.imageUrl) {
-        addToast("Upload gambar banner terlebih dahulu", "error")
-        return
+        addToast("Upload gambar banner terlebih dahulu", "error");
+        return;
       }
 
-      setBannerSubmitting(true)
+      setBannerSubmitting(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
         const response = await api.post("/api/admin/banner", bannerData, {
           headers: {
             "Content-Type": "application/json",
           },
-        })
+        });
 
         // CHANGE: after saving banner, keep the raw imageUrl to avoid invalidating signed URL
         if (response.data.success) {
-          addToast("Banner berhasil disimpan", "success")
+          addToast("Banner berhasil disimpan", "success");
 
           setCurrentBanner({
             ...response.data.banner,
@@ -574,186 +597,212 @@ function GalleryManagement() {
             // CHANGE: use the original URL (server already returns fresh value)
             imageUrl: bannerData.imageUrl,
             updatedAt: new Date().toISOString(),
-          })
+          });
 
           setBannerData({
             imageUrl: "",
             imageKey: "",
-          })
-          setSelectedBannerFile(null)
+          });
+          setSelectedBannerFile(null);
           if (bannerFileInputRef.current) {
-            bannerFileInputRef.current.value = ""
+            bannerFileInputRef.current.value = "";
           }
 
-          const currentPreview = bannerPreviewImage
+          const currentPreview = bannerPreviewImage;
           setTimeout(() => {
             try {
               if (currentPreview && currentPreview.startsWith("blob:")) {
-                URL.revokeObjectURL(currentPreview)
+                URL.revokeObjectURL(currentPreview);
               }
             } catch {}
-          }, 1000)
-          setTimeout(() => setBannerPreviewImage(null), 1200)
+          }, 1000);
+          setTimeout(() => setBannerPreviewImage(null), 1200);
 
           setTimeout(async () => {
-            await fetchCurrentBanner()
-          }, 500)
+            await fetchCurrentBanner();
+          }, 500);
         }
       } catch (error) {
-        console.error("Banner submit error:", error)
-        addToast("Gagal menyimpan banner: " + (error.response?.data?.error || error.message), "error")
+        console.error("Banner submit error:", error);
+        addToast(
+          "Gagal menyimpan banner: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
       } finally {
-        setBannerSubmitting(false)
+        setBannerSubmitting(false);
       }
     },
-    [bannerData, checkAuth, addToast, fetchCurrentBanner, bannerPreviewImage],
-  )
+    [bannerData, checkAuth, addToast, fetchCurrentBanner, bannerPreviewImage]
+  );
 
   const handleFileSelect = useCallback(
     (file) => {
-      if (!file) return
+      if (!file) return;
 
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-      const allowedExts = [".jpg", ".jpeg", ".png", ".webp"]
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/avif",
+        "image/webp",
+      ];
+      const allowedExts = [".jpg", ".jpeg", ".png", ".avif", ".webp"];
 
-      const isValidType = allowedTypes.includes(file.type)
-      const isValidExt = allowedExts.some((ext) => file.name?.toLowerCase().endsWith(ext))
+      const isValidType = allowedTypes.includes(file.type);
+      const isValidExt = allowedExts.some((ext) =>
+        file.name?.toLowerCase().endsWith(ext)
+      );
 
       if (!isValidType && !isValidExt) {
-        addToast("Format file harus JPG, PNG, atau WebP", "error")
-        return
+        addToast("Format file harus JPG, PNG, avif atau WebP", "error");
+        return;
       }
 
       if (file.size > 10 * 1024 * 1024) {
-        addToast("Ukuran file maksimal 10MB", "error")
-        return
+        addToast("Ukuran file maksimal 10MB", "error");
+        return;
       }
 
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = (e) => {
-        setPreviewImage(e.target.result)
-        setSelectedFile(file)
-        setShowCropModal(true)
-      }
-      reader.readAsDataURL(file)
+        setPreviewImage(e.target.result);
+        setSelectedFile(file);
+        setShowCropModal(true);
+      };
+      reader.readAsDataURL(file);
     },
-    [addToast],
-  )
+    [addToast]
+  );
 
   const handlePreviewClick = useCallback(() => {
     if (selectedFile && previewImage) {
-      setShowCropModal(true)
+      setShowCropModal(true);
     } else {
-      addToast("Silakan pilih gambar terlebih dahulu", "warning")
+      addToast("Silakan pilih gambar terlebih dahulu", "warning");
     }
-  }, [selectedFile, previewImage, addToast])
+  }, [selectedFile, previewImage, addToast]);
 
   const handleImageView = useCallback((imageUrl, title) => {
     if (imageUrl && typeof imageUrl === "string") {
-      setSelectedImageUrl(imageUrl)
-      setSelectedImageTitle(title)
-      setShowImageModal(true)
+      setSelectedImageUrl(imageUrl);
+      setSelectedImageTitle(title);
+      setShowImageModal(true);
     } else {
-      console.warn("Attempted to open image viewer with invalid URL:", imageUrl)
-      addToast("URL gambar tidak valid.", "error")
+      console.warn(
+        "Attempted to open image viewer with invalid URL:",
+        imageUrl
+      );
+      addToast("URL gambar tidak valid.", "error");
     }
-  }, [])
+  }, []);
 
   const handleFileUpload = useCallback(
     async (file) => {
-      if (!file) return
+      if (!file) return;
 
-      setUploading(true)
+      setUploading(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
-        const formData = new FormData()
-        formData.append("file", file)
+        const formData = new FormData();
+        formData.append("file", file);
 
         const response = await api.post("/api/admin/galeri/upload", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-        })
+        });
 
-        if (response.data.imageUrl && typeof response.data.imageUrl === "string") {
+        if (
+          response.data.imageUrl &&
+          typeof response.data.imageUrl === "string"
+        ) {
           setFormData((prev) => ({
             ...prev,
             imageUrl: response.data.imageUrl,
             imageKey: response.data.imageKey,
-          }))
-          addToast("Gambar berhasil diupload", "success")
+          }));
+          addToast("Gambar berhasil diupload", "success");
         } else {
-          throw new Error("Invalid image URL received from server.")
+          throw new Error("Invalid image URL received from server.");
         }
 
-        setPreviewImage(null)
-        setSelectedFile(null)
-        setShowCropModal(false)
-        setCrop(undefined)
-        setCompletedCrop(undefined)
-        setImgRef(undefined)
+        setPreviewImage(null);
+        setSelectedFile(null);
+        setShowCropModal(false);
+        setCrop(undefined);
+        setCompletedCrop(undefined);
+        setImgRef(undefined);
 
-        setNoCrop(false)
-        setAspectRatio(16 / 9)
+        setNoCrop(false);
+        setAspectRatio(16 / 9);
       } catch (error) {
-        console.error("Image upload error:", error)
-        addToast("Gagal upload gambar: " + (error.response?.data?.error || error.message), "error")
-        setFormData((prev) => ({ ...prev, imageUrl: "", imageKey: "" }))
+        console.error("Image upload error:", error);
+        addToast(
+          "Gagal upload gambar: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
+        setFormData((prev) => ({ ...prev, imageUrl: "", imageKey: "" }));
       } finally {
-        setUploading(false)
+        setUploading(false);
       }
     },
-    [checkAuth, addToast],
-  )
+    [checkAuth, addToast]
+  );
 
   const handleDirectUpload = useCallback(
     async (fileParam) => {
-      const file = fileParam || selectedFile
+      const file = fileParam || selectedFile;
       if (!file) {
-        addToast("Pilih file gambar terlebih dahulu", "error")
-        return
+        addToast("Pilih file gambar terlebih dahulu", "error");
+        return;
       }
 
       try {
-        setUploading(true)
-        await handleFileUpload(file)
+        setUploading(true);
+        await handleFileUpload(file);
       } catch (error) {
-        console.error("Error uploading image directly:", error)
-        addToast("Gagal mengupload gambar", "error")
+        console.error("Error uploading image directly:", error);
+        addToast("Gagal mengupload gambar", "error");
       } finally {
-        setUploading(false)
+        setUploading(false);
       }
     },
-    [selectedFile, handleFileUpload, addToast],
-  )
+    [selectedFile, handleFileUpload, addToast]
+  );
 
   const getCroppedImg = useCallback((image, completedCrop) => {
     return new Promise((resolve, reject) => {
       try {
-        const canvas = document.createElement("canvas")
-        const ctx = canvas.getContext("2d")
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
 
         if (!ctx) {
-          throw new Error("No 2d context")
+          throw new Error("No 2d context");
         }
 
-        const pixelRatio = window.devicePixelRatio
-        const pixelCrop = convertToPixelCrop(completedCrop, image.naturalWidth, image.naturalHeight)
+        const pixelRatio = window.devicePixelRatio;
+        const pixelCrop = convertToPixelCrop(
+          completedCrop,
+          image.naturalWidth,
+          image.naturalHeight
+        );
 
-        const scaleX = image.naturalWidth / image.width
-        const scaleY = image.naturalHeight / image.height
+        const scaleX = image.naturalWidth / image.width;
+        const scaleY = image.naturalHeight / image.height;
 
-        canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio)
-        canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio)
+        canvas.width = Math.floor(pixelCrop.width * scaleX * pixelRatio);
+        canvas.height = Math.floor(pixelCrop.height * scaleY * pixelRatio);
 
-        ctx.scale(pixelRatio, pixelRatio)
-        ctx.imageSmoothingQuality = "high"
+        ctx.scale(pixelRatio, pixelRatio);
+        ctx.imageSmoothingQuality = "high";
 
-        const cropX = pixelCrop.x * scaleX
-        const cropY = pixelCrop.y * scaleY
+        const cropX = pixelCrop.x * scaleX;
+        const cropY = pixelCrop.y * scaleY;
 
         ctx.drawImage(
           image,
@@ -764,48 +813,56 @@ function GalleryManagement() {
           0,
           0,
           pixelCrop.width * scaleX,
-          pixelCrop.height * scaleY,
-        )
+          pixelCrop.height * scaleY
+        );
 
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              resolve(blob)
+              resolve(blob);
             } else {
-              reject(new Error("Canvas is empty"))
+              reject(new Error("Canvas is empty"));
             }
           },
           "image/jpeg",
-          0.95,
-        )
+          0.95
+        );
       } catch (error) {
-        reject(error)
+        reject(error);
       }
-    })
-  }, [])
+    });
+  }, []);
 
   const handleCropAndUpload = useCallback(async () => {
-    if (!selectedFile || !previewImage || !completedCrop || !imgRef) return
+    if (!selectedFile || !previewImage || !completedCrop || !imgRef) return;
 
     try {
-      setUploading(true)
+      setUploading(true);
 
-      const croppedBlob = await getCroppedImg(imgRef, completedCrop)
+      const croppedBlob = await getCroppedImg(imgRef, completedCrop);
       const croppedFile = new File([croppedBlob], selectedFile.name, {
         type: selectedFile.type,
-      })
+      });
 
-      await handleFileUpload(croppedFile)
+      await handleFileUpload(croppedFile);
     } catch (error) {
-      console.error("Error cropping image:", error)
-      addToast("Gagal memproses gambar", "error")
-      setUploading(false)
+      console.error("Error cropping image:", error);
+      addToast("Gagal memproses gambar", "error");
+      setUploading(false);
     }
-  }, [selectedFile, previewImage, completedCrop, imgRef, getCroppedImg, handleFileUpload, addToast])
+  }, [
+    selectedFile,
+    previewImage,
+    completedCrop,
+    imgRef,
+    getCroppedImg,
+    handleFileUpload,
+    addToast,
+  ]);
 
   const getPreviewHeight = () => {
     if (selectedAspectRatio === "no-crop") {
-      return "auto"
+      return "auto";
     }
 
     const aspectRatios = {
@@ -814,56 +871,61 @@ function GalleryManagement() {
       "1-1": "400px",
       "3-4": "533px",
       free: "250px",
-    }
+    };
 
-    return aspectRatios[selectedAspectRatio] || "200px"
-  }
+    return aspectRatios[selectedAspectRatio] || "200px";
+  };
 
   const resetImageUpload = useCallback(() => {
-    setSelectedFile(null)
-    setPreviewImage(null)
-    setShowCropModal(false)
-    setCompletedCrop(null)
-    setCrop(null)
+    setSelectedFile(null);
+    setPreviewImage(null);
+    setShowCropModal(false);
+    setCompletedCrop(null);
+    setCrop(null);
 
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+      fileInputRef.current.value = "";
     }
 
     setFormData((prev) => ({
       ...prev,
       imageUrl: "",
       imageKey: "",
-    }))
-  }, [])
+    }));
+  }, []);
 
   const handleReplaceImage = useCallback(() => {
-    resetImageUpload()
+    resetImageUpload();
     setTimeout(() => {
       if (fileInputRef.current) {
-        fileInputRef.current.click()
+        fileInputRef.current.click();
       }
-    }, 100)
-  }, [])
+    }, 100);
+  }, []);
 
   const handleSubmit = useCallback(
     async (e) => {
-      e.preventDefault()
+      e.preventDefault();
 
-      if (!formData.title || !formData.label || !formData.location || !formData.imageUrl) {
-        addToast("Semua field wajib diisi", "error")
-        return
+      if (
+        !formData.title ||
+        !formData.label ||
+        !formData.location ||
+        !formData.imageUrl
+      ) {
+        addToast("Semua field wajib diisi", "error");
+        return;
       }
 
-      setSubmitting(true)
+      setSubmitting(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
-        await api.post("/api/admin/galeri", formData)
+        await api.post("/api/admin/galeri", formData);
 
-        addToast("Gallery item berhasil ditambahkan", "success")
+        addToast("Gallery item berhasil ditambahkan", "success");
         setFormData({
           title: "",
           label: "",
@@ -872,184 +934,235 @@ function GalleryManagement() {
           uploadDate: new Date().toISOString().split("T")[0],
           imageUrl: "",
           imageKey: "",
-        })
+        });
 
-        resetImageUpload()
+        resetImageUpload();
 
-        await fetchGalleries(1, itemsPerPage)
+        await fetchGalleries(1, itemsPerPage);
       } catch (error) {
-        addToast("Gagal menambahkan gallery item: " + (error.response?.data?.error || error.message), "error")
+        addToast(
+          "Gagal menambahkan gallery item: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
       } finally {
-        setSubmitting(false)
+        setSubmitting(false);
       }
     },
-    [formData, checkAuth, addToast, fetchGalleries, itemsPerPage, resetImageUpload],
-  )
+    [
+      formData,
+      checkAuth,
+      addToast,
+      fetchGalleries,
+      itemsPerPage,
+      resetImageUpload,
+    ]
+  );
 
   const handleEditSubmit = useCallback(
     async (e) => {
-      e.preventDefault()
+      e.preventDefault();
 
-      if (!editingGallery) return
+      if (!editingGallery) return;
 
-      const editFormData = new FormData(e.target)
+      const editFormData = new FormData(e.target);
       const updateData = {
         title: editFormData.get("title"),
         label: editFormData.get("label"),
         location: editFormData.get("location"),
         mapLink: editFormData.get("mapLink"),
         uploadDate: editFormData.get("uploadDate"),
-      }
+      };
 
       if (!updateData.title || !updateData.label || !updateData.location) {
-        addToast("Semua field wajib diisi", "error")
-        return
+        addToast("Semua field wajib diisi", "error");
+        return;
       }
 
-      setSubmitting(true)
+      setSubmitting(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
-        await api.put(`/api/admin/galeri/${editingGallery._id}`, updateData)
+        await api.put(`/api/admin/galeri/${editingGallery._id}`, updateData);
 
-        addToast("Gallery item berhasil ditambahkan", "success")
-        setShowEditModal(false)
-        setEditingGallery(null)
-        await fetchGalleries(currentPage, itemsPerPage)
+        addToast("Gallery item berhasil ditambahkan", "success");
+        setShowEditModal(false);
+        setEditingGallery(null);
+        await fetchGalleries(currentPage, itemsPerPage);
       } catch (error) {
-        addToast("Gagal mengupdate gallery item: " + (error.response?.data?.error || error.message), "error")
+        addToast(
+          "Gagal mengupdate gallery item: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
       } finally {
-        setSubmitting(false)
+        setSubmitting(false);
       }
     },
-    [editingGallery, checkAuth, addToast, fetchGalleries, currentPage, itemsPerPage],
-  )
+    [
+      editingGallery,
+      checkAuth,
+      addToast,
+      fetchGalleries,
+      currentPage,
+      itemsPerPage,
+    ]
+  );
 
   const handleDelete = useCallback(async () => {
-    if (!galleryToDelete) return
+    if (!galleryToDelete) return;
 
     try {
-      const token = checkAuth()
-      if (!token) return
+      const token = checkAuth();
+      if (!token) return;
 
-      await api.delete(`/api/admin/galeri/${galleryToDelete._id}`)
+      await api.delete(`/api/admin/galeri/${galleryToDelete._id}`);
 
-      addToast("Gallery item berhasil dihapus", "success")
-      setShowDeleteModal(false)
-      setGalleryToDelete(null)
-      await fetchGalleries(currentPage, itemsPerPage)
+      addToast("Gallery item berhasil dihapus", "success");
+      setShowDeleteModal(false);
+      setGalleryToDelete(null);
+      await fetchGalleries(currentPage, itemsPerPage);
     } catch (error) {
-      addToast("Gagal menghapus gallery item: " + (error.response?.data?.error || error.message), "error")
+      addToast(
+        "Gagal menghapus gallery item: " +
+          (error.response?.data?.error || error.message),
+        "error"
+      );
     }
-  }, [galleryToDelete, checkAuth, addToast, fetchGalleries, currentPage, itemsPerPage])
+  }, [
+    galleryToDelete,
+    checkAuth,
+    addToast,
+    fetchGalleries,
+    currentPage,
+    itemsPerPage,
+  ]);
 
   const handleSelectAll = useCallback(
     (checked) => {
-      setSelectAll(checked)
+      setSelectAll(checked);
       if (checked) {
-        setSelectedGalleries(filteredGalleries.map((g) => g._id))
+        setSelectedGalleries(filteredGalleries.map((g) => g._id));
       } else {
-        setSelectedGalleries([])
+        setSelectedGalleries([]);
       }
     },
-    [filteredGalleries],
-  )
+    [filteredGalleries]
+  );
 
   const handleSelectGallery = useCallback((id, checked) => {
     if (checked) {
-      setSelectedGalleries((prev) => [...prev, id])
+      setSelectedGalleries((prev) => [...prev, id]);
     } else {
-      setSelectedGalleries((prev) => prev.filter((gId) => gId !== id))
-      setSelectAll(false)
+      setSelectedGalleries((prev) => prev.filter((gId) => gId !== id));
+      setSelectAll(false);
     }
-  }, [])
+  }, []);
 
   const handleRefresh = useCallback(() => {
-    fetchGalleries(currentPage, itemsPerPage)
-  }, [fetchGalleries, currentPage, itemsPerPage])
+    fetchGalleries(currentPage, itemsPerPage);
+  }, [fetchGalleries, currentPage, itemsPerPage]);
 
   const handleSearchChange = useCallback((value) => {
-    setSearchTerm(value)
-    setCurrentPage(1)
-  }, [])
+    setSearchTerm(value);
+    setCurrentPage(1);
+  }, []);
 
   const handleBulkDelete = useCallback(async () => {
-    if (selectedGalleries.length === 0) return
+    if (selectedGalleries.length === 0) return;
 
     try {
-      setDeletingMultiple(true)
-      const token = checkAuth()
-      if (!token) return
+      setDeletingMultiple(true);
+      const token = checkAuth();
+      if (!token) return;
 
       const response = await api.post("/api/admin/galeri/bulk-delete", {
         ids: selectedGalleries,
-      })
+      });
 
-      addToast(`${response.data.deletedCount} gallery items berhasil dihapus`, "success")
-      setShowDeleteMultipleModal(false)
-      setSelectedGalleries([])
-      setSelectAll(false)
-      await fetchGalleries(currentPage, itemsPerPage)
+      addToast(
+        `${response.data.deletedCount} gallery items berhasil dihapus`,
+        "success"
+      );
+      setShowDeleteMultipleModal(false);
+      setSelectedGalleries([]);
+      setSelectAll(false);
+      await fetchGalleries(currentPage, itemsPerPage);
     } catch (error) {
-      console.error("Bulk delete error:", error)
-      addToast("Gagal menghapus gallery items: " + (error.response?.data?.error || error.message), "error")
+      console.error("Bulk delete error:", error);
+      addToast(
+        "Gagal menghapus gallery items: " +
+          (error.response?.data?.error || error.message),
+        "error"
+      );
     } finally {
-      setDeletingMultiple(false)
+      setDeletingMultiple(false);
     }
-  }, [selectedGalleries, checkAuth, addToast, fetchGalleries, currentPage, itemsPerPage])
+  }, [
+    selectedGalleries,
+    checkAuth,
+    addToast,
+    fetchGalleries,
+    currentPage,
+    itemsPerPage,
+  ]);
 
   const fetchFrames = useCallback(async () => {
-    if (!isMountedRef.current) return
+    if (!isMountedRef.current) return;
 
     if (status !== "authenticated") {
-      console.log("⏳ Waiting for authentication before fetching frames...")
-      return
+      console.log("⏳ Waiting for authentication before fetching frames...");
+      return;
     }
 
     try {
-      const response = await api.get("/api/admin/bingkai")
+      const response = await api.get("/api/admin/bingkai");
 
       if (isMountedRef.current) {
-        setFrames(response.data.frames)
-        setFrameStats(response.data.stats)
+        setFrames(response.data.frames);
+        setFrameStats(response.data.stats);
       }
     } catch (error) {
-      if (!isMountedRef.current) return
+      if (!isMountedRef.current) return;
 
       if (error.response?.status === 401) {
-        setAuthError(true)
-        router.push("/admin/login")
+        setAuthError(true);
+        router.push("/admin/login");
       } else {
-        console.error("Error fetching frames:", error)
+        console.error("Error fetching frames:", error);
       }
     }
-  }, [status, router])
+  }, [status, router]);
 
   const handleFrameUpload = useCallback(
     async (fileToUpload = null) => {
-      const file = fileToUpload || selectedFrameFile
+      const file = fileToUpload || selectedFrameFile;
 
       if (!file) {
-        addToast("Pilih file gambar frame terlebih dahulu", "error")
-        return
+        addToast("Pilih file gambar frame terlebih dahulu", "error");
+        return;
       }
 
-      setFrameUploading(true)
+      setFrameUploading(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
-        const formData = new FormData()
-        formData.append("file", file)
+        const formData = new FormData();
+        formData.append("file", file);
 
-        const uploadResponse = await api.post("/api/admin/bingkai/upload", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        })
+        const uploadResponse = await api.post(
+          "/api/admin/bingkai/upload",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
 
         if (uploadResponse.data.success) {
           setFrameFormData((prev) => ({
@@ -1059,41 +1172,53 @@ function GalleryManagement() {
             originalName: uploadResponse.data.originalName,
             fileSize: uploadResponse.data.fileSize,
             mimeType: uploadResponse.data.mimeType,
-          }))
+          }));
 
-          addToast("Frame berhasil diupload", "success")
+          addToast("Frame berhasil diupload", "success");
         }
       } catch (error) {
-        console.error("Frame upload error:", error)
-        addToast("Gagal mengupload frame: " + (error.response?.data?.error || error.message), "error")
+        console.error("Frame upload error:", error);
+        addToast(
+          "Gagal mengupload frame: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
       } finally {
-        setFrameUploading(false)
+        setFrameUploading(false);
       }
     },
-    [selectedFrameFile, checkAuth, addToast],
-  )
+    [selectedFrameFile, checkAuth, addToast]
+  );
 
   const handleFrameFileSelect = useCallback(
     (file) => {
-      if (!file) return
+      if (!file) return;
 
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-      const allowedExts = [".jpg", ".jpeg", ".png", ".webp"]
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/avif",
+        "image/png",
+        "image/webp",
+      ];
+      const allowedExts = [".jpg", ".jpeg", ".avif", ".png", ".webp"];
 
-      const isValidType = allowedTypes.includes(file.type)
-      const isValidExt = allowedExts.some((ext) => file.name?.toLowerCase().endsWith(ext))
+      const isValidType = allowedTypes.includes(file.type);
+      const isValidExt = allowedExts.some((ext) =>
+        file.name?.toLowerCase().endsWith(ext)
+      );
 
       if (!isValidType && !isValidExt) {
-        addToast("Format file harus JPG, PNG, atau WebP", "error")
-        return
+        addToast("Format file harus JPG, PNG, AVIF, atau WebP", "error");
+        return;
       }
 
       if (file.size > 10 * 1024 * 1024) {
-        addToast("Ukuran file maksimal 10MB", "error")
-        return
+        addToast("Ukuran file maksimal 10MB", "error");
+        return;
       }
 
-      setFramePreviewImage(null) // Clear previous preview
+      setFramePreviewImage(null); // Clear previous preview
       setFrameFormData((prev) => ({
         // Reset frame upload data
         ...prev,
@@ -1102,48 +1227,48 @@ function GalleryManagement() {
         originalName: "",
         fileSize: 0,
         mimeType: "",
-      }))
+      }));
 
-      setSelectedFrameFile(file)
-      const reader = new FileReader()
+      setSelectedFrameFile(file);
+      const reader = new FileReader();
       reader.onload = (e) => {
-        setFramePreviewImage(e.target.result)
-      }
-      reader.readAsDataURL(file)
+        setFramePreviewImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
 
-      handleFrameUpload(file)
+      handleFrameUpload(file);
     },
-    [addToast, handleFrameUpload],
-  )
+    [addToast, handleFrameUpload]
+  );
 
   const handleFrameSubmit = useCallback(
     async (e) => {
-      e.preventDefault()
+      e.preventDefault();
 
       if (!frameFormData.relatedGallery) {
-        addToast("Pilih gallery terkait terlebih dahulu", "error")
-        return
+        addToast("Pilih gallery terkait terlebih dahulu", "error");
+        return;
       }
 
       if (!frameFormData.imageUrl) {
-        addToast("Upload gambar frame terlebih dahulu", "error")
-        return
+        addToast("Upload gambar frame terlebih dahulu", "error");
+        return;
       }
 
-      setFrameSubmitting(true)
+      setFrameSubmitting(true);
 
       try {
-        const token = checkAuth()
-        if (!token) return
+        const token = checkAuth();
+        if (!token) return;
 
         const response = await api.post("/api/admin/bingkai", frameFormData, {
           headers: {
             "Content-Type": "application/json",
           },
-        })
+        });
 
         if (response.data.success) {
-          addToast("Frame berhasil ditambahkan", "success")
+          addToast("Frame berhasil ditambahkan", "success");
 
           setFrameFormData({
             relatedGallery: "",
@@ -1152,79 +1277,97 @@ function GalleryManagement() {
             originalName: "",
             fileSize: 0,
             mimeType: "",
-          })
-          setFramePreviewImage(null)
-          setSelectedFrameFile(null)
+          });
+          setFramePreviewImage(null);
+          setSelectedFrameFile(null);
 
           if (frameFileInputRef.current) {
-            frameFileInputRef.current.value = ""
+            frameFileInputRef.current.value = "";
           }
 
-          await fetchFrames()
+          await fetchFrames();
         }
       } catch (error) {
-        console.error("Frame submit error:", error)
-        addToast("Gagal menambahkan frame: " + (error.response?.data?.error || error.message), "error")
+        console.error("Frame submit error:", error);
+        addToast(
+          "Gagal menambahkan frame: " +
+            (error.response?.data?.error || error.message),
+          "error"
+        );
       } finally {
-        setFrameSubmitting(false)
+        setFrameSubmitting(false);
       }
     },
-    [frameFormData, checkAuth, addToast, fetchFrames],
-  )
+    [frameFormData, checkAuth, addToast, fetchFrames]
+  );
 
   const handleFrameDelete = useCallback(async () => {
-    if (!frameToDelete) return
+    if (!frameToDelete) return;
 
-    setFrameDeleting(true)
+    setFrameDeleting(true);
     try {
-      const token = checkAuth()
-      if (!token) return
+      const token = checkAuth();
+      if (!token) return;
 
-      const response = await api.delete(`/api/admin/bingkai/${frameToDelete._id}`)
+      const response = await api.delete(
+        `/api/admin/bingkai/${frameToDelete._id}`
+      );
 
       if (response.data.success) {
-        addToast("Frame berhasil dihapus", "success")
-        setShowFrameDeleteModal(false)
-        setFrameToDelete(null)
-        await fetchFrames()
+        addToast("Frame berhasil dihapus", "success");
+        setShowFrameDeleteModal(false);
+        setFrameToDelete(null);
+        await fetchFrames();
       }
     } catch (error) {
-      console.error("Error deleting frame:", error)
-      addToast("Gagal menghapus frame: " + (error.response?.data?.error || error.message), "error")
+      console.error("Error deleting frame:", error);
+      addToast(
+        "Gagal menghapus frame: " +
+          (error.response?.data?.error || error.message),
+        "error"
+      );
     } finally {
-      setFrameDeleting(false)
+      setFrameDeleting(false);
     }
-  }, [frameToDelete, checkAuth, addToast, fetchFrames])
+  }, [frameToDelete, checkAuth, addToast, fetchFrames]);
 
   useEffect(() => {
-    setIsClient(true)
-    isMountedRef.current = true
+    setIsClient(true);
+    isMountedRef.current = true;
 
     return () => {
-      isMountedRef.current = false
+      isMountedRef.current = false;
       try {
         if (bannerPreviewImage && bannerPreviewImage.startsWith("blob:")) {
-          URL.revokeObjectURL(bannerPreviewImage)
+          URL.revokeObjectURL(bannerPreviewImage);
         }
         if (previewImage && previewImage.startsWith("blob:")) {
-          URL.revokeObjectURL(previewImage)
+          URL.revokeObjectURL(previewImage);
         }
         if (framePreviewImage && framePreviewImage.startsWith("blob:")) {
-          URL.revokeObjectURL(framePreviewImage)
+          URL.revokeObjectURL(framePreviewImage);
         }
       } catch (error) {
-        console.warn("Error revoking blob URL on unmount:", error)
+        console.warn("Error revoking blob URL on unmount:", error);
       }
-    }
-  }, [bannerPreviewImage, previewImage, framePreviewImage])
+    };
+  }, [bannerPreviewImage, previewImage, framePreviewImage]);
 
   useEffect(() => {
     if (isClient && !authError && status === "authenticated") {
-      fetchGalleries(1, itemsPerPage)
-      fetchCurrentBanner()
-      fetchFrames()
+      fetchGalleries(1, itemsPerPage);
+      fetchCurrentBanner();
+      fetchFrames();
     }
-  }, [isClient, authError, status, fetchGalleries, itemsPerPage, fetchCurrentBanner, fetchFrames])
+  }, [
+    isClient,
+    authError,
+    status,
+    fetchGalleries,
+    itemsPerPage,
+    fetchCurrentBanner,
+    fetchFrames,
+  ]);
 
   const statsCards = [
     {
@@ -1251,29 +1394,37 @@ function GalleryManagement() {
       icon: FaCalendarAlt,
       variant: "info",
     },
-  ]
+  ];
 
   const renderPagination = () => {
-    if (totalPages <= 1) return null
+    if (totalPages <= 1) return null;
 
-    const items = []
-    const maxVisible = 5
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
-    const endPage = Math.min(totalPages, startPage + maxVisible - 1)
+    const items = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisible - 1);
 
     if (endPage - startPage + 1 < maxVisible) {
-      startPage = Math.max(1, endPage - maxVisible + 1)
+      startPage = Math.max(1, endPage - maxVisible + 1);
     }
 
     return (
       <div className="d-flex justify-content-center mt-4">
         <Pagination>
-          <Pagination.First onClick={() => setCurrentPage(1)} disabled={currentPage === 1} />
-          <Pagination.Prev onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} />
+          <Pagination.First
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+          />
+          <Pagination.Prev
+            onClick={() => setCurrentPage(currentPage - 1)}
+            disabled={currentPage === 1}
+          />
 
           {startPage > 1 && (
             <>
-              <Pagination.Item onClick={() => setCurrentPage(1)}>1</Pagination.Item>
+              <Pagination.Item onClick={() => setCurrentPage(1)}>
+                1
+              </Pagination.Item>
               {startPage > 2 && <Pagination.Ellipsis />}
             </>
           )}
@@ -1282,9 +1433,13 @@ function GalleryManagement() {
             {
               length: endPage - startPage + 1,
             },
-            (_, i) => startPage + i,
+            (_, i) => startPage + i
           ).map((page) => (
-            <Pagination.Item key={page} active={page === currentPage} onClick={() => setCurrentPage(page)}>
+            <Pagination.Item
+              key={page}
+              active={page === currentPage}
+              onClick={() => setCurrentPage(page)}
+            >
               {page}
             </Pagination.Item>
           ))}
@@ -1292,41 +1447,55 @@ function GalleryManagement() {
           {endPage < totalPages && (
             <>
               {endPage < totalPages - 1 && <Pagination.Ellipsis />}
-              <Pagination.Item onClick={() => setCurrentPage(totalPages)}>{totalPages}</Pagination.Item>
+              <Pagination.Item onClick={() => setCurrentPage(totalPages)}>
+                {totalPages}
+              </Pagination.Item>
             </>
           )}
 
-          <Pagination.Next onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} />
-          <Pagination.Last onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} />
+          <Pagination.Next
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          />
+          <Pagination.Last
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+          />
         </Pagination>
       </div>
-    )
-  }
+    );
+  };
 
   if (status === "loading") {
     return (
       <div className="gallery-management-page">
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+        <div
+          className="d-flex justify-content-center align-items-center"
+          style={{ minHeight: "400px" }}
+        >
           <div className="text-center">
             <Spinner animation="border" variant="primary" />
             <p className="mt-3 text-muted">Memuat sesi...</p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!isClient) {
     return (
       <div className="gallery-management-page">
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+        <div
+          className="d-flex justify-content-center align-items-center"
+          style={{ minHeight: "400px" }}
+        >
           <div className="text-center">
             <Spinner animation="border" variant="primary" />
             <p className="mt-3 text-muted">Memuat aplikasi...</p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (authError) {
@@ -1340,14 +1509,17 @@ function GalleryManagement() {
           </Alert>
         </div>
       </div>
-    )
+    );
   }
 
   if (!dataLoaded) {
     return (
       <div className="gallery-management-page">
         <h1 className="mb-4">Manajemen Gallery</h1>
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
+        <div
+          className="d-flex justify-content-center align-items-center"
+          style={{ minHeight: "400px" }}
+        >
           <div className="text-center">
             <Spinner animation="border" variant="primary" size="lg" />
             <p className="mt-3">Memuat data gallery...</p>
@@ -1368,7 +1540,7 @@ function GalleryManagement() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Removed duplicate getPreviewHeight function here.
@@ -1388,7 +1560,12 @@ function GalleryManagement() {
         </Button>
       </div>
       {error && (
-        <Alert variant="danger" dismissible onClose={() => setError("")} className="mb-4">
+        <Alert
+          variant="danger"
+          dismissible
+          onClose={() => setError("")}
+          className="mb-4"
+        >
           <FaExclamationTriangle className="me-2" />
           {error}
         </Alert>
@@ -1399,7 +1576,10 @@ function GalleryManagement() {
             <Card className={`text-center h-100 border-${stat.variant}`}>
               <Card.Body>
                 <div className="d-flex justify-content-center align-items-center mb-2">
-                  <stat.icon className={`text-${stat.variant} me-2`} size={24} />
+                  <stat.icon
+                    className={`text-${stat.variant} me-2`}
+                    size={24}
+                  />
                   <h3 className="mb-0">{stat.value.toLocaleString("id-ID")}</h3>
                 </div>
                 <p className="mb-0 text-muted">{stat.title}</p>
@@ -1410,7 +1590,12 @@ function GalleryManagement() {
       </Row>
       <Card className="mb-4 shadow-sm">
         <Card.Header>
-          <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="border-0" fill>
+          <Tabs
+            activeKey={activeTab}
+            onSelect={(k) => setActiveTab(k)}
+            className="border-0"
+            fill
+          >
             <Tab
               eventKey="add"
               title={
@@ -1538,35 +1723,35 @@ function GalleryManagement() {
                         accept="image/*"
                         ref={fileInputRef}
                         onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
+                          const file = e.target.files?.[0];
+                          if (!file) return;
 
                           if (!file.type.startsWith("image/")) {
-                            addToast("File harus berupa gambar", "error")
-                            return
+                            addToast("File harus berupa gambar", "error");
+                            return;
                           }
 
                           if (file.size > 10 * 1024 * 1024) {
-                            addToast("Ukuran file maksimal 10MB", "error")
-                            return
+                            addToast("Ukuran file maksimal 10MB", "error");
+                            return;
                           }
 
-                          setSelectedFile(file)
+                          setSelectedFile(file);
 
                           if (noCrop) {
-                            setSelectedAspectRatio("no-crop")
-                            setAspectRatio(undefined)
-                            setShowCropModal(false)
-                            handleDirectUpload(file)
-                            return
+                            setSelectedAspectRatio("no-crop");
+                            setAspectRatio(undefined);
+                            setShowCropModal(false);
+                            handleDirectUpload(file);
+                            return;
                           }
 
-                          const reader = new FileReader()
+                          const reader = new FileReader();
                           reader.onload = () => {
-                            setPreviewImage(reader.result)
-                            setShowCropModal(true)
-                          }
-                          reader.readAsDataURL(file)
+                            setPreviewImage(reader.result);
+                            setShowCropModal(true);
+                          };
+                          reader.readAsDataURL(file);
                         }}
                         className="form-control-lg"
                         required={!formData.imageUrl}
@@ -1608,10 +1793,17 @@ function GalleryManagement() {
                         </Button>
                       )}
                     </div>
-                    <Form.Text muted>Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB</Form.Text>
+                    <Form.Text muted>
+                      Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran:
+                      10MB
+                    </Form.Text>
                     {uploading && (
                       <div className="mt-2">
-                        <Spinner animation="border" size="sm" className="me-2" />
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          className="me-2"
+                        />
                         Mengupload gambar...
                       </div>
                     )}
@@ -1640,9 +1832,14 @@ function GalleryManagement() {
                               display: "block",
                               cursor: "pointer",
                             }}
-                            onClick={() => handleImageView(formData.imageUrl, "Preview Gambar")}
+                            onClick={() =>
+                              handleImageView(
+                                formData.imageUrl,
+                                "Preview Gambar"
+                              )
+                            }
                             onError={(e) => {
-                              console.error("Image load error:", e)
+                              console.error("Image load error:", e);
                               e.target.src = `data:image/svg+xml;base64,${btoa(`
                                 <svg width="250" height="150" xmlns="http://www.w3.org/2000/svg">
                                   <rect width="250" height="150" fill="#f8f9fa"/>
@@ -1650,7 +1847,7 @@ function GalleryManagement() {
                                     Image Not Found
                                   </text>
                                 </svg>
-                              `)}`
+                              `)}`;
                             }}
                           />
                           <div
@@ -1669,8 +1866,8 @@ function GalleryManagement() {
                             {selectedAspectRatio === "no-crop"
                               ? "Original"
                               : selectedAspectRatio === "free"
-                                ? "Custom"
-                                : selectedAspectRatio.replace("-", ":")}
+                              ? "Custom"
+                              : selectedAspectRatio.replace("-", ":")}
                           </div>
                         </div>
                         <small className="text-muted d-block mt-2 text-center">
@@ -1683,7 +1880,11 @@ function GalleryManagement() {
                         <small className="text-info d-block text-center mt-1">
                           {selectedAspectRatio === "no-crop"
                             ? "Gambar akan ditampilkan dalam ukuran original"
-                            : `Preview dengan aspect ratio ${selectedAspectRatio === "free" ? "custom" : selectedAspectRatio.replace("-", ":")}`}
+                            : `Preview dengan aspect ratio ${
+                                selectedAspectRatio === "free"
+                                  ? "custom"
+                                  : selectedAspectRatio.replace("-", ":")
+                              }`}
                         </small>
                       </div>
                     )}
@@ -1692,11 +1893,17 @@ function GalleryManagement() {
                     type="submit"
                     variant="primary"
                     size="lg"
-                    disabled={submitting || uploading || status !== "authenticated"}
+                    disabled={
+                      submitting || uploading || status !== "authenticated"
+                    }
                   >
                     {submitting ? (
                       <>
-                        <Spinner animation="border" size="sm" className="me-2" />
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          className="me-2"
+                        />
                         Menyimpan...
                       </>
                     ) : (
@@ -1736,19 +1943,25 @@ function GalleryManagement() {
                         type="file"
                         accept="image/*"
                         ref={bannerFileInputRef}
-                        onChange={(e) => handleBannerFileSelect(e.target.files[0])}
+                        onChange={(e) =>
+                          handleBannerFileSelect(e.target.files[0])
+                        }
                         className="form-control-lg"
                         disabled={status !== "authenticated"}
                       />
                     </div>
                     <Form.Text muted>
-                      Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB. Rekomendasi ukuran: 1920x600px untuk
-                      hasil terbaik.
+                      Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran:
+                      10MB. Rekomendasi ukuran: 1920x600px untuk hasil terbaik.
                     </Form.Text>
 
                     {bannerUploading && (
                       <div className="mt-2">
-                        <Spinner animation="border" size="sm" className="me-2" />
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          className="me-2"
+                        />
                         Mengupload banner...
                       </div>
                     )}
@@ -1778,11 +1991,22 @@ function GalleryManagement() {
                             display: "block",
                             cursor: "pointer",
                           }}
-                          onClick={() => handleImageView(bannerPreviewImage, "Banner Preview")}
+                          onClick={() =>
+                            handleImageView(
+                              bannerPreviewImage,
+                              "Banner Preview"
+                            )
+                          }
                           onError={(e) => {
-                            console.warn("Banner preview load failed:", e.target.src)
+                            console.warn(
+                              "Banner preview load failed:",
+                              e.target.src
+                            );
                             setTimeout(() => {
-                              if (e.target.complete && e.target.naturalHeight === 0) {
+                              if (
+                                e.target.complete &&
+                                e.target.naturalHeight === 0
+                              ) {
                                 e.target.src = `data:image/svg+xml;base64,${btoa(`
                                   <svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
                                     <rect width="400" height="120" fill="#f8f9fa"/>
@@ -1790,12 +2014,12 @@ function GalleryManagement() {
                                       Loading Preview...
                                     </text>
                                   </svg>
-                                `)}`
+                                `)}`;
                               }
-                            }, 500)
+                            }, 500);
                           }}
                           onLoad={() => {
-                            console.log("Banner preview loaded successfully")
+                            console.log("Banner preview loaded successfully");
                           }}
                         />
                       </div>
@@ -1806,7 +2030,9 @@ function GalleryManagement() {
                     <div className="mb-3">
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <FaCheckCircle className="text-success" />
-                        <small className="text-success">Banner berhasil diupload dan siap disimpan</small>
+                        <small className="text-success">
+                          Banner berhasil diupload dan siap disimpan
+                        </small>
                       </div>
                     </div>
                   )}
@@ -1815,11 +2041,19 @@ function GalleryManagement() {
                     <Button
                       type="submit"
                       variant="primary"
-                      disabled={bannerSubmitting || !bannerData.imageUrl || status !== "authenticated"}
+                      disabled={
+                        bannerSubmitting ||
+                        !bannerData.imageUrl ||
+                        status !== "authenticated"
+                      }
                     >
                       {bannerSubmitting ? (
                         <>
-                          <Spinner animation="border" size="sm" className="me-2" />
+                          <Spinner
+                            animation="border"
+                            size="sm"
+                            className="me-2"
+                          />
                           Menyimpan...
                         </>
                       ) : (
@@ -1834,19 +2068,22 @@ function GalleryManagement() {
                       type="button"
                       variant="outline-secondary"
                       onClick={() => {
-                        setBannerData({ imageUrl: "", imageKey: "" })
-                        const currentPreview = bannerPreviewImage
-                        setBannerPreviewImage(null)
-                        setSelectedBannerFile(null)
-                        if (currentPreview && currentPreview.startsWith("blob:")) {
+                        setBannerData({ imageUrl: "", imageKey: "" });
+                        const currentPreview = bannerPreviewImage;
+                        setBannerPreviewImage(null);
+                        setSelectedBannerFile(null);
+                        if (
+                          currentPreview &&
+                          currentPreview.startsWith("blob:")
+                        ) {
                           try {
-                            URL.revokeObjectURL(currentPreview)
+                            URL.revokeObjectURL(currentPreview);
                           } catch (error) {
-                            console.warn("Error revoking blob URL:", error)
+                            console.warn("Error revoking blob URL:", error);
                           }
                         }
                         if (bannerFileInputRef.current) {
-                          bannerFileInputRef.current.value = ""
+                          bannerFileInputRef.current.value = "";
                         }
                       }}
                       disabled={bannerSubmitting || status !== "authenticated"}
@@ -1860,10 +2097,12 @@ function GalleryManagement() {
                         type="button"
                         variant="outline-danger"
                         onClick={() => {
-                          setBannerToDelete(currentBanner)
-                          setShowBannerDeleteModal(true)
+                          setBannerToDelete(currentBanner);
+                          setShowBannerDeleteModal(true);
                         }}
-                        disabled={bannerSubmitting || status !== "authenticated"}
+                        disabled={
+                          bannerSubmitting || status !== "authenticated"
+                        }
                       >
                         <FaTrash className="me-2" />
                         Hapus Banner
@@ -1891,11 +2130,18 @@ function GalleryManagement() {
                         backgroundColor: "#f8f9fa",
                         cursor: "pointer",
                       }}
-                      onClick={() => handleImageView(currentBanner.imageUrl, "Current Banner")}
+                      onClick={() =>
+                        handleImageView(
+                          currentBanner.imageUrl,
+                          "Current Banner"
+                        )
+                      }
                     >
                       {/* CHANGE: force re-render image when banner updates, prevents stale render */}
                       <Image
-                        key={`${currentBanner._id || "cb"}-${currentBanner.updatedAt || ""}`}
+                        key={`${currentBanner._id || "cb"}-${
+                          currentBanner.updatedAt || ""
+                        }`}
                         src={currentBanner.imageUrl || "/placeholder.svg"}
                         alt="Current Banner"
                         style={{
@@ -1906,9 +2152,15 @@ function GalleryManagement() {
                           display: "block",
                         }}
                         onError={(e) => {
-                          console.warn("Current banner load failed:", e.target.src)
+                          console.warn(
+                            "Current banner load failed:",
+                            e.target.src
+                          );
                           setTimeout(() => {
-                            if (e.target.complete && e.target.naturalHeight === 0) {
+                            if (
+                              e.target.complete &&
+                              e.target.naturalHeight === 0
+                            ) {
                               e.target.src = `data:image/svg+xml;base64,${btoa(`
                                 <svg width="800" height="250" xmlns="http://www.w3.org/2000/svg">
                                   <rect width="800" height="250" fill="#f8f9fa"/>
@@ -1916,12 +2168,12 @@ function GalleryManagement() {
                                     Banner Not Available
                                   </text>
                                 </svg>
-                              `)}`
+                              `)}`;
                             }
-                          }, 500)
+                          }, 500);
                         }}
                         onLoad={() => {
-                          console.log("Current banner loaded successfully")
+                          console.log("Current banner loaded successfully");
                         }}
                       />
                       <div
@@ -1932,15 +2184,17 @@ function GalleryManagement() {
                           position: "absolute",
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.opacity = "1"
+                          e.currentTarget.style.opacity = "1";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.opacity = "0"
+                          e.currentTarget.style.opacity = "0";
                         }}
                       >
                         <div className="text-center">
                           <FaExpand size={24} />
-                          <div className="mt-2">Klik untuk melihat full screen</div>
+                          <div className="mt-2">
+                            Klik untuk melihat full screen
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1948,15 +2202,18 @@ function GalleryManagement() {
                       <div className="mb-2">
                         <small className="text-muted">
                           <FaCalendarAlt className="me-1" />
-                          Diupdate: {new Date(currentBanner.updatedAt).toLocaleString("id-ID")}
+                          Diupdate:{" "}
+                          {new Date(currentBanner.updatedAt).toLocaleString(
+                            "id-ID"
+                          )}
                         </small>
                       </div>
                       <Button
                         variant="outline-danger"
                         size="sm"
                         onClick={() => {
-                          setBannerToDelete(currentBanner)
-                          setShowBannerDeleteModal(true)
+                          setBannerToDelete(currentBanner);
+                          setShowBannerDeleteModal(true);
                         }}
                         disabled={status !== "authenticated"}
                       >
@@ -1970,7 +2227,10 @@ function GalleryManagement() {
                     <div className="text-muted mb-3">
                       <FaImage size={48} className="opacity-50" />
                     </div>
-                    <p className="text-muted">Belum ada banner yang diupload. Upload banner pertama Anda di atas.</p>
+                    <p className="text-muted">
+                      Belum ada banner yang diupload. Upload banner pertama Anda
+                      di atas.
+                    </p>
                   </div>
                 )}
               </div>
@@ -1995,10 +2255,14 @@ function GalleryManagement() {
                           variant="danger"
                           size="sm"
                           onClick={() => setShowDeleteMultipleModal(true)}
-                          disabled={deletingMultiple || status !== "authenticated"}
+                          disabled={
+                            deletingMultiple || status !== "authenticated"
+                          }
                         >
                           <FaTrash className="me-1" />
-                          {deletingMultiple ? "Menghapus..." : `Hapus (${selectedGalleries.length})`}
+                          {deletingMultiple
+                            ? "Menghapus..."
+                            : `Hapus (${selectedGalleries.length})`}
                         </Button>
                       )}
                     </div>
@@ -2041,15 +2305,24 @@ function GalleryManagement() {
                         variant="outline-secondary"
                         disabled={status !== "authenticated"}
                       >
-                        <Dropdown.Item active={filterStatus === "all"} onClick={() => setFilterStatus("all")}>
+                        <Dropdown.Item
+                          active={filterStatus === "all"}
+                          onClick={() => setFilterStatus("all")}
+                        >
                           <FaEye className="me-2" />
                           Semua Status
                         </Dropdown.Item>
-                        <Dropdown.Item active={filterStatus === "active"} onClick={() => setFilterStatus("active")}>
+                        <Dropdown.Item
+                          active={filterStatus === "active"}
+                          onClick={() => setFilterStatus("active")}
+                        >
                           <FaCheckCircle className="me-2 text-success" />
                           Aktif
                         </Dropdown.Item>
-                        <Dropdown.Item active={filterStatus === "inactive"} onClick={() => setFilterStatus("inactive")}>
+                        <Dropdown.Item
+                          active={filterStatus === "inactive"}
+                          onClick={() => setFilterStatus("inactive")}
+                        >
                           <FaTimesCircle className="me-2 text-danger" />
                           Tidak Aktif
                         </Dropdown.Item>
@@ -2057,7 +2330,10 @@ function GalleryManagement() {
                     </Col>
                   </Row>
 
-                  <div className="table-responsive" style={{ maxHeight: "500px", overflowY: "auto" }}>
+                  <div
+                    className="table-responsive"
+                    style={{ maxHeight: "500px", overflowY: "auto" }}
+                  >
                     <Table striped bordered hover responsive className="mb-0">
                       <thead className="table-dark sticky-top">
                         <tr>
@@ -2065,8 +2341,14 @@ function GalleryManagement() {
                             <Form.Check
                               type="checkbox"
                               checked={selectAll}
-                              onChange={(e) => handleSelectAll(e.target.checked)}
-                              disabled={loading || filteredGalleries.length === 0 || status !== "authenticated"}
+                              onChange={(e) =>
+                                handleSelectAll(e.target.checked)
+                              }
+                              disabled={
+                                loading ||
+                                filteredGalleries.length === 0 ||
+                                status !== "authenticated"
+                              }
                             />
                           </th>
                           <th>Gambar</th>
@@ -2082,13 +2364,20 @@ function GalleryManagement() {
                         {loading && filteredGalleries.length === 0 ? (
                           <tr>
                             <td colSpan="8" className="text-center py-4">
-                              <Spinner animation="border" size="sm" className="me-2" />
+                              <Spinner
+                                animation="border"
+                                size="sm"
+                                className="me-2"
+                              />
                               Loading...
                             </td>
                           </tr>
                         ) : filteredGalleries.length === 0 ? (
                           <tr>
-                            <td colSpan="8" className="text-center py-4 text-muted">
+                            <td
+                              colSpan="8"
+                              className="text-center py-4 text-muted"
+                            >
                               {searchTerm
                                 ? "Tidak ada gallery yang sesuai dengan pencarian"
                                 : "Belum ada gallery yang dibuat"}
@@ -2100,8 +2389,15 @@ function GalleryManagement() {
                               <td>
                                 <Form.Check
                                   type="checkbox"
-                                  checked={selectedGalleries.includes(gallery._id)}
-                                  onChange={(e) => handleSelectGallery(gallery._id, e.target.checked)}
+                                  checked={selectedGalleries.includes(
+                                    gallery._id
+                                  )}
+                                  onChange={(e) =>
+                                    handleSelectGallery(
+                                      gallery._id,
+                                      e.target.checked
+                                    )
+                                  }
                                   disabled={status !== "authenticated"}
                                 />
                               </td>
@@ -2109,7 +2405,12 @@ function GalleryManagement() {
                                 <div
                                   className="position-relative"
                                   style={{ cursor: "pointer" }}
-                                  onClick={() => handleImageView(gallery.imageUrl, gallery.title)}
+                                  onClick={() =>
+                                    handleImageView(
+                                      gallery.imageUrl,
+                                      gallery.title
+                                    )
+                                  }
                                 >
                                   <Image
                                     src={gallery.imageUrl || "/placeholder.svg"}
@@ -2129,7 +2430,7 @@ function GalleryManagement() {
                                             No Image
                                           </text>
                                         </svg>
-                                      `)}`
+                                      `)}`;
                                     }}
                                   />
                                   <div
@@ -2141,10 +2442,10 @@ function GalleryManagement() {
                                     }}
                                     title="Klik untuk melihat gambar full screen"
                                     onMouseEnter={(e) => {
-                                      e.currentTarget.style.opacity = "1"
+                                      e.currentTarget.style.opacity = "1";
                                     }}
                                     onMouseLeave={(e) => {
-                                      e.currentTarget.style.opacity = "0"
+                                      e.currentTarget.style.opacity = "0";
                                     }}
                                   >
                                     <FaExpand />
@@ -2166,15 +2467,25 @@ function GalleryManagement() {
                                 <FaMapMarkerAlt className="me-1 text-muted" />
                                 {gallery.location}
                               </td>
-                              <td>{new Date(gallery.uploadDate).toLocaleDateString("id-ID")}</td>
+                              <td>
+                                {new Date(
+                                  gallery.uploadDate
+                                ).toLocaleDateString("id-ID")}
+                              </td>
                               <td>
                                 {gallery.isActive ? (
-                                  <Badge bg="success" className="d-flex align-items-center">
+                                  <Badge
+                                    bg="success"
+                                    className="d-flex align-items-center"
+                                  >
                                     <FaCheckCircle className="me-1" />
                                     Aktif
                                   </Badge>
                                 ) : (
-                                  <Badge bg="danger" className="d-flex align-items-center">
+                                  <Badge
+                                    bg="danger"
+                                    className="d-flex align-items-center"
+                                  >
                                     <FaTimesCircle className="me-1" />
                                     Tidak Aktif
                                   </Badge>
@@ -2182,35 +2493,49 @@ function GalleryManagement() {
                               </td>
                               <td>
                                 <div className="d-flex gap-1">
-                                  <OverlayTrigger placement="top" overlay={<Tooltip>Lihat Gambar</Tooltip>}>
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip>Lihat Gambar</Tooltip>}
+                                  >
                                     <Button
                                       variant="outline-info"
                                       size="sm"
-                                      onClick={() => handleImageView(gallery.imageUrl, gallery.title)}
+                                      onClick={() =>
+                                        handleImageView(
+                                          gallery.imageUrl,
+                                          gallery.title
+                                        )
+                                      }
                                     >
                                       <FaEye />
                                     </Button>
                                   </OverlayTrigger>
-                                  <OverlayTrigger placement="top" overlay={<Tooltip>Edit Gallery</Tooltip>}>
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip>Edit Gallery</Tooltip>}
+                                  >
                                     <Button
                                       variant="outline-primary"
                                       size="sm"
                                       onClick={() => {
-                                        setEditingGallery(gallery)
-                                        setShowEditModal(true)
+                                        setEditingGallery(gallery);
+                                        setShowEditModal(true);
                                       }}
                                       disabled={status !== "authenticated"}
                                     >
                                       <FaEdit />
                                     </Button>
                                   </OverlayTrigger>
-                                  <OverlayTrigger placement="top" overlay={<Tooltip>Hapus Gallery</Tooltip>}>
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip>Hapus Gallery</Tooltip>}
+                                  >
                                     <Button
                                       variant="outline-danger"
                                       size="sm"
                                       onClick={() => {
-                                        setGalleryToDelete(gallery)
-                                        setShowDeleteModal(true)
+                                        setGalleryToDelete(gallery);
+                                        setShowDeleteModal(true);
                                       }}
                                       disabled={status !== "authenticated"}
                                     >
@@ -2228,7 +2553,8 @@ function GalleryManagement() {
 
                   <div className="mt-3 d-flex justify-content-between align-items-center">
                     <div className="text-muted">
-                      Menampilkan {filteredGalleries.length.toLocaleString("id-ID")} dari{" "}
+                      Menampilkan{" "}
+                      {filteredGalleries.length.toLocaleString("id-ID")} dari{" "}
                       {totalItems.toLocaleString("id-ID")} gallery
                     </div>
                   </div>
@@ -2267,6 +2593,7 @@ function GalleryManagement() {
                           relatedGallery: e.target.value,
                         }))
                       }
+                      style={{ backgroundColor: "white", color: "black" }}
                       required
                       disabled={status !== "authenticated"}
                     >
@@ -2277,7 +2604,9 @@ function GalleryManagement() {
                         </option>
                       ))}
                     </Form.Select>
-                    <Form.Text muted>Pilih gallery mana yang akan menggunakan frame ini</Form.Text>
+                    <Form.Text muted>
+                      Pilih gallery mana yang akan menggunakan frame ini
+                    </Form.Text>
                   </Form.Group>
 
                   <Form.Group className="mb-3">
@@ -2287,7 +2616,7 @@ function GalleryManagement() {
                     </Form.Label>
                     <Form.Control
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/jpg,image/avif,image/png,image/webp"
                       ref={frameFileInputRef}
                       onChange={(e) => handleFrameFileSelect(e.target.files[0])}
                       className="form-control-lg"
@@ -2295,13 +2624,18 @@ function GalleryManagement() {
                       disabled={status !== "authenticated"}
                     />
                     <Form.Text muted>
-                      Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB. Gambar akan diupload dalam ukuran
-                      asli tanpa cropping.
+                      Format yang didukung: JPEG, PNG, AVIF, WebP. Maksimal
+                      ukuran: 10MB. Gambar akan diupload dalam ukuran asli tanpa
+                      cropping.
                     </Form.Text>
 
                     {frameUploading && (
                       <div className="mt-2">
-                        <Spinner animation="border" size="sm" className="me-2" />
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          className="me-2"
+                        />
                         Mengupload frame...
                       </div>
                     )}
@@ -2331,9 +2665,14 @@ function GalleryManagement() {
                             display: "block",
                             cursor: "pointer",
                           }}
-                          onClick={() => handleImageView(framePreviewImage, "Frame Preview")}
+                          onClick={() =>
+                            handleImageView(framePreviewImage, "Frame Preview")
+                          }
                           onError={(e) => {
-                            console.warn("Frame preview load failed:", e.target.src)
+                            console.warn(
+                              "Frame preview load failed:",
+                              e.target.src
+                            );
                             e.target.src = `data:image/svg+xml;base64,${btoa(`
                               <svg width="250" height="200" xmlns="http://www.w3.org/2000/svg">
                                 <rect width="250" height="200" fill="#f8f9fa"/>
@@ -2341,7 +2680,7 @@ function GalleryManagement() {
                                   Frame Not Found
                                 </text>
                               </svg>
-                            `)}`
+                            `)}`;
                           }}
                         />
                       </div>
@@ -2352,12 +2691,19 @@ function GalleryManagement() {
                     <div className="mb-3">
                       <div className="d-flex align-items-center gap-2 mb-2">
                         <FaCheckCircle className="text-success" />
-                        <small className="text-success">Frame berhasil diupload dan siap disimpan</small>
+                        <small className="text-success">
+                          Frame berhasil diupload dan siap disimpan
+                        </small>
                       </div>
                       {frameFormData.originalName && (
                         <small className="text-muted d-block">
                           File: {frameFormData.originalName}
-                          {frameFormData.fileSize > 0 && <> ({Math.round(frameFormData.fileSize / 1024)} KB)</>}
+                          {frameFormData.fileSize > 0 && (
+                            <>
+                              {" "}
+                              ({Math.round(frameFormData.fileSize / 1024)} KB)
+                            </>
+                          )}
                         </small>
                       )}
                     </div>
@@ -2376,7 +2722,11 @@ function GalleryManagement() {
                     >
                       {frameSubmitting ? (
                         <>
-                          <Spinner animation="border" size="sm" className="me-2" />
+                          <Spinner
+                            animation="border"
+                            size="sm"
+                            className="me-2"
+                          />
                           Menyimpan...
                         </>
                       ) : (
@@ -2398,12 +2748,12 @@ function GalleryManagement() {
                           originalName: "",
                           fileSize: 0,
                           mimeType: "",
-                        })
-                        setFramePreviewImage(null)
-                        setSelectedFrameFile(null)
+                        });
+                        setFramePreviewImage(null);
+                        setSelectedFrameFile(null);
 
                         if (frameFileInputRef.current) {
-                          frameFileInputRef.current.value = ""
+                          frameFileInputRef.current.value = "";
                         }
                       }}
                       disabled={frameSubmitting || status !== "authenticated"}
@@ -2427,7 +2777,9 @@ function GalleryManagement() {
                       <Card.Body>
                         <div className="d-flex justify-content-center align-items-center mb-2">
                           <FaImage className="text-primary me-2" size={20} />
-                          <h5 className="mb-0">{frameStats.total.toLocaleString("id-ID")}</h5>
+                          <h5 className="mb-0">
+                            {frameStats.total.toLocaleString("id-ID")}
+                          </h5>
                         </div>
                         <p className="mb-0 text-muted small">Total Frame</p>
                       </Card.Body>
@@ -2437,8 +2789,13 @@ function GalleryManagement() {
                     <Card className="text-center h-100 border-success">
                       <Card.Body>
                         <div className="d-flex justify-content-center align-items-center mb-2">
-                          <FaCheckCircle className="text-success me-2" size={20} />
-                          <h5 className="mb-0">{frameStats.active.toLocaleString("id-ID")}</h5>
+                          <FaCheckCircle
+                            className="text-success me-2"
+                            size={20}
+                          />
+                          <h5 className="mb-0">
+                            {frameStats.active.toLocaleString("id-ID")}
+                          </h5>
                         </div>
                         <p className="mb-0 text-muted small">Aktif</p>
                       </Card.Body>
@@ -2448,8 +2805,13 @@ function GalleryManagement() {
                     <Card className="text-center h-100 border-danger">
                       <Card.Body>
                         <div className="d-flex justify-content-center align-items-center mb-2">
-                          <FaTimesCircle className="text-danger me-2" size={20} />
-                          <h5 className="mb-0">{frameStats.inactive.toLocaleString("id-ID")}</h5>
+                          <FaTimesCircle
+                            className="text-danger me-2"
+                            size={20}
+                          />
+                          <h5 className="mb-0">
+                            {frameStats.inactive.toLocaleString("id-ID")}
+                          </h5>
                         </div>
                         <p className="mb-0 text-muted small">Tidak Aktif</p>
                       </Card.Body>
@@ -2460,7 +2822,9 @@ function GalleryManagement() {
                       <Card.Body>
                         <div className="d-flex justify-content-center align-items-center mb-2">
                           <FaCalendarAlt className="text-info me-2" size={20} />
-                          <h5 className="mb-0">{frameStats.thisMonth.toLocaleString("id-ID")}</h5>
+                          <h5 className="mb-0">
+                            {frameStats.thisMonth.toLocaleString("id-ID")}
+                          </h5>
                         </div>
                         <p className="mb-0 text-muted small">Bulan Ini</p>
                       </Card.Body>
@@ -2478,13 +2842,18 @@ function GalleryManagement() {
                         onClick={fetchFrames}
                         disabled={loading || status !== "authenticated"}
                       >
-                        <FaSync className={`me-1 ${loading ? "fa-spin" : ""}`} />
+                        <FaSync
+                          className={`me-1 ${loading ? "fa-spin" : ""}`}
+                        />
                         Refresh
                       </Button>
                     </div>
                   </Card.Header>
                   <Card.Body>
-                    <div className="table-responsive" style={{ maxHeight: "400px", overflowY: "auto" }}>
+                    <div
+                      className="table-responsive"
+                      style={{ maxHeight: "400px", overflowY: "auto" }}
+                    >
                       <Table striped bordered hover responsive className="mb-0">
                         <thead className="table-dark sticky-top">
                           <tr>
@@ -2500,7 +2869,10 @@ function GalleryManagement() {
                         <tbody>
                           {frames.length === 0 ? (
                             <tr>
-                              <td colSpan="7" className="text-center py-4 text-muted">
+                              <td
+                                colSpan="7"
+                                className="text-center py-4 text-muted"
+                              >
                                 Belum ada frame yang diupload
                               </td>
                             </tr>
@@ -2514,12 +2886,17 @@ function GalleryManagement() {
                                     onClick={() =>
                                       handleImageView(
                                         withBuster(frame.imageUrl),
-                                        `Frame - ${frame.originalName || "Unknown"}`,
+                                        `Frame - ${
+                                          frame.originalName || "Unknown"
+                                        }`
                                       )
                                     }
                                   >
                                     <Image
-                                      src={withBuster(frame.imageUrl) || "/placeholder.svg"}
+                                      src={
+                                        withBuster(frame.imageUrl) ||
+                                        "/placeholder.svg"
+                                      }
                                       alt={frame.originalName || "Frame"}
                                       thumbnail
                                       loading="lazy"
@@ -2538,7 +2915,7 @@ function GalleryManagement() {
                                               No Image
                                             </text>
                                           </svg>
-                                        `)}`
+                                        `)}`;
                                       }}
                                     />
                                     <div
@@ -2550,10 +2927,10 @@ function GalleryManagement() {
                                       }}
                                       title="Klik untuk melihat frame full screen"
                                       onMouseEnter={(e) => {
-                                        e.currentTarget.style.opacity = "1"
+                                        e.currentTarget.style.opacity = "1";
                                       }}
                                       onMouseLeave={(e) => {
-                                        e.currentTarget.style.opacity = "0"
+                                        e.currentTarget.style.opacity = "0";
                                       }}
                                     >
                                       <FaExpand />
@@ -2562,7 +2939,10 @@ function GalleryManagement() {
                                 </td>
                                 <td>
                                   <div>
-                                    <strong>{frame.relatedGallery?.title || "Gallery Tidak Ditemukan"}</strong>
+                                    <strong>
+                                      {frame.relatedGallery?.title ||
+                                        "Gallery Tidak Ditemukan"}
+                                    </strong>
                                     {frame.relatedGallery?.label && (
                                       <div>
                                         <Badge
@@ -2579,24 +2959,40 @@ function GalleryManagement() {
                                   </div>
                                 </td>
                                 <td>
-                                  <small>{frame.originalName || "Unknown"}</small>
-                                </td>
-                                <td>
                                   <small>
-                                    {frame.fileSize ? `${Math.round(frame.fileSize / 1024)} KB` : "Unknown"}
+                                    {frame.originalName || "Unknown"}
                                   </small>
                                 </td>
                                 <td>
-                                  <small>{new Date(frame.createdAt).toLocaleDateString("id-ID")}</small>
+                                  <small>
+                                    {frame.fileSize
+                                      ? `${Math.round(
+                                          frame.fileSize / 1024
+                                        )} KB`
+                                      : "Unknown"}
+                                  </small>
+                                </td>
+                                <td>
+                                  <small>
+                                    {new Date(
+                                      frame.createdAt
+                                    ).toLocaleDateString("id-ID")}
+                                  </small>
                                 </td>
                                 <td>
                                   {frame.isActive ? (
-                                    <Badge bg="success" className="d-flex align-items-center">
+                                    <Badge
+                                      bg="success"
+                                      className="d-flex align-items-center"
+                                    >
                                       <FaCheckCircle className="me-1" />
                                       Aktif
                                     </Badge>
                                   ) : (
-                                    <Badge bg="danger" className="d-flex align-items-center">
+                                    <Badge
+                                      bg="danger"
+                                      className="d-flex align-items-center"
+                                    >
                                       <FaTimesCircle className="me-1" />
                                       Tidak Aktif
                                     </Badge>
@@ -2604,27 +3000,37 @@ function GalleryManagement() {
                                 </td>
                                 <td>
                                   <div className="d-flex gap-1">
-                                    <OverlayTrigger placement="top" overlay={<Tooltip>Lihat Full Screen</Tooltip>}>
+                                    <OverlayTrigger
+                                      placement="top"
+                                      overlay={
+                                        <Tooltip>Lihat Full Screen</Tooltip>
+                                      }
+                                    >
                                       <Button
                                         variant="outline-info"
                                         size="sm"
                                         onClick={() =>
                                           handleImageView(
                                             withBuster(frame.imageUrl),
-                                            `Frame - ${frame.originalName || "Unknown"}`,
+                                            `Frame - ${
+                                              frame.originalName || "Unknown"
+                                            }`
                                           )
                                         }
                                       >
                                         <FaExpand />
                                       </Button>
                                     </OverlayTrigger>
-                                    <OverlayTrigger placement="top" overlay={<Tooltip>Hapus Frame</Tooltip>}>
+                                    <OverlayTrigger
+                                      placement="top"
+                                      overlay={<Tooltip>Hapus Frame</Tooltip>}
+                                    >
                                       <Button
                                         variant="outline-danger"
                                         size="sm"
                                         onClick={() => {
-                                          setFrameToDelete(frame)
-                                          setShowFrameDeleteModal(true)
+                                          setFrameToDelete(frame);
+                                          setShowFrameDeleteModal(true);
                                         }}
                                         disabled={status !== "authenticated"}
                                       >
@@ -2642,7 +3048,10 @@ function GalleryManagement() {
 
                     {frames.length > 0 && (
                       <div className="mt-3 d-flex justify-content-between align-items-center">
-                        <div className="text-muted">Menampilkan {frames.length.toLocaleString("id-ID")} frame</div>
+                        <div className="text-muted">
+                          Menampilkan {frames.length.toLocaleString("id-ID")}{" "}
+                          frame
+                        </div>
                       </div>
                     )}
                   </Card.Body>
@@ -2659,7 +3068,9 @@ function GalleryManagement() {
             key={toast.id}
             bg={toast.type === "error" ? "danger" : toast.type}
             show={true}
-            onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+            onClose={() =>
+              setToasts((prev) => prev.filter((t) => t.id !== toast.id))
+            }
             duration={toast.duration}
             autohide
           >
@@ -2667,17 +3078,26 @@ function GalleryManagement() {
               <strong className="me-auto">
                 {toast.type === "success" && <FaCheckCircle className="me-2" />}
                 {toast.type === "error" && <FaTimesCircle className="me-2" />}
-                {toast.type === "warning" && <FaExclamationTriangle className="me-2" />}
+                {toast.type === "warning" && (
+                  <FaExclamationTriangle className="me-2" />
+                )}
                 {toast.type === "info" && <FaEye className="me-2" />}
                 Notifikasi
               </strong>
             </Toast.Header>
-            <Toast.Body className={toast.type === "error" ? "text-white" : ""}>{toast.message}</Toast.Body>
+            <Toast.Body className={toast.type === "error" ? "text-white" : ""}>
+              {toast.message}
+            </Toast.Body>
           </Toast>
         ))}
       </ToastContainer>
 
-      <Modal show={showImageModal} onHide={() => setShowImageModal(false)} centered size="xl">
+      <Modal
+        show={showImageModal}
+        onHide={() => setShowImageModal(false)}
+        centered
+        size="xl"
+      >
         <Modal.Header closeButton className="bg-dark text-white">
           <Modal.Title>
             <FaImage className="me-2" />
@@ -2704,7 +3124,7 @@ function GalleryManagement() {
                     Image Not Found
                   </text>
                 </svg>
-              `)}`
+              `)}`;
             }}
           />
         </Modal.Body>
@@ -2713,14 +3133,22 @@ function GalleryManagement() {
             <FaLink className="me-1" />
             {selectedImageUrl}
           </small>
-          <Button variant="outline-light" onClick={() => setShowImageModal(false)}>
+          <Button
+            variant="outline-light"
+            onClick={() => setShowImageModal(false)}
+          >
             <FaTimes className="me-1" />
             Tutup
           </Button>
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered size="lg">
+      <Modal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        centered
+        size="lg"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <FaEdit className="me-2 text-primary" /> Edit Gallery
@@ -2796,7 +3224,11 @@ function GalleryManagement() {
                       <Form.Control
                         type="date"
                         name="uploadDate"
-                        defaultValue={new Date(editingGallery.uploadDate).toISOString().split("T")[0]}
+                        defaultValue={
+                          new Date(editingGallery.uploadDate)
+                            .toISOString()
+                            .split("T")[0]
+                        }
                         required
                         disabled={status !== "authenticated"}
                         onClick={(e) => e.stopPropagation()}
@@ -2837,8 +3269,11 @@ function GalleryManagement() {
                         cursor: "pointer",
                       }}
                       onClick={(e) => {
-                        e.stopPropagation()
-                        handleImageView(editingGallery.imageUrl, editingGallery.title)
+                        e.stopPropagation();
+                        handleImageView(
+                          editingGallery.imageUrl,
+                          editingGallery.title
+                        );
                       }}
                     >
                       <Image
@@ -2859,7 +3294,7 @@ function GalleryManagement() {
                                 Image Not Found
                               </text>
                             </svg>
-                          `)}`
+                          `)}`;
                         }}
                       />
                       <div
@@ -2870,10 +3305,10 @@ function GalleryManagement() {
                           position: "absolute",
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.opacity = "1"
+                          e.currentTarget.style.opacity = "1";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.opacity = "0"
+                          e.currentTarget.style.opacity = "0";
                         }}
                       >
                         <div>
@@ -2885,8 +3320,8 @@ function GalleryManagement() {
                       </div>
                     </div>
                     <Form.Text className="d-block mt-2 text-muted">
-                      Klik gambar untuk melihat full screen. Untuk mengganti gambar, silakan hapus item ini dan buat
-                      yang baru.
+                      Klik gambar untuk melihat full screen. Untuk mengganti
+                      gambar, silakan hapus item ini dan buat yang baru.
                     </Form.Text>
                   </div>
                 </Form.Group>
@@ -2897,9 +3332,9 @@ function GalleryManagement() {
             <Button
               variant="secondary"
               onClick={(e) => {
-                e.stopPropagation()
-                setShowEditModal(false)
-                setEditingGallery(null)
+                e.stopPropagation();
+                setShowEditModal(false);
+                setEditingGallery(null);
               }}
               disabled={submitting}
             >
@@ -2927,7 +3362,11 @@ function GalleryManagement() {
         </Form>
       </Modal>
 
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+      <Modal
+        show={showDeleteModal}
+        onHide={() => setShowDeleteModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <FaTrash className="me-2 text-danger" /> Konfirmasi Hapus
@@ -2935,25 +3374,35 @@ function GalleryManagement() {
         </Modal.Header>
         <Modal.Body>
           <p>
-            Apakah Anda yakin ingin menghapus gallery <strong className="text-danger">{galleryToDelete?.title}</strong>?
+            Apakah Anda yakin ingin menghapus gallery{" "}
+            <strong className="text-danger">{galleryToDelete?.title}</strong>?
           </p>
           <Alert variant="warning" className="mb-0">
             <FaExclamationTriangle className="me-2" />
-            Tindakan ini tidak dapat dibatalkan dan akan menghapus gambar dari server.
+            Tindakan ini tidak dapat dibatalkan dan akan menghapus gambar dari
+            server.
           </Alert>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
             Batal
           </Button>
-          <Button variant="danger" onClick={handleDelete} disabled={status !== "authenticated"}>
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            disabled={status !== "authenticated"}
+          >
             <FaTrash className="me-2" />
             Hapus
           </Button>
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showDeleteMultipleModal} onHide={() => setShowDeleteMultipleModal(false)} centered>
+      <Modal
+        show={showDeleteMultipleModal}
+        onHide={() => setShowDeleteMultipleModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <FaTrash className="me-2 text-danger" /> Konfirmasi Hapus Multiple
@@ -2961,15 +3410,27 @@ function GalleryManagement() {
         </Modal.Header>
         <Modal.Body>
           <p>
-            Apakah Anda yakin ingin menghapus <strong>{selectedGalleries.length}</strong> gallery items yang dipilih?
+            Apakah Anda yakin ingin menghapus{" "}
+            <strong>{selectedGalleries.length}</strong> gallery items yang
+            dipilih?
           </p>
-          <p className="text-muted small">Tindakan ini tidak dapat dibatalkan.</p>
+          <p className="text-muted small">
+            Tindakan ini tidak dapat dibatalkan.
+          </p>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteMultipleModal(false)} disabled={deletingMultiple}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteMultipleModal(false)}
+            disabled={deletingMultiple}
+          >
             Batal
           </Button>
-          <Button variant="danger" onClick={handleBulkDelete} disabled={deletingMultiple}>
+          <Button
+            variant="danger"
+            onClick={handleBulkDelete}
+            disabled={deletingMultiple}
+          >
             {deletingMultiple ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
@@ -2988,7 +3449,7 @@ function GalleryManagement() {
       <Modal
         show={showCropModal}
         onHide={() => {
-          return false
+          return false;
         }}
         centered
         size="lg"
@@ -3009,11 +3470,11 @@ function GalleryManagement() {
                 size="sm"
                 variant={noCrop ? "success" : "outline-success"}
                 onClick={() => {
-                  setNoCrop(true)
-                  setAspectRatio(undefined)
-                  setCrop(undefined)
-                  setCompletedCrop(undefined)
-                  setSelectedAspectRatio("no-crop")
+                  setNoCrop(true);
+                  setAspectRatio(undefined);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                  setSelectedAspectRatio("no-crop");
                 }}
               >
                 <FaUpload className="me-1" />
@@ -3021,25 +3482,29 @@ function GalleryManagement() {
               </Button>
               <Button
                 size="sm"
-                variant={aspectRatio === 16 / 9 && !noCrop ? "primary" : "outline-primary"}
+                variant={
+                  aspectRatio === 16 / 9 && !noCrop
+                    ? "primary"
+                    : "outline-primary"
+                }
                 onClick={() => {
-                  setNoCrop(false)
-                  setAspectRatio(16 / 9)
-                  setCrop(undefined)
-                  setCompletedCrop(undefined)
-                  setSelectedAspectRatio("16-9")
+                  setNoCrop(false);
+                  setAspectRatio(16 / 9);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                  setSelectedAspectRatio("16-9");
                   setTimeout(() => {
                     if (imgRef) {
-                      const { width, height } = imgRef
-                      const aspectRatio = 16 / 9
-                      let cropWidth, cropHeight
+                      const { width, height } = imgRef;
+                      const aspectRatio = 16 / 9;
+                      let cropWidth, cropHeight;
 
                       if (width / height > aspectRatio) {
-                        cropHeight = height * 0.8
-                        cropWidth = cropHeight * aspectRatio
+                        cropHeight = height * 0.8;
+                        cropWidth = cropHeight * aspectRatio;
                       } else {
-                        cropWidth = width * 0.8
-                        cropHeight = cropWidth / aspectRatio
+                        cropWidth = width * 0.8;
+                        cropHeight = cropWidth / aspectRatio;
                       }
 
                       const newCrop = {
@@ -3048,35 +3513,39 @@ function GalleryManagement() {
                         y: (100 - (cropHeight / height) * 100) / 2,
                         width: (cropWidth / width) * 100,
                         height: (cropHeight / height) * 100,
-                      }
-                      setCrop(newCrop)
+                      };
+                      setCrop(newCrop);
                     }
-                  }, 100)
+                  }, 100);
                 }}
               >
                 16:9
               </Button>
               <Button
                 size="sm"
-                variant={aspectRatio === 4 / 3 && !noCrop ? "primary" : "outline-primary"}
+                variant={
+                  aspectRatio === 4 / 3 && !noCrop
+                    ? "primary"
+                    : "outline-primary"
+                }
                 onClick={() => {
-                  setNoCrop(false)
-                  setAspectRatio(4 / 3)
-                  setCrop(undefined)
-                  setCompletedCrop(undefined)
-                  setSelectedAspectRatio("4-3")
+                  setNoCrop(false);
+                  setAspectRatio(4 / 3);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                  setSelectedAspectRatio("4-3");
                   setTimeout(() => {
                     if (imgRef) {
-                      const { width, height } = imgRef
-                      const aspectRatio = 4 / 3
-                      let cropWidth, cropHeight
+                      const { width, height } = imgRef;
+                      const aspectRatio = 4 / 3;
+                      let cropWidth, cropHeight;
 
                       if (width / height > aspectRatio) {
-                        cropHeight = height * 0.8
-                        cropWidth = cropHeight * aspectRatio
+                        cropHeight = height * 0.8;
+                        cropWidth = cropHeight * aspectRatio;
                       } else {
-                        cropWidth = width * 0.8
-                        cropHeight = cropWidth / aspectRatio
+                        cropWidth = width * 0.8;
+                        cropHeight = cropWidth / aspectRatio;
                       }
 
                       const newCrop = {
@@ -3085,27 +3554,29 @@ function GalleryManagement() {
                         y: (100 - (cropHeight / height) * 100) / 2,
                         width: (cropWidth / width) * 100,
                         height: (cropHeight / height) * 100,
-                      }
-                      setCrop(newCrop)
+                      };
+                      setCrop(newCrop);
                     }
-                  }, 100)
+                  }, 100);
                 }}
               >
                 4:3
               </Button>
               <Button
                 size="sm"
-                variant={aspectRatio === 1 && !noCrop ? "primary" : "outline-primary"}
+                variant={
+                  aspectRatio === 1 && !noCrop ? "primary" : "outline-primary"
+                }
                 onClick={() => {
-                  setNoCrop(false)
-                  setAspectRatio(1)
-                  setCrop(undefined)
-                  setCompletedCrop(undefined)
-                  setSelectedAspectRatio("1-1")
+                  setNoCrop(false);
+                  setAspectRatio(1);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                  setSelectedAspectRatio("1-1");
                   setTimeout(() => {
                     if (imgRef) {
-                      const { width, height } = imgRef
-                      const size = Math.min(width, height) * 0.8
+                      const { width, height } = imgRef;
+                      const size = Math.min(width, height) * 0.8;
 
                       const newCrop = {
                         unit: "%",
@@ -3113,35 +3584,39 @@ function GalleryManagement() {
                         y: (100 - (size / height) * 100) / 2,
                         width: (size / width) * 100,
                         height: (size / height) * 100,
-                      }
-                      setCrop(newCrop)
+                      };
+                      setCrop(newCrop);
                     }
-                  }, 100)
+                  }, 100);
                 }}
               >
                 1:1
               </Button>
               <Button
                 size="sm"
-                variant={aspectRatio === 3 / 4 && !noCrop ? "primary" : "outline-primary"}
+                variant={
+                  aspectRatio === 3 / 4 && !noCrop
+                    ? "primary"
+                    : "outline-primary"
+                }
                 onClick={() => {
-                  setNoCrop(false)
-                  setAspectRatio(3 / 4)
-                  setCrop(undefined)
-                  setCompletedCrop(undefined)
-                  setSelectedAspectRatio("3-4")
+                  setNoCrop(false);
+                  setAspectRatio(3 / 4);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                  setSelectedAspectRatio("3-4");
                   setTimeout(() => {
                     if (imgRef) {
-                      const { width, height } = imgRef
-                      const aspectRatio = 3 / 4
-                      let cropWidth, cropHeight
+                      const { width, height } = imgRef;
+                      const aspectRatio = 3 / 4;
+                      let cropWidth, cropHeight;
 
                       if (width / height > aspectRatio) {
-                        cropHeight = height * 0.8
-                        cropWidth = cropHeight * aspectRatio
+                        cropHeight = height * 0.8;
+                        cropWidth = cropHeight * aspectRatio;
                       } else {
-                        cropWidth = width * 0.8
-                        cropHeight = cropWidth / aspectRatio
+                        cropWidth = width * 0.8;
+                        cropHeight = cropWidth / aspectRatio;
                       }
 
                       const newCrop = {
@@ -3150,36 +3625,38 @@ function GalleryManagement() {
                         y: (100 - (cropHeight / height) * 100) / 2,
                         width: (cropWidth / width) * 100,
                         height: (cropHeight / height) * 100,
-                      }
-                      setCrop(newCrop)
+                      };
+                      setCrop(newCrop);
                     }
-                  }, 100)
+                  }, 100);
                 }}
               >
                 3:4
               </Button>
               <Button
                 size="sm"
-                variant={!aspectRatio && !noCrop ? "primary" : "outline-primary"}
+                variant={
+                  !aspectRatio && !noCrop ? "primary" : "outline-primary"
+                }
                 onClick={() => {
-                  setNoCrop(false)
-                  setAspectRatio(undefined)
-                  setCrop(undefined)
-                  setCompletedCrop(undefined)
-                  setSelectedAspectRatio("free")
+                  setNoCrop(false);
+                  setAspectRatio(undefined);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                  setSelectedAspectRatio("free");
                   setTimeout(() => {
                     if (imgRef) {
-                      const { width, height } = imgRef
+                      const { width, height } = imgRef;
                       const newCrop = {
                         unit: "%",
                         x: 10,
                         y: 10,
                         width: 80,
                         height: 80,
-                      }
-                      setCrop(newCrop)
+                      };
+                      setCrop(newCrop);
                     }
-                  }, 100)
+                  }, 100);
                 }}
               >
                 Free
@@ -3188,8 +3665,8 @@ function GalleryManagement() {
             {noCrop && (
               <Alert variant="info" className="mt-2">
                 <FaInfoCircle className="me-2" />
-                Mode "No Crop": Gambar akan diupload dalam ukuran original. Card gallery akan otomatis menyesuaikan
-                tampilan menggunakan CSS.
+                Mode "No Crop": Gambar akan diupload dalam ukuran original. Card
+                gallery akan otomatis menyesuaikan tampilan menggunakan CSS.
               </Alert>
             )}
           </div>
@@ -3253,7 +3730,8 @@ function GalleryManagement() {
           {!noCrop && (
             <Alert variant="info" className="mt-3">
               <FaInfoCircle className="me-2" />
-              Drag sudut atau sisi sisi crop area untuk mengubah ukuran. Drag bagian tengah untuk memindahkan posisi.
+              Drag sudut atau sisi sisi crop area untuk mengubah ukuran. Drag
+              bagian tengah untuk memindahkan posisi.
             </Alert>
           )}
         </Modal.Body>
@@ -3261,15 +3739,15 @@ function GalleryManagement() {
           <Button
             variant="secondary"
             onClick={() => {
-              setShowCropModal(false)
-              setPreviewImage(null)
-              setSelectedFile(null)
-              setCrop(undefined)
-              setCompletedCrop(undefined)
-              setNoCrop(false)
-              setSelectedAspectRatio("16-9")
+              setShowCropModal(false);
+              setPreviewImage(null);
+              setSelectedFile(null);
+              setCrop(undefined);
+              setCompletedCrop(undefined);
+              setNoCrop(false);
+              setSelectedAspectRatio("16-9");
               if (fileInputRef.current) {
-                fileInputRef.current.value = ""
+                fileInputRef.current.value = "";
               }
             }}
             disabled={uploading}
@@ -3281,9 +3759,9 @@ function GalleryManagement() {
             variant="primary"
             onClick={() => {
               if (noCrop) {
-                handleDirectUpload()
+                handleDirectUpload();
               } else {
-                handleCropAndUpload()
+                handleCropAndUpload();
               }
             }}
             disabled={uploading || (!completedCrop && !noCrop)}
@@ -3303,7 +3781,11 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showBannerDeleteModal} onHide={() => setShowBannerDeleteModal(false)} centered>
+      <Modal
+        show={showBannerDeleteModal}
+        onHide={() => setShowBannerDeleteModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <FaTrash className="me-2 text-danger" />
@@ -3316,14 +3798,24 @@ function GalleryManagement() {
               <FaExclamationTriangle size={48} className="text-warning" />
             </div>
             <p>Apakah Anda yakin ingin menghapus banner ini?</p>
-            <p className="text-muted small">Tindakan ini tidak dapat dibatalkan.</p>
+            <p className="text-muted small">
+              Tindakan ini tidak dapat dibatalkan.
+            </p>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBannerDeleteModal(false)} disabled={bannerDeleting}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowBannerDeleteModal(false)}
+            disabled={bannerDeleting}
+          >
             Batal
           </Button>
-          <Button variant="danger" onClick={handleBannerDelete} disabled={bannerDeleting}>
+          <Button
+            variant="danger"
+            onClick={handleBannerDelete}
+            disabled={bannerDeleting}
+          >
             {bannerDeleting ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
@@ -3342,7 +3834,7 @@ function GalleryManagement() {
       <Modal
         show={showBannerCropModal}
         onHide={() => {
-          return false
+          return false;
         }}
         size="lg"
         centered
@@ -3360,42 +3852,56 @@ function GalleryManagement() {
             <label className="form-label fw-bold">Aspect Ratio:</label>
             <div className="d-flex gap-2 flex-wrap">
               <Button
-                variant={bannerAspectRatio === 16 / 5 ? "primary" : "outline-primary"}
+                variant={
+                  bannerAspectRatio === 16 / 5 ? "primary" : "outline-primary"
+                }
                 size="sm"
                 onClick={() => setBannerAspectRatio(16 / 5)}
               >
                 Banner (16:5)
               </Button>
               <Button
-                variant={bannerAspectRatio === 16 / 9 ? "primary" : "outline-primary"}
+                variant={
+                  bannerAspectRatio === 16 / 9 ? "primary" : "outline-primary"
+                }
                 size="sm"
                 onClick={() => setBannerAspectRatio(16 / 9)}
               >
                 16:9
               </Button>
               <Button
-                variant={bannerAspectRatio === 4 / 3 ? "primary" : "outline-primary"}
+                variant={
+                  bannerAspectRatio === 4 / 3 ? "primary" : "outline-primary"
+                }
                 size="sm"
                 onClick={() => setBannerAspectRatio(4 / 3)}
               >
                 4:3
               </Button>
               <Button
-                variant={bannerAspectRatio === 1 ? "primary" : "outline-primary"}
+                variant={
+                  bannerAspectRatio === 1 ? "primary" : "outline-primary"
+                }
                 size="sm"
                 onClick={() => setBannerAspectRatio(1)}
               >
                 1:1
               </Button>
               <Button
-                variant={bannerAspectRatio === 3 / 4 ? "primary" : "outline-primary"}
+                variant={
+                  bannerAspectRatio === 3 / 4 ? "primary" : "outline-primary"
+                }
                 size="sm"
                 onClick={() => setBannerAspectRatio(3 / 4)}
               >
                 3:4
               </Button>
               <Button
-                variant={bannerAspectRatio === undefined ? "primary" : "outline-primary"}
+                variant={
+                  bannerAspectRatio === undefined
+                    ? "primary"
+                    : "outline-primary"
+                }
                 size="sm"
                 onClick={() => setBannerAspectRatio(undefined)}
               >
@@ -3436,23 +3942,35 @@ function GalleryManagement() {
 
           <Alert variant="info">
             <FaInfoCircle className="me-2" />
-            Drag sudut untuk mengubah ukuran crop area secara proporsional. Drag sisi untuk mengubah ukuran pada satu
-            dimensi. Drag bagian tengah untuk memindahkan posisi banner. Pilih aspect ratio di atas atau gunakan "Free"
-            untuk cropping bebas.
+            Drag sudut untuk mengubah ukuran crop area secara proporsional. Drag
+            sisi untuk mengubah ukuran pada satu dimensi. Drag bagian tengah
+            untuk memindahkan posisi banner. Pilih aspect ratio di atas atau
+            gunakan "Free" untuk cropping bebas.
           </Alert>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBannerCropModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowBannerCropModal(false)}
+          >
             Batal
           </Button>
-          <Button variant="primary" onClick={handleBannerCropSave} disabled={!bannerCompletedCrop}>
+          <Button
+            variant="primary"
+            onClick={handleBannerCropSave}
+            disabled={!bannerCompletedCrop}
+          >
             <FaCheckCircle className="me-2" />
             Gunakan Gambar Ini
           </Button>
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showFrameDeleteModal} onHide={() => setShowFrameDeleteModal(false)} centered>
+      <Modal
+        show={showFrameDeleteModal}
+        onHide={() => setShowFrameDeleteModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <FaTrash className="me-2 text-danger" />
@@ -3466,15 +3984,24 @@ function GalleryManagement() {
             </div>
             <p>Apakah Anda yakin ingin menghapus frame ini?</p>
             <p className="text-muted small">
-              Tindakan ini tidak dapat dibatalkan dan akan menghapus gambar frame dari server.
+              Tindakan ini tidak dapat dibatalkan dan akan menghapus gambar
+              frame dari server.
             </p>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowFrameDeleteModal(false)} disabled={frameDeleting}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowFrameDeleteModal(false)}
+            disabled={frameDeleting}
+          >
             Batal
           </Button>
-          <Button variant="danger" onClick={handleFrameDelete} disabled={frameDeleting}>
+          <Button
+            variant="danger"
+            onClick={handleFrameDelete}
+            disabled={frameDeleting}
+          >
             {frameDeleting ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
@@ -3490,7 +4017,7 @@ function GalleryManagement() {
         </Modal.Footer>
       </Modal>
     </div>
-  )
+  );
 }
 
-export default GalleryManagement
+export default GalleryManagement;

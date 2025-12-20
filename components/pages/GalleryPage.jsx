@@ -79,8 +79,8 @@ const PaginationButton = styled.button`
   height: 36px;
   border: none;
   border-radius: 50%;
-  background: ${(props) => (props.active ? "#f5a623" : "#ffffff")};
-  color: ${(props) => (props.active ? "#ffffff" : "#333333")};
+  background: ${(props) => (props.$active ? "#f5a623" : "#ffffff")};
+  color: ${(props) => (props.$active ? "#ffffff" : "#333333")};
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -94,7 +94,7 @@ const PaginationButton = styled.button`
   }
 
   &:hover {
-    background: ${(props) => (props.active ? "#e6951f" : "#f5f5f5")};
+    background: ${(props) => (props.$active ? "#e6951f" : "#f5f5f5")};
     transform: translateY(-1px);
   }
 
@@ -235,7 +235,7 @@ const GalleryPage = ({ banner, galleries }) => {
                   <PaginationDots aria-hidden>…</PaginationDots>
                 ) : (
                   <PaginationButton
-                    active={currentPage === number}
+                    $active={currentPage === number}
                     onClick={() => handlePageChange(number)}
                     aria-current={currentPage === number ? "page" : undefined}
                     aria-label={`Ke halaman ${number}`}
