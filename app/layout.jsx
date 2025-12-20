@@ -1,25 +1,44 @@
-import "@/styles/main.css"
-import { Providers } from "./providers"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "animate.css"
-import "aos/dist/aos.css"
+import "@/styles/main.css";
+import { Providers } from "./providers";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "animate.css";
+import "aos/dist/aos.css";
 
 export const metadata = {
   title: "HOK LAMPUNG OFFICIAL",
   description:
     "Situs Ini merupakan Website Resmi dari Komunitas Honor of Kings Lampung. #OURALLCOMMUNITY #HONOROFKINGS",
-}
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
         <link rel="icon" type="image/png" href="/logohead.png" />
-        <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@700&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Overpass:wght@700&display=swap"
+          rel="stylesheet"
+        />
+
+        {/* Schema Organization */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "HOK Lampung",
+              url: "https://hoklampung.com",
+              logo: "https://hoklampung.com/logo.png",
+              sameAs: ["https://www.instagram.com/hoklampung.official"],
+            }),
+          }}
+        />
       </head>
+
       <body>
         <Providers>{children}</Providers>
       </body>
     </html>
-  )
+  );
 }
