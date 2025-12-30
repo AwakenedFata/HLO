@@ -5,14 +5,14 @@ import "animate.css";
 import "aos/dist/aos.css";
 
 export const metadata = {
-  title: "HOK LAMPUNG OFFICIAL",
+title: "HOK Lampung Official | Komunitas Honor of Kings Lampung",
   description:
-    "Situs Ini merupakan Website Resmi dari Komunitas Honor of Kings Lampung. #OURALLCOMMUNITY #HONOROFKINGS",
+    "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.#OURALLCOMMUNITY #HONOROFKINGS",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="id">
       <head>
         <link rel="icon" type="image/png" href="/logohead.png" />
         <link
