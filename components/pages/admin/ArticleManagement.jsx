@@ -346,14 +346,14 @@ function ArticleManagement() {
     (file) => {
       if (!file) return
 
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-      const allowedExts = [".jpg", ".jpeg", ".png", ".webp"]
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"]
+      const allowedExts = [".jpg", ".jpeg", ".png", ".webp", ".avif"]
 
       const isValidType = allowedTypes.includes(file.type)
       const isValidExt = allowedExts.some((ext) => file.name?.toLowerCase().endsWith(ext))
 
       if (!isValidType && !isValidExt) {
-        addToast("Format file harus JPG, PNG, atau WebP", "error")
+        addToast("Format file harus JPG, PNG, WebP, atau AVIF", "error")
         return
       }
 
@@ -1489,7 +1489,7 @@ function ArticleManagement() {
                         </Button>
                       )}
                     </div>
-                    <Form.Text muted>Format yang didukung: JPEG, PNG, WebP. Maksimal ukuran: 10MB</Form.Text>
+                    <Form.Text muted>Format yang didukung: JPEG, PNG, WebP, AVIF. Maksimal ukuran: 10MB</Form.Text>
 
                     {uploading && (
                       <div className="mt-2">

@@ -7,20 +7,20 @@ const partner3 = "/assets/SponsorAndPartner/VNX.png";
 const partner4 = "/assets/serialnumber/HLO-ID-2.avif";
 const partner5 = "/assets/SponsorAndPartner/vincent-production.png";
 
-const platformWhatsapp = "/assets/platforms/whatsapp-icon.png";
-const platformInstagram = "/assets/platforms/instagram-logo.png";
-const platformFacebook = "/assets/platforms/facebook-circle-logo.png";
-const platformYoutube = "/assets/platforms/youtube.png";
-const platformTiktok = "/assets/platforms/tiktok-logo.png";
-const platformDiscord = "/assets/platforms/discord-logo.png";
-const platformX = "/assets/platforms/logo-x-modern-2023.png";
+const platformWhatsapp = "/assets/platforms/whatsapp-icon.avif";
+const platformInstagram = "/assets/platforms/instagram-logo.avif";
+const platformFacebook = "/assets/platforms/facebook-circle-logo.avif";
+const platformYoutube = "/assets/platforms/youtube.avif";
+const platformTiktok = "/assets/platforms/tiktok-logo.avif";
+const platformDiscord = "/assets/platforms/discord-logo.avif";
+const platformX = "/assets/platforms/logo-x-modern-2023.avif";
 
-const marketPlaceShopee = "/assets/Merchandise/shopee.png"
-const marketPlaceTokopedia = "/assets/Merchandise/tokopedia.png"
-const marketPlaceLazada = "/assets/Merchandise/lazada.png"
-const marketPlaceTiktokshop = "/assets/Merchandise/tiktokshop.png"
-const marketPlaceBlibli = "/assets/Merchandise/blibli2.png"
-const marketPlaceToco = "/assets/Merchandise/toco.png"
+const marketPlaceShopee = "/assets/Merchandise/shopee.avif"
+const marketPlaceTokopedia = "/assets/Merchandise/tokopedia.avif"
+const marketPlaceLazada = "/assets/Merchandise/lazada.avif"
+const marketPlaceTiktokshop = "/assets/Merchandise/tiktokshop.avif"
+const marketPlaceBlibli = "/assets/Merchandise/blibli2.avif"
+const marketPlaceToco = "/assets/Merchandise/toco.avif"
 
 export const navLinks = [
   { id: 1, path: "/", text: "Home" },

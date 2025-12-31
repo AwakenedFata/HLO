@@ -105,7 +105,7 @@ const WelcomePopup = () => {
               rel="noopener noreferrer"
             >
               <img
-                src="/assets/join-and-follow.png"
+                src="/assets/join-and-follow.avif"
                 alt="join-and-follow"
                 className="popup-image"
               />

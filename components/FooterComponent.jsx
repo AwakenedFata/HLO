@@ -152,7 +152,7 @@ function FooterComponent() {
                   </a>
                 </div>
                 <div className="contact-details-footer">
-                  <p>+62 857-8972-5352</p>
+                  <p>+62 857-0934-6954</p>
                 </div>
               </li>
               <li>

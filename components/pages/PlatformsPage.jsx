@@ -103,7 +103,7 @@ const PlatformsPage = () => {
         onTouchEnd={handleTouchEnd}
       >
         <img
-          src="/assets/platforms/kotak.png"
+          src="/assets/platforms/kotak.avif"
           alt="Platform Background"
           style={{
             position: "absolute",

@@ -239,7 +239,7 @@ function ContactFormComponent() {
                   <div className="contact-info-item">
                     <div className="contact-icon-email">
                       <a
-                        href="https://mail.google.com/mail/?view=cm&fs=1&to=hoklampung.official@gmail.com&su=kritik dan saran untuk hok lampung&body=kritik dan saran untuk hok lampung"
+                        href="https://mail.google.com/mail/?view=cm&fs=1&to=hoklampung.official@gmail.com&su=kritik dan saran untuk hok lampung"
                         target="_blank"
                         rel="noopener noreferrer"
                       >

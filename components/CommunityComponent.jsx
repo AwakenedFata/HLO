@@ -139,7 +139,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/kiri 2.avif" alt="Stat 1" className="statcard1 img-fluid" />
+                  <img src="/assets/aboutus/kiri.png" alt="Stat 1" className="statcard1 img-fluid" />
                   {startCountMember && (
                     <div className="count-wrappermember">
                       <div className="count-text">{memberCount}</div>
@@ -158,7 +158,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/tengah 2.avif" alt="Stat 2" className="statcard2 img-fluid" />
+                  <img src="/assets/aboutus/tengah.png" alt="Stat 2" className="statcard2 img-fluid" />
                   {startCountTeam && (
                     <div className="count-wrapperteam">
                       <div className="count-text">{teamCount}</div>
@@ -176,7 +176,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/info kanan.avif" alt="Stat 3" className="statcard3 img-fluid" />
+                  <img src="/assets/aboutus/kanan.png" alt="Stat 3" className="statcard3 img-fluid" />
                 </div>
               </Col>
             </Row>

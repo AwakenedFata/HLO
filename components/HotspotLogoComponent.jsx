@@ -45,7 +45,7 @@ export default function HotspotLogoComponent() {
           className="logo-container"
         >
           <img
-            src="/assets/aboutus/logo hok 1.png"
+            src="/assets/aboutus/logo1.avif"
             alt="HOK Logo"
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
