@@ -253,7 +253,7 @@ export default function AboutUsPage() {
           >
             <CardContent>
               <ImageContainerLogo>
-                <img src="/assets/aboutus/logo hok 2.png" alt="Makna Logo HOK" />
+                <img src="/assets/aboutus/logo2.avif" alt="Makna Logo HOK" />
               </ImageContainerLogo>
             </CardContent>
             <CardLabel>Makna Logo</CardLabel>

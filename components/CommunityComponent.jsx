@@ -119,7 +119,7 @@ function CommunityComponent() {
           <Col lg={7} className="right-content-col">
             {/* Logo di atas */}
             <div className="logo-container">
-              <img src="/assets/aboutus/logobaru.avif" alt="Community Logo" className="community-logo" />
+              <img src="/assets/aboutus/logo.avif" alt="Community Logo" className="community-logo" />
             </div>
 
             {/* Foto Member */}
@@ -139,7 +139,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/kiri.png" alt="Stat 1" className="statcard1 img-fluid" />
+                  <img src="/assets/aboutus/kiri.avif" alt="Stat 1" className="statcard1 img-fluid" />
                   {startCountMember && (
                     <div className="count-wrappermember">
                       <div className="count-text">{memberCount}</div>
@@ -158,7 +158,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/tengah.png" alt="Stat 2" className="statcard2 img-fluid" />
+                  <img src="/assets/aboutus/tengah.avif" alt="Stat 2" className="statcard2 img-fluid" />
                   {startCountTeam && (
                     <div className="count-wrapperteam">
                       <div className="count-text">{teamCount}</div>
@@ -176,7 +176,7 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/kanan.png" alt="Stat 3" className="statcard3 img-fluid" />
+                  <img src="/assets/aboutus/kanan.avif" alt="Stat 3" className="statcard3 img-fluid" />
                 </div>
               </Col>
             </Row>

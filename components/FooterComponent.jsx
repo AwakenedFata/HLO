@@ -48,7 +48,7 @@ function FooterComponent() {
           <Col lg={4} md={12} className="footer-left-col">
             <div className="footer-logo-container">
               <img
-                src="/assets/logo footter.png"
+                src="/assets/newlogowhite.avif"
                 alt="HOK Lampung Community"
                 className="footer-logo"
               />
