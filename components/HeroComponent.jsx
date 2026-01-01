@@ -53,6 +53,9 @@ const HeroComponent = () => {
 
   return (
     <div className="homepage">
+      <h1 className="seo-h1">
+        HOK Lampung Official - Komunitas Honor of Kings Lampung
+      </h1>
       <header className="w-100 min-vh-100 d-flex align-items-center">
         <VideoBackground />
         <Container className="position-relative" style={{ zIndex: 2 }}>

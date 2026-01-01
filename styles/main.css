@@ -52,6 +52,11 @@
   --used-color: #f5ab1d;
 }
 
+.seo-h1 {
+  position: absolute;
+  left: -9999px;
+}
+
 .main-background {
   background-image: url("/assets/background.png");
   background-repeat: no-repeat;
