@@ -779,7 +779,7 @@ export default function VerifikasiOrisinalPage() {
               <ActionsRow>
                 <DownloadLink
                   href={pdfUrl || "#"}
-                  download="keterangan-produk-terverifikasi.pdf"
+                  download="Certificate of Authenticity.pdf"
                   aria-disabled={(!pdfUrl).toString()}
                   onClick={(e) => {
                     if (!pdfUrl) {

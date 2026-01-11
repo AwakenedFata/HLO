@@ -3,6 +3,7 @@ import { Providers } from "./providers";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "animate.css";
 import "aos/dist/aos.css";
+import TurnstileGate from "@/components/TurnstileGate";
 
 export const metadata = {
 title: "HOK Lampung Official | Komunitas Honor of Kings Lampung",
@@ -37,7 +38,9 @@ export default function RootLayout({ children }) {
       </head>
 
       <body>
-        <Providers>{children}</Providers>
+        <TurnstileGate>
+          <Providers>{children}</Providers>
+        </TurnstileGate>
       </body>
     </html>
   );

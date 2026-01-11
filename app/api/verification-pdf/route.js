@@ -13,7 +13,7 @@ async function getBrowser() {
   // Deteksi environment: gunakan Chromium package hanya jika benar-benar di Linux
   const isLinux = process.platform === "linux"
   const isProduction = process.env.NODE_ENV === "production"
-  
+
   // Gunakan @sparticuz/chromium hanya jika:
   // 1. Di production mode
   // 2. Di Linux (bukan Windows/Mac)
@@ -33,7 +33,7 @@ async function getBrowser() {
       console.log("[PROD-LINUX] Executable path from @sparticuz/chromium:", executablePath)
     } catch (error) {
       console.log("[PROD-LINUX] Failed to get executablePath from chromium package:", error.message)
-      
+
       // Fallback ke lokasi manual chromium di VPS
       const fs = await import("fs")
       const fallbackPaths = [
@@ -99,6 +99,12 @@ async function getBrowser() {
         "--font-render-hinting=none",
         "--disable-gpu",
         "--disable-software-rasterizer",
+        "--disable-extensions",
+        "--disable-sync",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--mute-audio",
+        "--no-first-run",
       ],
     }
 
@@ -190,11 +196,23 @@ export async function GET(request) {
     await page.setJavaScriptEnabled(true)
     await page.setBypassCSP(true)
 
+    // Request Interception for speed
+    await page.setRequestInterception(true)
+    page.on("request", (req) => {
+      const resourceType = req.resourceType()
+      // Allow only essential resources
+      if (["document", "script", "stylesheet", "image", "font"].includes(resourceType)) {
+        req.continue()
+      } else {
+        req.abort()
+      }
+    })
+
     console.log("[PDF] Navigating to page...")
-    
+
     await page.goto(targetUrl, {
-      waitUntil: ["load", "networkidle0"],
-      timeout: 90000,
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
     })
 
     console.log("[PDF] Page loaded, waiting for assets...")
@@ -235,7 +253,8 @@ export async function GET(request) {
         checkReady()
       })
 
-      await new Promise((r) => setTimeout(r, 1000))
+      // Removed arbitrary 1000ms delay for speed
+      // await new Promise((r) => setTimeout(r, 1000))
     })
 
     console.log("[PDF] All assets loaded, generating PDF...")
@@ -255,7 +274,7 @@ export async function GET(request) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="certificate-${code}.pdf"`,
+        "Content-Disposition": `attachment; filename="Certificate of Authenticity.pdf"`,
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
         "Expires": "0",
@@ -268,7 +287,7 @@ export async function GET(request) {
     if (page) {
       try {
         await page.close()
-      } catch (_) {}
+      } catch (_) { }
     }
 
     return NextResponse.json(
@@ -284,7 +303,7 @@ export async function GET(request) {
     if (page && !page.isClosed()) {
       try {
         await page.close()
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 }
