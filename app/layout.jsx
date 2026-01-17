@@ -6,10 +6,10 @@ import "aos/dist/aos.css";
 import TurnstileGate from "@/components/TurnstileGate";
 
 export const metadata = {
+  metadataBase: new URL('https://hoklampung.com'),
   title: "HOK Lampung Official | Komunitas Honor of Kings Lampung",
   description:
     "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.#OURALLCOMMUNITY #HONOROFKINGS",
-  metadataBase: new URL('https://hoklampung.com'),
   icons: {
     icon: [
       { url: '/logohead.png' },
@@ -26,7 +26,7 @@ export const metadata = {
     siteName: "HOK Lampung Official",
     images: [
       {
-        url: 'https://hoklampung.com/logohead.png',
+        url: '/logohead.png',
         width: 1200,
         height: 630,
         alt: 'HOK Lampung Logo',
@@ -39,7 +39,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: "HOK Lampung Official | Komunitas Honor of Kings Lampung",
     description: "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.#OURALLCOMMUNITY #HONOROFKINGS",
-    images: ['https://hoklampung.com/logohead.png'],
+    images: ['/logohead.png'],
   },
 };
 
