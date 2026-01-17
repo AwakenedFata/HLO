@@ -124,8 +124,8 @@ function CommunityComponent() {
                 src="/assets/aboutus/logo.avif" 
                 alt="Community Logo" 
                 className="community-logo"
-                width={170}
-                height={53}
+                fill
+                priority
               />
             </div>
 

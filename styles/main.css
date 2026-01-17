@@ -649,10 +649,12 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 1;
+  width: 170px;
+  height: 53px;
 }
 
 .community-logo {
-  width: 170px;
+  object-fit: contain;
 }
 
 /* Community image container */
@@ -806,6 +808,14 @@
   .aboutus-section {
     padding: 25px 0 !important;
     min-height: auto !important;
+  }
+
+  .logo-container {
+    width: 110px !important;
+    height: 35px !important;
+    margin: 0 auto !important;
+    left: auto !important;
+    transform: none !important;
   }
 
   .community-logo {
