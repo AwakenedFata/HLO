@@ -673,6 +673,12 @@
   justify-content: center;
 }
 
+@media (min-width: 992px) and (max-width: 1199px) {
+  .stat-cards-row {
+    gap: 5px;
+  }
+}
+
 /* Stat card column */
 .stat-card-col {
   display: flex;
@@ -737,7 +743,7 @@
   }
 
   .stat-card-col {
-    margin-bottom: 0;
+    margin-bottom: 20px;
   }
 }
 

@@ -19,9 +19,42 @@ const nextConfig = {
   compress: true,
 
   images: {
-    domains: ["placeholder.com"],
-    unoptimized: true,
+    unoptimized: false,
+
     formats: ["image/avif", "image/webp"],
+
+    // Device sizes for responsive images (viewport widths)
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+
+    // Image sizes for fixed-width images
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+
+    // Cache optimized images for 60 days (in seconds)
+    minimumCacheTTL: 5184000,
+
+    // Remote patterns for external images (more secure than domains)
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "placeholder.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.placeholder.com",
+      },
+      // Cloudflare R2 storage
+      {
+        protocol: "https",
+        hostname: "*.r2.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "pub-82ea31cba2884e6f9eb6a652c0e2b97c.r2.dev",
+      },
+    ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "attachment",
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
   env: {
@@ -31,7 +64,6 @@ const nextConfig = {
 
   async headers() {
     return [
-      // API routes security headers
       {
         source: "/api/:path*",
         headers: [
@@ -53,7 +85,6 @@ const nextConfig = {
           },
         ],
       },
-      // PDF API with caching for performance
       {
         source: "/api/verification-pdf",
         headers: [
@@ -67,7 +98,6 @@ const nextConfig = {
           },
         ],
       },
-      // Static assets - long-term caching
       {
         source: "/fonts/:path*",
         headers: [
@@ -86,7 +116,6 @@ const nextConfig = {
           },
         ],
       },
-      // General security headers
       {
         source: "/(.*)",
         headers: [

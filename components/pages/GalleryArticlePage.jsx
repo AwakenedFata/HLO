@@ -5,12 +5,19 @@ import { Poppins } from "next/font/google"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
 import Link from "next/link"
+import Image from "next/image"
 import { useState, useEffect, useMemo } from "react"
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
   subsets: ["latin"],
 })
+
+// Helper to check if image is from external source (R2 storage)
+const isExternalImage = (url) => {
+  if (!url) return false;
+  return url.includes("r2.dev") || url.startsWith("http");
+};
 
 const ArticleContainer = styled.div`
   max-width: 1200px;
@@ -66,14 +73,10 @@ const CoverImage = styled.div`
   height: 400px;
   overflow: hidden;
   border-radius: 12px;
+  position: relative;
+  
   @media (max-width: 768px) {
     height: 250px;
-  }
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 `
 
@@ -136,6 +139,7 @@ const TagBadge = styled.span`
 
 const ArticleContent = styled.div`
   padding: 30px;
+  text-align: justify;
   
   @media (max-width: 768px) {
     padding: 20px;
@@ -266,16 +270,11 @@ const RecentArticleImage = styled.div`
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
   
   @media (max-width: 768px) {
     width: 50px;
     height: 50px;
-  }
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 `
 
@@ -464,16 +463,11 @@ const FilteredArticleImage = styled.div`
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
   
   @media (max-width: 768px) {
     width: 60px;
     height: 60px;
-  }
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 `
 
@@ -545,7 +539,7 @@ const ClearFilterButton = styled.button`
   }
 `
 
-const RelatedGalleryImage = styled.img`
+const RelatedGalleryImage = styled(Image)`
   width: 100%;
   max-width: 200px;
   height: auto;
@@ -687,7 +681,15 @@ const GalleryArticlePage = ({
         <MainContent>
           {article.coverImage && (
             <CoverImage>
-              <img src={article.coverImage || "/placeholder.svg"} alt={article.title} />
+               <Image 
+                src={article.coverImage || "/placeholder.svg"} 
+                alt={article.title}
+                fill
+                style={{ objectFit: 'cover' }}
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 800px"
+                unoptimized={isExternalImage(article.coverImage)}
+              />
             </CoverImage>
           )}
 
@@ -750,7 +752,14 @@ const GalleryArticlePage = ({
               {filteredArticles.map((filteredArticle) => (
                 <FilteredArticleItem key={filteredArticle._id} href={`/article/${filteredArticle.slug}`}>
                   <FilteredArticleImage>
-                    <img src={filteredArticle.coverImage || "/placeholder.svg"} alt={filteredArticle.title} />
+                    <Image 
+                      src={filteredArticle.coverImage || "/placeholder.svg"} 
+                      alt={filteredArticle.title}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      sizes="80px"
+                      unoptimized={isExternalImage(filteredArticle.coverImage)}
+                    />
                   </FilteredArticleImage>
                   <FilteredArticleContent>
                     <FilteredArticleTitle>{filteredArticle.title}</FilteredArticleTitle>
@@ -802,7 +811,14 @@ const GalleryArticlePage = ({
               {recentArticles.map((recentArticle) => (
                 <RecentArticleItem key={recentArticle._id} href={`/article/${recentArticle.slug}`}>
                   <RecentArticleImage>
-                    <img src={recentArticle.coverImage || "/placeholder.svg"} alt={recentArticle.title} />
+                    <Image 
+                      src={recentArticle.coverImage || "/placeholder.svg"} 
+                      alt={recentArticle.title}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      sizes="60px"
+                      unoptimized={isExternalImage(recentArticle.coverImage)}
+                    />
                   </RecentArticleImage>
                   <RecentArticleContent>
                     <RecentArticleTitle>{recentArticle.title}</RecentArticleTitle>
@@ -832,6 +848,9 @@ const GalleryArticlePage = ({
                 <RelatedGalleryImage
                   src={article.relatedGallery.imageUrl || "/placeholder.svg"}
                   alt={article.relatedGallery.title}
+                  width={200}
+                  height={200}
+                  unoptimized={isExternalImage(article.relatedGallery.imageUrl)}
                 />
                 <h4 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "8px" }}>
                   {article.relatedGallery.title}

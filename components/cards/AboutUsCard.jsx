@@ -1,4 +1,5 @@
 import styled from "styled-components"
+import Image from "next/image"
 
 // Styled Components
 const CardContainer = styled.div`
@@ -9,18 +10,31 @@ const CardContainer = styled.div`
   font-size: 16px;
 `
 
-const CardImage = styled.img`
+const ImageWrapper = styled.div`
   width: 100%;
   height: auto;
   display: block;
   filter: drop-shadow(rgba(0, 0, 0, 0.5) 0px 10px 10px);
+  
+  img {
+    width: 100% !important;
+    height: auto !important;
+  }
 `
 
 // About Us Card Component
 const AboutUsCardComponent = () => {
   return (
     <CardContainer>
-      <CardImage src="/assets/aboutus/aboutus.avif" alt="About Us Card Background" />
+      <ImageWrapper>
+        <Image 
+          src="/assets/aboutus/aboutus.avif" 
+          alt="About Us Card Background"
+          width={500}
+          height={500}
+          style={{ width: '100%', height: 'auto' }}
+        />
+      </ImageWrapper>
     </CardContainer>
   )
 }

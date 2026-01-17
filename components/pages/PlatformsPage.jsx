@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Container, Row, Col } from "react-bootstrap";
 import styled from "styled-components";
 import { platforms } from "@/data/index.js";
+import Image from "next/image";
 
 const PageWrapper = styled.div`
   position: relative;
@@ -15,20 +16,7 @@ const PageWrapper = styled.div`
   justify-content: center;
   padding: ${(props) => (props.$isMobile ? "30px 15px" : "50px 0")};
 
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url(/assets/platforms/platforms.avif);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    filter: brightness(0.7);
-    z-index: -1;
-  }
+  /* Background image handled by Next.js Image component */
   `;
   
   const Title = styled.h1`
@@ -102,34 +90,40 @@ const PlatformsPage = () => {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <img
+        <Image
           src="/assets/platforms/kotak.avif"
           alt="Platform Background"
+          fill
           style={{
-            position: "absolute",
-            width: "100%",
-            height: "100%",
             objectFit: "contain",
             zIndex: 1,
           }}
         />
-        <img
-          src={image || "/placeholder.svg"}
-          alt="Platform"
-          style={{
-            position: "relative",
-            width: "60%",
-            height: "60%",
-            objectFit: "contain",
-            zIndex: 2,
-          }}
-        />
+        <div style={{ position: "relative", width: "60%", height: "60%", zIndex: 2 }}>
+          <Image
+            src={image || "/placeholder.svg"}
+            alt="Platform"
+            fill
+            style={{
+              objectFit: "contain",
+            }}
+          />
+        </div>
       </div>
     );
   };
 
   return (
     <PageWrapper className="platforms-page" $isMobile={isMobile}>
+      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", zIndex: -1 }}>
+        <Image
+          src="/assets/platforms/platforms.avif"
+          alt="Platforms Background"
+          fill
+          style={{ objectFit: "cover", filter: "brightness(0.7)" }}
+          priority
+        />
+      </div>
       <Title $isMobile={isMobile}>Platforms</Title>
 
       <Container fluid className="px-md-5">

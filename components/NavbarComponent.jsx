@@ -5,6 +5,7 @@ import { Navbar, Nav, Container } from "react-bootstrap"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { navLinks } from "@/data/index"
+import Image from "next/image"
 
 function NavbarComponent() {
   const [changeColor, setChangeColor] = useState(false)
@@ -116,12 +117,13 @@ function NavbarComponent() {
     <Navbar expand="lg" className={changeColor ? "color-active" : ""} expanded={expanded} onToggle={toggleNavbar} ref={navbarRef}>
       <Container>
         <Link href="/" className="navbar-brand logo-navbar">
-          <img
+          <Image
             src="/assets/Home/logo.avif"
             alt="Logo Komunitas HOK Lampung"
-            width="100"
-            height="31.3"
+            width={100}
+            height={31}
             className="d-inline-block align-top logo-navbar"
+            priority
           />
         </Link>
         <Navbar.Toggle aria-controls="basic-navbar-nav" className="custom-toggler">

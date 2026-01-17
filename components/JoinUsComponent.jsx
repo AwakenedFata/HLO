@@ -2,6 +2,7 @@
 
 import { Container, Row, Col } from "react-bootstrap"
 import { useMobileDetect } from "@/hooks/use-mobile"
+import Image from "next/image"
 
 function JoinUsComponent() {
   const isMobile = useMobileDetect()
@@ -29,7 +30,14 @@ function JoinUsComponent() {
           {/* Left Column - Logo, Text, QR */}
           <Col lg={6} className="left-content" data-aos="fade-right" data-aos-duration="1000">
             <div className="logo-container mb-4">
-              <img src="/assets/JoinAndFollow/logo-hok-1.avif" alt="HOK Logo" className="hok-logo" />
+              <Image 
+                src="/assets/JoinAndFollow/logo-hok-1.avif" 
+                alt="HOK Logo" 
+                className="hok-logo" 
+                width={300}
+                height={100}
+                style={{ width: 'auto', height: 'auto' }}
+              />
             </div>
 
             <div className="joinus-text">
@@ -39,7 +47,14 @@ function JoinUsComponent() {
 
             <div className="qr-container">
               <div className="button-container mb-3">
-                <img src="/assets/JoinAndFollow/click.avif" alt="Click QR Here" className="click-button" />
+                <Image 
+                  src="/assets/JoinAndFollow/click.avif" 
+                  alt="Click QR Here" 
+                  className="click-button" 
+                  width={220}
+                  height={50}
+                  style={{ width: 'auto', height: 'auto' }}
+                />
               </div>
               <div
                 className="qr-code-container"
@@ -49,7 +64,14 @@ function JoinUsComponent() {
                 onTouchEnd={handleTouchEnd}
               >
                 <a href="https://chat.whatsapp.com/CDyNXvgyxwMG0c7idouoQR" target="_blank" rel="noopener noreferrer">
-                  <img src="/assets/JoinAndFollow/qr-code.avif" alt="QR Code" className="qr-code" />
+                  <Image 
+                    src="/assets/JoinAndFollow/qr-code.avif" 
+                    alt="QR Code" 
+                    className="qr-code" 
+                    width={220}
+                    height={220}
+                    style={{ width: 'auto', height: 'auto' }}
+                  />
                 </a>
               </div>
             </div>
@@ -58,7 +80,15 @@ function JoinUsComponent() {
           {/* Right Column - Phone Images */}
           <Col lg={6} className="right-content" data-aos="fade-left" data-aos-duration="1000">
             <div className="phone-container float-animation">
-              <img src="/assets/JoinAndFollow/iphone.avif" alt="Phone Preview" className="phone-image" />
+              <Image 
+                src="/assets/JoinAndFollow/iphone.avif" 
+                alt="Phone Preview" 
+                className="phone-image" 
+                width={500}
+                height={600}
+                style={{ width: 'auto', height: 'auto' }}
+                priority
+              />
             </div>
           </Col>
         </Row>

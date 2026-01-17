@@ -17,7 +17,6 @@ export default async function PdfRenderPage({ searchParams }) {
 
   return (
     <>
-      <head>
         <link rel="preload" href="/fonts/BAHNSCHRIFT.TTF" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/CORRUPTED FILE.TTF" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/assets/serialnumber/Surat Originalitas ver 2.png" as="image" />
@@ -49,7 +48,6 @@ export default async function PdfRenderPage({ searchParams }) {
             font-family: "Bahnschrift", sans-serif;
           }
         `}} />
-      </head>
 
       <div
         className="pdf-page w-100 min-vh-100"

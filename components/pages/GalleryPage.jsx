@@ -133,6 +133,12 @@ const PaginationDots = styled.span`
   }
 `
 
+// Helper to check if image is from external source (R2 storage)
+const isExternalImage = (url) => {
+  if (!url) return false
+  return url.includes('r2.dev') || url.startsWith('http')
+}
+
 const GalleryPage = ({ banner, galleries }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
@@ -208,6 +214,7 @@ const GalleryPage = ({ banner, galleries }) => {
                 objectPosition: "center",
               }}
               quality={75}
+              unoptimized={isExternalImage(banner.imageUrl)}
             />
           </BannerWrapper>
         )}

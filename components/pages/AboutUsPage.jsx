@@ -3,6 +3,7 @@
 import styled, { createGlobalStyle } from "styled-components";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const GlobalFonts = createGlobalStyle`
   @font-face {
@@ -27,10 +28,8 @@ const PageContainer = styled.div`
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background-image: url("/assets/aboutus/background.avif");
-  background-size: contain;
-  background-repeat: repeat;
-  background-position: 0 0;
+  /* Background handled by Next.js Image */
+  position: relative;
 
   @media (max-width: 480px) {
     padding: 15px;
@@ -245,6 +244,16 @@ export default function AboutUsPage() {
     <>
       <GlobalFonts />
       <PageContainer>
+        <div style={{ position: "absolute", width: "100%", height: "100%", top: 0, left: 0, zIndex: -1 }}>
+           <Image 
+              src="/assets/aboutus/background.avif" 
+              alt="Background" 
+              fill 
+              style={{ objectFit: 'contain' }}
+              quality={100}
+              priority
+           />
+        </div>
         <CardsWrapper>
           <Card
             onClick={() => router.push("/aboutus/maknalogo")}
@@ -252,8 +261,14 @@ export default function AboutUsPage() {
             onMouseLeave={() => setHoveredCard(null)}
           >
             <CardContent>
-              <ImageContainerLogo>
-                <img src="/assets/aboutus/logo2.avif" alt="Makna Logo HOK" />
+              <ImageContainerLogo style={{ position: 'relative' }}>
+                <Image 
+                  src="/assets/aboutus/logo2.avif" 
+                  alt="Makna Logo HOK" 
+                  width={230}
+                  height={300} // Estimasi rasio
+                  style={{ width: '68%', height: 'auto', objectFit: 'contain' }}
+                />
               </ImageContainerLogo>
             </CardContent>
             <CardLabel>Makna Logo</CardLabel>
@@ -264,10 +279,13 @@ export default function AboutUsPage() {
             onMouseLeave={() => setHoveredCard(null)}
           >
             <CardContent>
-              <ImageContainerSiluet>
-                <img
+              <ImageContainerSiluet style={{ position: 'relative' }}>
+                <Image
                   src="/assets/aboutus/personsiluet.avif"
                   alt="Member Coming Soon"
+                  width={240}
+                  height={310} // Estimasi rasio
+                  style={{ width: '70%', height: 'auto', objectFit: 'contain' }} 
                 />
               </ImageContainerSiluet>
             </CardContent>

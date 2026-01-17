@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { marketPlace } from "@/data/index.js";
 import { createGlobalStyle } from "styled-components";
+import Image from "next/image";
 
 const GlobalFonts = createGlobalStyle`
   @font-face {
@@ -75,7 +76,7 @@ const ProductSection = styled.div`
   }
 `;
 
-const ProductImage = styled.img`
+const ProductImage = styled(Image)`
   width: 150%;
   height: auto;
   max-width: 850px;
@@ -190,7 +191,7 @@ const MarketplaceBox = styled.div`
   }
 `;
 
-const MarketplaceIcon = styled.img`
+const MarketplaceIcon = styled(Image)`
   width: 70px;
   height: 70px;
   object-fit: contain;
@@ -250,7 +251,13 @@ function MerchanPage() {
       <PageContainer>
         <ContentWrapper>
           <ProductSection>
-            <ProductImage src={productImage} alt="Merchandise Products" />
+            <ProductImage 
+              src={productImage} 
+              alt="Merchandise Products" 
+              width={850} 
+              height={500} 
+              priority 
+            />
           </ProductSection>
 
           <InfoSection>
@@ -259,8 +266,10 @@ function MerchanPage() {
               {marketPlace.map((marketplace) => (
                 <MarketplaceIcon
                   key={marketplace.id}
-                  src={marketplace.image}
+                  src={marketplace.image || "/placeholder.svg"}
                   alt={`Marketplace ${marketplace.id}`}
+                  width={70}
+                  height={70}
                 />
               ))}
             </MarketplaceBox>

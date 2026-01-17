@@ -1,6 +1,13 @@
 "use client";
 import styled from "styled-components";
 import { memo } from "react";
+import Image from "next/image";
+
+// Helper to check if image is from external source (R2 storage)
+const isExternalImage = (url) => {
+  if (!url) return false;
+  return url.includes("r2.dev") || url.startsWith("http");
+};
 
 const FrameContainer = styled.div`
   position: relative;
@@ -20,21 +27,24 @@ const FrameWrapper = styled.div`
   height: 100%;
 `;
 
-const GalleryImage = styled.img`
+const GalleryImageWrapper = styled.div`
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
-  transition: transform 0.3s ease;
-  display: block;
-  border-radius: 50px;
   position: relative;
+  border-radius: 50px;
+  overflow: hidden;
   z-index: 1;
+  transition: transform 0.3s ease;
   will-change: transform;
 
   &:hover {
     transform: scale(1.05);
     cursor: pointer;
+  }
+
+  img {
+    object-fit: cover;
+    object-position: center;
   }
 
   @media (max-width: 992px) {
@@ -54,13 +64,12 @@ const GalleryImage = styled.img`
   }
 `;
 
-const FrameOverlay = styled.img`
+const FrameOverlayWrapper = styled.div`
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  object-position: center;
   z-index: 2;
   pointer-events: none;
   transition: transform 0.3s ease;
@@ -68,6 +77,10 @@ const FrameOverlay = styled.img`
 
   ${FrameContainer}:hover & {
     transform: scale(1.05);
+  }
+
+  img {
+    object-position: center;
   }
 `;
 
@@ -81,23 +94,28 @@ const GalleryFrame = memo(({ galleryItem, onImageClick }) => {
   return (
     <FrameContainer className="frame-container">
       {galleryItem.frame && (
-        <FrameOverlay
-          src={galleryItem.frame.imageUrl}
-          alt="Frame"
-          loading="lazy"
-          decoding="async"
-        />
+        <FrameOverlayWrapper>
+          <Image
+            src={galleryItem.frame.imageUrl}
+            alt="Frame"
+            fill
+            sizes="350px"
+            unoptimized={isExternalImage(galleryItem.frame.imageUrl)}
+          />
+        </FrameOverlayWrapper>
       )}
 
       <FrameWrapper>
-        <GalleryImage
-          src={galleryItem.imageUrl || "/placeholder.svg"}
-          alt={galleryItem.title}
-          onClick={handleImageClick}
-          loading="eager"
-          decoding="async"
-          className="gallery-image"
-        />
+        <GalleryImageWrapper onClick={handleImageClick} className="gallery-image">
+          <Image
+            src={galleryItem.imageUrl || "/placeholder.svg"}
+            alt={galleryItem.title}
+            fill
+            sizes="350px"
+            priority
+            unoptimized={isExternalImage(galleryItem.imageUrl)}
+          />
+        </GalleryImageWrapper>
       </FrameWrapper>
     </FrameContainer>
   );

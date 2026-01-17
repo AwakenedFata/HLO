@@ -1,0 +1,11 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Host
+Host: https://hoklampung.com
+
+# Sitemaps
+Sitemap: https://hoklampung.com/sitemap.xml

@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import { Form, Button } from "react-bootstrap";
 import axios from "axios";
 import styled from "styled-components";
+import Image from "next/image";
 
 // Styled Components
 const PageWrapper = styled.div`
   width: 100%;
   min-height: 100vh;
-  background-image: url(/assets/Redeem/background.avif);
-  background-size: cover;
-  background-position: center;
+  width: 100%;
+  min-height: 100vh;
+  /* Background handled by Next.js Image */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -39,10 +41,7 @@ const PageWrapper = styled.div`
 `;
 
 const RedeemContainer = styled.div`
-  background-image: url(${(props) => props.$bgImage});
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
+  /* Background handled by Next.js Image */
   width: ${(props) => (props.$isMobile ? "100%" : "90%")};
   max-width: ${(props) => (props.$isMobile ? "450px" : "1000px")};
   height: ${(props) => (props.$isMobile ? "auto" : "700px")};
@@ -613,10 +612,27 @@ function RedeemPage() {
 
   return (
     <PageWrapper $isMobile={isMobile}>
+      <div style={{ position: "absolute", inset: 0, zIndex: -1 }}>
+        <Image
+          src="/assets/Redeem/background.avif"
+          alt="Background Limitless"
+          fill
+          style={{ objectFit: "cover" }}
+          priority
+        />
+      </div>
       <RedeemContainer
         $isMobile={isMobile}
-        $bgImage={isMobile ? bgRedeemMobile : bgRedeemFormAndLogo}
       >
+        <div style={{ position: "absolute", inset: 0, zIndex: -1 }}>
+          <Image
+             src={isMobile ? bgRedeemMobile : bgRedeemFormAndLogo}
+             alt="Redeem Box Background"
+             fill
+             style={{ objectFit: "contain" }}
+             priority
+          />
+        </div>
         <FormSide $isMobile={isMobile} $windowWidth={windowWidth}>
           <Title $windowWidth={windowWidth}>
             {windowWidth <= 768 ? (

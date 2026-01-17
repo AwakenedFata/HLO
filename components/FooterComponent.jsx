@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Container, Row, Col } from "react-bootstrap";
 import Link from "next/link";
+import Image from "next/image";
 import { IoLogoInstagram } from "react-icons/io5";
 import { FaWhatsapp, FaFacebookF, FaTelegramPlane } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -47,10 +48,13 @@ function FooterComponent() {
           {/* Left Column - Logo and Newsletter */}
           <Col lg={4} md={12} className="footer-left-col">
             <div className="footer-logo-container">
-              <img
+              <Image
                 src="/assets/newlogowhite.avif"
                 alt="HOK Lampung Community"
                 className="footer-logo"
+                width={80}
+                height={80}
+                style={{ width: 'auto', height: 'auto' }}
               />
             </div>
             <p className="footer-text">

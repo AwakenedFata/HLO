@@ -3,6 +3,7 @@
 import { Container, Row, Col } from "react-bootstrap"
 import { partners } from "@/data/index.js"
 import { useMobileDetect } from "@/hooks/use-mobile"
+import Image from "next/image"
 
 function SponsorsComponent() {
   const isMobile = useMobileDetect()
@@ -72,17 +73,23 @@ function SponsorsComponent() {
                         onTouchStart={handleTouchStart}
                         onTouchEnd={handleTouchEnd}
                       >
-                        <img
+                        <Image
                           src="/assets/SponsorAndPartner/persegi-panjang.png"
                           alt="Card Background"
                           className="sponsor-card-bg"
+                          width={350}
+                          height={200}
+                          style={{ width: '100%', height: 'auto' }}
                         />
                         <a href={partner.url} target="_blank" rel="noopener noreferrer">
                           <div className="partner-logo-container">
-                            <img
+                            <Image
                               src={partner.image || "/placeholder.svg"}
                               alt={partner.name}
                               className={`partner-logo ${getPartnerClass(partner.id)}`}
+                              width={200}
+                              height={100}
+                              style={{ width: 'auto', height: 'auto' }}
                             />
                           </div>
                         </a>
@@ -116,17 +123,23 @@ function SponsorsComponent() {
                           onTouchStart={handleTouchStart}
                           onTouchEnd={handleTouchEnd}
                         >
-                          <img
+                          <Image
                             src="/assets/SponsorAndPartner/persegi-panjang.png"
                             alt="Card Background"
                             className="sponsor-card-bg"
+                            width={350}
+                            height={200}
+                            style={{ width: '100%', height: 'auto' }}
                           />
                           <a href={partner.url} target="_blank" rel="noopener noreferrer">
                             <div className="partner-logo-container">
-                              <img
+                              <Image
                                 src={partner.image || "/placeholder.svg"}
                                 alt={partner.name}
                                 className={`partner-logo ${getPartnerClass(partner.id)}`}
+                                width={200}
+                                height={100}
+                                style={{ width: 'auto', height: 'auto' }}
                               />
                             </div>
                           </a>

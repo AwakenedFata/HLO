@@ -3,6 +3,13 @@ import { useState, useEffect } from "react"
 import styled from "styled-components"
 import { X, ExternalLink } from "lucide-react"
 import { Poppins } from "next/font/google"
+import Image from "next/image"
+
+// Helper to check if image is from external source (R2 storage)
+const isExternalImage = (url) => {
+  if (!url) return false
+  return url.includes("r2.dev") || url.startsWith("http")
+}
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
@@ -52,9 +59,10 @@ const ImageContainer = styled.div`
   max-width: 65vw;
   max-height: 65vh;
   overflow: hidden;
+  position: relative;
 `
 
-const ModalImage = styled.img`
+const ModalImage = styled(Image)`
   width: 100%;
   height: auto;
   max-height: 65vh;
@@ -135,7 +143,14 @@ const ImageViewerModal = ({ isOpen, onClose, item }) => {
       </CloseButton>
 
       <ImageContainer>
-        <ModalImage src={item.imageUrl || "/placeholder.svg"} alt={item.title} />
+        <ModalImage 
+          src={item.imageUrl || "/placeholder.svg"} 
+          alt={item.title} 
+          width={1200}
+          height={800}
+          priority
+          unoptimized={isExternalImage(item.imageUrl)}
+        />
       </ImageContainer>
 
       <ViewArticleButton onClick={handleViewArticle}>

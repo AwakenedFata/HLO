@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { Container, Row, Col } from "react-bootstrap"
 import AboutUsCardComponent from "@/components/cards/AboutUsCard"
+import Image from "next/image"
 
 // Main Community Component
 function CommunityComponent() {
@@ -119,12 +120,25 @@ function CommunityComponent() {
           <Col lg={7} className="right-content-col">
             {/* Logo di atas */}
             <div className="logo-container">
-              <img src="/assets/aboutus/logo.avif" alt="Community Logo" className="community-logo" />
+              <Image 
+                src="/assets/aboutus/logo.avif" 
+                alt="Community Logo" 
+                className="community-logo"
+                width={170}
+                height={53}
+              />
             </div>
 
             {/* Foto Member */}
             <div className="community-image-container">
-              <img src="/assets/aboutus/fotbar.avif" alt="Community Members" className="community-image img-fluid" />
+              <Image 
+                src="/assets/aboutus/fotbar.avif" 
+                alt="Community Members" 
+                className="community-image img-fluid"
+                width={800}
+                height={450}
+                style={{ width: '100%', height: 'auto' }}
+              />
             </div>
 
             {/* Stat Cards */}
@@ -139,7 +153,14 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/kiri.avif" alt="Stat 1" className="statcard1 img-fluid" />
+                  <Image 
+                    src="/assets/aboutus/kiri.avif" 
+                    alt="Stat 1" 
+                    className="statcard1 img-fluid"
+                    width={150}
+                    height={200}
+                    style={{ width: '100%', height: 'auto' }}
+                  />
                   {startCountMember && (
                     <div className="count-wrappermember">
                       <div className="count-text">{memberCount}</div>
@@ -158,7 +179,14 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/tengah.avif" alt="Stat 2" className="statcard2 img-fluid" />
+                  <Image 
+                    src="/assets/aboutus/tengah.avif" 
+                    alt="Stat 2" 
+                    className="statcard2 img-fluid"
+                    width={150}
+                    height={200}
+                    style={{ width: '100%', height: 'auto' }}
+                  />
                   {startCountTeam && (
                     <div className="count-wrapperteam">
                       <div className="count-text">{teamCount}</div>
@@ -176,7 +204,14 @@ function CommunityComponent() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
-                  <img src="/assets/aboutus/kanan.avif" alt="Stat 3" className="statcard3 img-fluid" />
+                  <Image 
+                    src="/assets/aboutus/kanan.avif" 
+                    alt="Stat 3" 
+                    className="statcard3 img-fluid"
+                    width={150}
+                    height={200}
+                    style={{ width: '100%', height: 'auto' }}
+                  />
                 </div>
               </Col>
             </Row>

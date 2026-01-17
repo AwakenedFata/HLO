@@ -199,6 +199,12 @@ const isValidGoogleMapsLink = (url) => {
   return googleMapsPatterns.some((pattern) => pattern.test(url))
 }
 
+// Helper to check if image is from external source (R2 storage)
+const isExternalImage = (url) => {
+  if (!url) return false
+  return url.includes('r2.dev') || url.startsWith('http')
+}
+
 const GalleryCard = ({ item }) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const router = useRouter()
@@ -245,6 +251,7 @@ const GalleryCard = ({ item }) => {
             }}
             quality={75}
             onClick={handleImageClick}
+            unoptimized={isExternalImage(item.imageUrl)}
           />
         </ImageWrapper>
         <Content>

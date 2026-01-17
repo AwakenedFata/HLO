@@ -2,16 +2,15 @@
 
 import { useState, useRef, useEffect } from "react"
 import styled from "styled-components"
+import Image from "next/image"
 
 const PageContainer = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: url('/assets/serialnumber/serialnumber.avif');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  /* Background handled by Next.js Image */
+  position: relative;
   padding: 75px clamp(24px, 5vw, 80px) 40px;
 
   @media (max-width: 1024px) {
@@ -727,6 +726,15 @@ export default function VerifikasiOrisinalPage() {
 
   return (
     <PageContainer>
+      <div style={{ position: "absolute", inset: 0, zIndex: -1 }}>
+        <Image
+          src="/assets/serialnumber/serialnumber.avif"
+          alt="Originality Background"
+          fill
+          style={{ objectFit: "cover" }}
+          priority
+        />
+      </div>
       <ContentWrapper>
         <Card>
           <Title>Verifikasi Keaslian Produk</Title>

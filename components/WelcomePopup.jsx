@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import "@/styles/WelcomePopup.css";
 
 const WelcomePopup = () => {
@@ -104,10 +105,14 @@ const WelcomePopup = () => {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <img
+              <Image
                 src="/assets/join-and-follow.avif"
                 alt="join-and-follow"
+                width={400}
+                height={400}
                 className="popup-image"
+                style={{ width: "100%", height: "auto" }}
+                priority
               />
             </a>
           </div>

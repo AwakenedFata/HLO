@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Plus } from 'lucide-react'
+import Image from "next/image"
 
 export default function HotspotLogoComponent() {
   const [activeHotspot, setActiveHotspot] = useState(null)
@@ -44,10 +45,12 @@ export default function HotspotLogoComponent() {
           }}
           className="logo-container"
         >
-          <img
+          <Image
             src="/assets/aboutus/logo1.avif"
             alt="HOK Logo"
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            fill
+            style={{ objectFit: "contain" }}
+            priority
           />
 
           {/* Hotspot Container */}

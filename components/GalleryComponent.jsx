@@ -6,6 +6,7 @@ import GalleryFrame from "@/components/GalleryFrame"
 import styled from "styled-components"
 import { useRouter } from "next/navigation"
 import { useGallery } from "@/hooks/useGallery"
+import Image from "next/image"
 
 // Styled components
 const GallerySection = styled.div`
@@ -25,12 +26,10 @@ const GalleryBgContainer = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-`
 
-const GalleryBg = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  img {
+    object-fit: cover;
+  }
 `
 
 const GalleryTitle = styled.div`
@@ -312,7 +311,7 @@ function GalleryComponent() {
     return (
       <GallerySection>
         <GalleryBgContainer>
-          <GalleryBg src="/assets/Gallery/bg.avif" alt="Background" />
+          <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
         </GalleryBgContainer>
         <Container>
           <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
@@ -329,7 +328,7 @@ function GalleryComponent() {
     return (
       <GallerySection>
         <GalleryBgContainer>
-          <GalleryBg src="/assets/Gallery/bg.avif" alt="Background" />
+          <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
         </GalleryBgContainer>
         <Container>
           <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
@@ -346,7 +345,7 @@ function GalleryComponent() {
     return (
       <GallerySection>
         <GalleryBgContainer>
-          <GalleryBg src="/assets/Gallery/bg.avif" alt="Background" />
+          <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
         </GalleryBgContainer>
         <Container>
           <GalleryTitle data-aos="fade-down" data-aos-duration="1000">
@@ -362,7 +361,7 @@ function GalleryComponent() {
   return (
     <GallerySection>
       <GalleryBgContainer>
-        <GalleryBg src="/assets/Gallery/bg.avif" alt="Background" />
+        <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
       </GalleryBgContainer>
 
       <Container>
