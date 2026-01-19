@@ -53,7 +53,7 @@ export default function MainLayout({ children }) {
 
   return (
     <>
-      <SecurityProtection />
+      {/* <SecurityProtection /> */}
       <NavbarComponent />
       {isClient && showPopup && pathname === "/" && <WelcomePopup />}
       <main>{children}</main>

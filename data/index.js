@@ -27,8 +27,6 @@ export const navLinks = [
   { id: 2, path: "/aboutus", text: "About Us" },
   { id: 3, path: "/gallery", text: "Gallery" },
   { id: 5, path: "/platforms", text: "Platforms" },
-  { id: 6, path: "/redeem", text: "Redeem" },
-  { id: 7, path: "/serialnumber", text: "Serial Number" },
   { id: 8, path: "/merchan", text: "MERCHANDISE" },
 ];
 
