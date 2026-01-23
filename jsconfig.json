@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "jsx": "react-jsx",
+    "checkJs": false,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "**/*.js",
+    "**/*.jsx",
+    "next.config.mjs",
+    "lib/models/Gallery"
+  ],
+  "exclude": ["node_modules", ".next"]
+}
