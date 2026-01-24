@@ -123,6 +123,14 @@ const RightSection = styled.div`
     max-width: 700px;
     /* Removed negative margins to prevent overlap */
   }
+
+  @media (max-width: 480px) {
+    padding: 0 20px;
+  }
+
+  @media (max-width: 380px) {
+    padding: 0 20px;
+  }
 `;
 
 const InfoContainer = styled.div`
@@ -288,7 +296,7 @@ export default function MaknaLogoPage() {
             menjunjung tinggi nilai lokal namun tetap terbuka pada perkembangan
             global. Warna oranye keemasan yang digunakan juga mencerminkan
             semangat, keberanian, dan energi positif, sesuai dengan karakter
-            para pemain yang kompetitif dan berjuwa juang tinggi.
+            para pemain yang kompetitif dan berjiwa juang tinggi.
           </DescriptionText>
 
           <DescriptionText>
