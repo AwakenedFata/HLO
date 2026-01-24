@@ -51,6 +51,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "pub-82ea31cba2884e6f9eb6a652c0e2b97c.r2.dev",
       },
+      // Custom Domain R2
+      {
+        protocol: "https",
+        hostname: "hoklampung.com",
+      },
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
