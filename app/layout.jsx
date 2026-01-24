@@ -9,7 +9,7 @@ export const metadata = {
   metadataBase: new URL('https://hoklampung.com'),
   title: "HOK Lampung Official",
   description:
-    "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.#OURALLCOMMUNITY #HONOROFKINGS",
+    "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.",
   icons: {
     icon: [
       { url: '/logohead.png' },
@@ -21,12 +21,12 @@ export const metadata = {
   },
   openGraph: {
     title: "HOK Lampung Official",
-    description: "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.#OURALLCOMMUNITY #HONOROFKINGS",
+    description: "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.",
     url: "https://hoklampung.com",
     siteName: "HOK Lampung Official",
     images: [
       {
-        url: '/logohead.png',
+        url: 'https://hoklampung.com/logohead.png',
         width: 1200,
         height: 630,
         alt: 'HOK Lampung Logo',
@@ -38,8 +38,8 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: "HOK Lampung Official",
-    description: "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.#OURALLCOMMUNITY #HONOROFKINGS",
-    images: ['/logohead.png'],
+    description: "HOK Lampung Official adalah website resmi dari komunitas Honor of Kings Lampung. Event, turnamen, dan info komunitas.",
+    images: ['https://hoklampung.com/logohead.png'],
   },
 };
 
