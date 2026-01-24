@@ -5,11 +5,8 @@ import { X, ExternalLink } from "lucide-react"
 import { Poppins } from "next/font/google"
 import Image from "next/image"
 
-// Helper to check if image is from external source (R2 storage)
-const isExternalImage = (url) => {
-  if (!url) return false
-  return url.includes("r2.dev") || url.startsWith("http")
-}
+// Helper to check if image is from external source (R2 storage) - REMOVED to enable optimization
+// const isExternalImage = (url) => { ... }
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
@@ -149,7 +146,7 @@ const ImageViewerModal = ({ isOpen, onClose, item }) => {
           width={1200}
           height={800}
           priority
-          unoptimized={isExternalImage(item.imageUrl)}
+          // unoptimized={isExternalImage(item.imageUrl)} // ENABLED OPTIMIZATION
         />
       </ImageContainer>
 

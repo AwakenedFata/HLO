@@ -74,39 +74,71 @@ export default function TurnstileGate({ children }) {
     return (
       <div
         style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
           minHeight: "100vh",
-          backgroundColor: "#222222",
+          backgroundColor: "#1a1a1a",
           color: "#ffffff",
-          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif",
+          display: "flex",
           flexDirection: "column",
-          padding: "20px",
         }}
       >
-        <div style={{ maxWidth: "600px", width: "100%" }}>
-          <h1 style={{ fontSize: "2rem", marginBottom: "1rem", fontWeight: "600" }}>
-            HOK Lampung Official
-          </h1>
-          <p style={{ fontSize: "1.1rem", marginBottom: "2rem", color: "#d1d1d1" }}>
-            Verify you are human by completing the action below.
-          </p>
-          
-          <div style={{ marginBottom: "2rem", display: "flex" }}>
-            <Turnstile
-              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-              onSuccess={handleVerify}
-              options={{ theme: 'dark' }}
-            />
+        {/* Main Content */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
+          <div style={{ maxWidth: "480px", width: "100%" }}>
+            {/* Title - Domain/Site Name */}
+            <h1 style={{ 
+              fontSize: "28px", 
+              fontWeight: "400", 
+              marginBottom: "8px",
+              letterSpacing: "-0.5px"
+            }}>
+              hoklampung.com
+            </h1>
+            
+            {/* Subtitle */}
+            <p style={{ 
+              fontSize: "16px", 
+              fontWeight: "500",
+              marginBottom: "24px", 
+              color: "#ffffff" 
+            }}>
+              Verify you are human by completing the action below.
+            </p>
+            
+            {/* Turnstile Widget */}
+            <div style={{ marginBottom: "40px" }}>
+              <Turnstile
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                onSuccess={handleVerify}
+                options={{ theme: 'light' }}
+              />
+            </div>
+            
+            {/* Description */}
+            <p style={{ 
+              fontSize: "16px", 
+              color: "#a0a0a0", 
+              lineHeight: "1.6",
+              marginTop: "60px"
+            }}>
+              hoklampung.com needs to review the security of your connection before proceeding.
+            </p>
           </div>
-
-          <p style={{ fontSize: "0.9rem", color: "#a0a0a0", marginTop: "2rem" }}>
-            HOK Lampung Official needs to review the security of your connection before proceeding.
-          </p>
-          
-          <div style={{ marginTop: "4rem", paddingTop: "1rem", borderTop: "1px solid #444", fontSize: "0.75rem", color: "#666", display: "flex", justifyContent: "center" }}>
-             Ray ID: {Math.random().toString(36).substring(2, 12)} &nbsp;&bull;&nbsp; Performance & security by HOK Lampung Security
+        </div>
+        
+        {/* Footer */}
+        <div style={{ 
+          borderTop: "1px solid #333", 
+          padding: "20px", 
+          textAlign: "center",
+          fontSize: "12px", 
+          color: "#666"
+        }}>
+          <div style={{ marginBottom: "4px" }}>
+            Ray ID: {typeof window !== 'undefined' ? Math.random().toString(36).substring(2, 14) : 'loading...'}
+          </div>
+          <div>
+            Performance & security by <span style={{ color: "#888", fontWeight: "500" }}>Cloudflare</span>
           </div>
         </div>
       </div>

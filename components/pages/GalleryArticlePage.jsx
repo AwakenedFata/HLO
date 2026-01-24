@@ -14,11 +14,8 @@ const poppins = Poppins({
   subsets: ["latin"],
 })
 
-// Helper to check if image is from external source (R2 storage)
-const isExternalImage = (url) => {
-  if (!url) return false;
-  return url.includes("r2.dev") || url.startsWith("http");
-};
+// Helper to check if image is from external source (R2 storage) - REMOVED to enable optimization
+// const isExternalImage = (url) => { ... };
 
 const ArticleContainer = styled.div`
   max-width: 1200px;
@@ -698,7 +695,7 @@ const GalleryArticlePage = ({
                 style={{ objectFit: 'cover' }}
                 priority
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 800px"
-                unoptimized={isExternalImage(article.coverImage)}
+                // unoptimized={isExternalImage(article.coverImage)} // ENABLED OPTIMIZATION
               />
             </CoverImage>
           )}
@@ -768,7 +765,7 @@ const GalleryArticlePage = ({
                       fill
                       style={{ objectFit: 'cover' }}
                       sizes="80px"
-                      unoptimized={isExternalImage(filteredArticle.coverImage)}
+                      // unoptimized={isExternalImage(filteredArticle.coverImage)} // ENABLED OPTIMIZATION
                     />
                   </FilteredArticleImage>
                   <FilteredArticleContent>
@@ -827,7 +824,7 @@ const GalleryArticlePage = ({
                       fill
                       style={{ objectFit: 'cover' }}
                       sizes="60px"
-                      unoptimized={isExternalImage(recentArticle.coverImage)}
+                      // unoptimized={isExternalImage(recentArticle.coverImage)} // ENABLED OPTIMIZATION
                     />
                   </RecentArticleImage>
                   <RecentArticleContent>
@@ -860,7 +857,7 @@ const GalleryArticlePage = ({
                   alt={article.relatedGallery.title}
                   width={200}
                   height={200}
-                  unoptimized={isExternalImage(article.relatedGallery.imageUrl)}
+                  // unoptimized={isExternalImage(article.relatedGallery.imageUrl)} // ENABLED OPTIMIZATION
                 />
                 <h4 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "8px" }}>
                   {article.relatedGallery.title}

@@ -54,7 +54,7 @@ const nextConfig = {
       // Custom Domain R2
       {
         protocol: "https",
-        hostname: "hoklampung.com",
+        hostname: "cdn.hoklampung.com",
       },
     ],
     dangerouslyAllowSVG: true,
