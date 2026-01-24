@@ -765,6 +765,7 @@ const GalleryArticlePage = ({
                       fill
                       style={{ objectFit: 'cover' }}
                       sizes="80px"
+                      loading="eager"
                       // unoptimized={isExternalImage(filteredArticle.coverImage)} // ENABLED OPTIMIZATION
                     />
                   </FilteredArticleImage>
@@ -824,6 +825,7 @@ const GalleryArticlePage = ({
                       fill
                       style={{ objectFit: 'cover' }}
                       sizes="60px"
+                      loading="eager"
                       // unoptimized={isExternalImage(recentArticle.coverImage)} // ENABLED OPTIMIZATION
                     />
                   </RecentArticleImage>
@@ -857,6 +859,7 @@ const GalleryArticlePage = ({
                   alt={article.relatedGallery.title}
                   width={200}
                   height={200}
+                  loading="eager"
                   // unoptimized={isExternalImage(article.relatedGallery.imageUrl)} // ENABLED OPTIMIZATION
                 />
                 <h4 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "8px" }}>

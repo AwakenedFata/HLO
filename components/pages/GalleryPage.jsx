@@ -210,13 +210,19 @@ const GalleryPage = ({ banner, galleries }) => {
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
-      handlePageChange(currentPage - 1)
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
+      setCurrentPage(currentPage - 1)
     }
   }
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
-      handlePageChange(currentPage + 1)
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
+      setCurrentPage(currentPage + 1)
     }
   }
 
