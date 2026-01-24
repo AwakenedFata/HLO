@@ -3,11 +3,8 @@ import styled from "styled-components";
 import { memo } from "react";
 import Image from "next/image";
 
-// Helper to check if image is from external source (R2 storage)
-const isExternalImage = (url) => {
-  if (!url) return false;
-  return url.includes("r2.dev") || url.startsWith("http");
-};
+// Helper to check if image is from external source (R2 storage) - REMOVED to enable optimization
+// const isExternalImage = (url) => { ... }
 
 const FrameContainer = styled.div`
   position: relative;
@@ -100,7 +97,7 @@ const GalleryFrame = memo(({ galleryItem, onImageClick }) => {
             alt="Frame"
             fill
             sizes="350px"
-            unoptimized={isExternalImage(galleryItem.frame.imageUrl)}
+            // unoptimized={isExternalImage(galleryItem.frame.imageUrl)} // ENABLE OPTIMIZATION
           />
         </FrameOverlayWrapper>
       )}
@@ -113,7 +110,7 @@ const GalleryFrame = memo(({ galleryItem, onImageClick }) => {
             fill
             sizes="350px"
             priority
-            unoptimized={isExternalImage(galleryItem.imageUrl)}
+            // unoptimized={isExternalImage(galleryItem.imageUrl)} // ENABLE OPTIMIZATION
           />
         </GalleryImageWrapper>
       </FrameWrapper>

@@ -132,7 +132,7 @@ function NavbarComponent() {
           </span>
         </Navbar.Toggle>
         <Navbar.Collapse id="basic-navbar-nav">
-          <Nav className="mx-auto">
+          <Nav className="ms-auto">
             {navLinks.map((link) => {
               const isMerchandise = link.path === "/merchan"
               // Check if current path exactly matches link path

@@ -135,11 +135,8 @@ const PaginationDots = styled.span`
   }
 `
 
-// Helper to check if image is from external source (R2 storage)
-const isExternalImage = (url) => {
-  if (!url) return false
-  return url.includes('r2.dev') || url.startsWith('http')
-}
+// Helper to check if image is from external source (R2 storage) - REMOVED to enable optimization
+// const isExternalImage = (url) => { ... }
 
 const GalleryPage = ({ banner, galleries }) => {
   const [currentPage, setCurrentPage] = useState(1)
@@ -239,7 +236,7 @@ const GalleryPage = ({ banner, galleries }) => {
                 objectPosition: "center",
               }}
               quality={75}
-              unoptimized={isExternalImage(banner.imageUrl)}
+              // unoptimized={isExternalImage(banner.imageUrl)} // ENABLED OPTIMIZATION
             />
           </BannerWrapper>
         )}

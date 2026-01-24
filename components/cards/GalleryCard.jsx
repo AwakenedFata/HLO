@@ -195,11 +195,8 @@ const isValidGoogleMapsLink = (url) => {
   return googleMapsPatterns.some((pattern) => pattern.test(url))
 }
 
-// Helper to check if image is from external source (R2 storage)
-const isExternalImage = (url) => {
-  if (!url) return false
-  return url.includes('r2.dev') || url.startsWith('http')
-}
+// Helper to check if image is from external source (R2 storage) - REMOVED to enable optimization
+// const isExternalImage = (url) => { ... }
 
 const GalleryCard = ({ item }) => {
   const router = useRouter()
@@ -243,7 +240,7 @@ const GalleryCard = ({ item }) => {
               objectPosition: "center center",
             }}
             quality={75}
-            unoptimized={isExternalImage(item.imageUrl)}
+            // unoptimized={isExternalImage(item.imageUrl)} // ENABLED OPTIMIZATION
           />
         </ImageWrapper>
         <Content>

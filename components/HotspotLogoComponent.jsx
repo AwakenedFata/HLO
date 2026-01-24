@@ -183,12 +183,8 @@ export default function HotspotLogoComponent() {
 
         /* Responsive untuk layar dibawah 480px */
         @media (max-width: 480px) {
-          /* 
-          We use specificity or just let fluid width handle it. 
-          But if we want to enforce smaller max-width:
-          */
           .hotspot-logo-container {
-             /* width: 350px !important;  <- removed fixed width, relying on fluid parent/max-width */
+             max-width: 320px !important;
           }
 
           .hotspot-button {
@@ -251,8 +247,12 @@ export default function HotspotLogoComponent() {
           }
         }
 
-        /* Extra responsive untuk layar sangat kecil dibawah 360px */
-        @media (max-width: 360px) {
+        /* Responsive untuk layar dibawah 380px */
+        @media (max-width: 380px) {
+          .hotspot-logo-container {
+             max-width: 280px !important;
+          }
+
           .hotspot-button {
             width: 22px !important;
             height: 22px !important;
@@ -264,15 +264,44 @@ export default function HotspotLogoComponent() {
           }
 
           .hotspot-popup {
-            width: 160px !important;
+            width: 165px !important;
           }
 
           .popup-title {
             font-size: 10px !important;
-            }
+          }
 
           .popup-description {
             font-size: 8px !important;
+          }
+        }
+
+        /* Extra responsive untuk layar sangat kecil dibawah 360px */
+        @media (max-width: 360px) {
+          .hotspot-logo-container {
+             max-width: 260px !important;
+          }
+
+          .hotspot-button {
+            width: 20px !important;
+            height: 20px !important;
+          }
+
+          .plus-icon {
+            width: 8px !important;
+            height: 8px !important;
+          }
+
+          .hotspot-popup {
+            width: 150px !important;
+          }
+
+          .popup-title {
+            font-size: 9px !important;
+            }
+
+          .popup-description {
+            font-size: 7px !important;
           }
         }
       `}</style>
