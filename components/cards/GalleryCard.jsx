@@ -233,7 +233,7 @@ const GalleryCard = ({ item }) => {
             src={item.imageUrl || "/placeholder.svg?height=400&width=600&query=gallery%20image"}
             alt={item.title}
             fill
-            loading="lazy"
+            loading="eager"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             style={{
               objectFit: "cover",

@@ -97,6 +97,7 @@ const GalleryFrame = memo(({ galleryItem, onImageClick }) => {
             alt="Frame"
             fill
             sizes="350px"
+            loading="eager"
             // unoptimized={isExternalImage(galleryItem.frame.imageUrl)} // ENABLE OPTIMIZATION
           />
         </FrameOverlayWrapper>
