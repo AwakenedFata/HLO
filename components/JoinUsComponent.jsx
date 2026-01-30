@@ -28,7 +28,7 @@ function JoinUsComponent() {
       <Container>
         <Row className="align-items-center">
           {/* Left Column - Logo, Text, QR */}
-          <Col lg={6} className="left-content" data-aos="fade-right" data-aos-duration="600" data-aos-offset="20">
+          <Col lg={6} className="left-content" data-aos="fade-up" data-aos-duration="400" data-aos-offset="20">
             <div className="logo-container mb-4">
               <Image 
                 src="/assets/JoinAndFollow/logo-hok-1.avif" 
@@ -78,7 +78,7 @@ function JoinUsComponent() {
           </Col>
 
           {/* Right Column - Phone Images */}
-          <Col lg={6} className="right-content" data-aos="fade-left" data-aos-duration="600" data-aos-offset="20">
+          <Col lg={6} className="right-content" data-aos="fade-up" data-aos-duration="400" data-aos-offset="20">
             <div className="phone-container float-animation">
               <Image 
                 src="/assets/JoinAndFollow/iphone.avif" 

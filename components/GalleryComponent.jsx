@@ -319,7 +319,7 @@ function GalleryComponent() {
           <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
         </GalleryBgContainer>
         <Container>
-          <GalleryTitle data-aos="fade-down" data-aos-duration="600" data-aos-offset="0">
+          <GalleryTitle data-aos="fade-down" data-aos-duration="400" data-aos-offset="0">
             <h2>Gallery</h2>
             <h1>HOK Lampung Community</h1>
           </GalleryTitle>
@@ -336,7 +336,7 @@ function GalleryComponent() {
           <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
         </GalleryBgContainer>
         <Container>
-          <GalleryTitle data-aos="fade-down" data-aos-duration="600" data-aos-offset="0">
+          <GalleryTitle data-aos="fade-down" data-aos-duration="400" data-aos-offset="0">
             <h2>Gallery</h2>
             <h1>HOK Lampung Community</h1>
           </GalleryTitle>
@@ -353,7 +353,7 @@ function GalleryComponent() {
           <Image src="/assets/Gallery/bg.avif" alt="Background" fill sizes="100vw" priority />
         </GalleryBgContainer>
         <Container>
-          <GalleryTitle data-aos="fade-down" data-aos-duration="600" data-aos-offset="0">
+          <GalleryTitle data-aos="fade-down" data-aos-duration="400" data-aos-offset="0">
             <h2>Gallery</h2>
             <h1>HOK Lampung Community</h1>
           </GalleryTitle>
@@ -370,12 +370,12 @@ function GalleryComponent() {
       </GalleryBgContainer>
 
       <Container>
-        <GalleryTitle data-aos="fade-down" data-aos-duration="600" data-aos-offset="0">
+        <GalleryTitle data-aos="fade-down" data-aos-duration="400" data-aos-offset="0">
           <h2>Gallery</h2>
           <h1>HOK Lampung Community</h1>
         </GalleryTitle>
 
-        <GalleryCarouselContainer data-aos="zoom-in" data-aos-duration="600" data-aos-offset="0">
+        <GalleryCarouselContainer data-aos="zoom-in" data-aos-duration="400" data-aos-offset="0">
           {swiperInitialized && galleryData.length > 0 && (
             <swiper-container ref={swiperElRef} init="false">
               {galleryData.slice(0, 3).map((item, index) => (

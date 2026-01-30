@@ -79,9 +79,22 @@ const MainContainer = styled.div`
   }
 
   @media (max-width: 480px) {
-    padding: 25px 15px;
+    padding: 25px 20px;
     padding-top: 60px;
     gap: 20px;
+  }
+
+  /* Vivo V23e and similar devices (393-412px) */
+  @media (max-width: 420px) {
+    padding: 25px 24px;
+    padding-top: 60px;
+    gap: 18px;
+  }
+
+  @media (max-width: 380px) {
+    padding: 20px 20px;
+    padding-top: 55px;
+    gap: 16px;
   }
 `;
 
@@ -125,11 +138,16 @@ const RightSection = styled.div`
   }
 
   @media (max-width: 480px) {
-    padding: 0 20px;
+    padding: 0 10px;
+  }
+
+  /* Vivo V23e and similar devices (393-412px) */
+  @media (max-width: 420px) {
+    padding: 0 8px;
   }
 
   @media (max-width: 380px) {
-    padding: 0 20px;
+    padding: 0 5px;
   }
 `;
 

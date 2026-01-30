@@ -28,7 +28,7 @@ const AboutUsCardComponent = () => {
     <CardContainer>
       <ImageWrapper>
         <Image 
-          src="/assets/aboutus/aboutus.avif" 
+          src="/assets/aboutus/about-card-bg.avif" 
           alt="About Us Card Background"
           width={500}
           height={500}

@@ -83,7 +83,7 @@ function CommunityComponent() {
             {/* Logo di atas */}
             <div className="logo-container">
               <Image 
-                src="/assets/aboutus/logo.avif" 
+                src="/assets/aboutus/community-logo.avif" 
                 alt="Community Logo" 
                 className="community-logo"
                 fill
@@ -94,7 +94,7 @@ function CommunityComponent() {
             {/* Foto Member */}
             <div className="community-image-container">
               <Image 
-                src="/assets/aboutus/fotbar.avif" 
+                src="/assets/aboutus/community-members.avif" 
                 alt="Community Members" 
                 className="community-image img-fluid"
                 width={800}
@@ -115,7 +115,7 @@ function CommunityComponent() {
                   onTouchEnd={handleTouchEnd}
                 >
                   <Image 
-                    src="/assets/aboutus/kiri.avif" 
+                    src="/assets/aboutus/stat-left.avif" 
                     alt="Stat 1" 
                     className="statcard1 img-fluid"
                     width={150}
@@ -138,7 +138,7 @@ function CommunityComponent() {
                   onTouchEnd={handleTouchEnd}
                 >
                   <Image 
-                    src="/assets/aboutus/tengah.avif" 
+                    src="/assets/aboutus/stat-center.avif" 
                     alt="Stat 2" 
                     className="statcard2 img-fluid"
                     width={150}
@@ -161,7 +161,7 @@ function CommunityComponent() {
                   onTouchEnd={handleTouchEnd}
                 >
                   <Image 
-                    src="/assets/aboutus/kanan.avif" 
+                    src="/assets/aboutus/stat-right.avif" 
                     alt="Stat 3" 
                     className="statcard3 img-fluid"
                     width={150}

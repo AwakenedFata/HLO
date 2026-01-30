@@ -229,7 +229,7 @@ function GalleryManagement() {
 
   const checkAuth = useCallback(() => {
     if (status !== "authenticated") {
-      console.log("⏳ Waiting for authentication..., current status:", status);
+      console.log("Waiting for authentication..., current status:", status);
       return null;
     }
     return true;
@@ -242,7 +242,7 @@ function GalleryManagement() {
 
       if (status !== "authenticated") {
         console.log(
-          "⏳ Waiting for authentication before fetching galleries..."
+          "⏳ Waiting for authentication before fetching galleries...",
         );
         return;
       }
@@ -280,7 +280,7 @@ function GalleryManagement() {
         } else {
           setError(
             "Gagal mengambil data gallery: " +
-              (error.response?.data?.error || error.message)
+              (error.response?.data?.error || error.message),
           );
         }
       } finally {
@@ -289,13 +289,13 @@ function GalleryManagement() {
         }
       }
     },
-    [status, searchTerm, filterStatus, router]
+    [status, searchTerm, filterStatus, router],
   );
 
   // Fetch current banner
   const fetchCurrentBanner = useCallback(async () => {
     if (status !== "authenticated") {
-      console.log("⏳ Waiting for authentication before fetching banner...");
+      console.log("Waiting for authentication before fetching banner...");
       return null;
     }
 
@@ -333,7 +333,7 @@ function GalleryManagement() {
       if (!token) return;
 
       const response = await api.delete(
-        `/api/admin/banner/${bannerToDelete._id}`
+        `/api/admin/banner/${bannerToDelete._id}`,
       );
 
       if (response.data.success) {
@@ -386,16 +386,16 @@ function GalleryManagement() {
               },
               aspectRatio,
               width,
-              height
+              height,
             ),
             width,
-            height
-          )
+            height,
+          ),
         );
       }
       setImgRef(e.currentTarget);
     },
-    [aspectRatio]
+    [aspectRatio],
   );
 
   const onBannerImageLoad = useCallback(
@@ -410,15 +410,15 @@ function GalleryManagement() {
             },
             bannerAspectRatio,
             width,
-            height
+            height,
           ),
           width,
-          height
-        )
+          height,
+        ),
       );
       setBannerImgRef(e.currentTarget);
     },
-    [bannerAspectRatio]
+    [bannerAspectRatio],
   );
 
   const createBannerCroppedImage = useCallback(async () => {
@@ -436,7 +436,7 @@ function GalleryManagement() {
       const pixelCrop = convertToPixelCrop(
         bannerCompletedCrop,
         bannerImgRef.naturalWidth,
-        bannerImgRef.naturalHeight
+        bannerImgRef.naturalHeight,
       );
 
       const scaleX = bannerImgRef.naturalWidth / bannerImgRef.width;
@@ -460,7 +460,7 @@ function GalleryManagement() {
         0,
         0,
         pixelCrop.width * scaleX,
-        pixelCrop.height * scaleY
+        pixelCrop.height * scaleY,
       );
 
       return new Promise((resolve, reject) => {
@@ -477,7 +477,7 @@ function GalleryManagement() {
             }
           },
           selectedBannerFile.type,
-          0.95
+          0.95,
         );
       });
     } catch (error) {
@@ -532,7 +532,7 @@ function GalleryManagement() {
             headers: {
               "Content-Type": "multipart/form-data",
             },
-          }
+          },
         );
 
         if (uploadResponse.data.success) {
@@ -559,13 +559,13 @@ function GalleryManagement() {
         addToast(
           "Gagal mengupload banner: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setBannerUploading(false);
       }
     },
-    [selectedBannerFile, checkAuth, addToast, bannerPreviewImage]
+    [selectedBannerFile, checkAuth, addToast, bannerPreviewImage],
   );
 
   const handleBannerSubmit = useCallback(
@@ -629,13 +629,13 @@ function GalleryManagement() {
         addToast(
           "Gagal menyimpan banner: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setBannerSubmitting(false);
       }
     },
-    [bannerData, checkAuth, addToast, fetchCurrentBanner, bannerPreviewImage]
+    [bannerData, checkAuth, addToast, fetchCurrentBanner, bannerPreviewImage],
   );
 
   const handleFileSelect = useCallback(
@@ -653,7 +653,7 @@ function GalleryManagement() {
 
       const isValidType = allowedTypes.includes(file.type);
       const isValidExt = allowedExts.some((ext) =>
-        file.name?.toLowerCase().endsWith(ext)
+        file.name?.toLowerCase().endsWith(ext),
       );
 
       if (!isValidType && !isValidExt) {
@@ -674,7 +674,7 @@ function GalleryManagement() {
       };
       reader.readAsDataURL(file);
     },
-    [addToast]
+    [addToast],
   );
 
   const handlePreviewClick = useCallback(() => {
@@ -693,7 +693,7 @@ function GalleryManagement() {
     } else {
       console.warn(
         "Attempted to open image viewer with invalid URL:",
-        imageUrl
+        imageUrl,
       );
       addToast("URL gambar tidak valid.", "error");
     }
@@ -746,14 +746,14 @@ function GalleryManagement() {
         addToast(
           "Gagal upload gambar: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
         setFormData((prev) => ({ ...prev, imageUrl: "", imageKey: "" }));
       } finally {
         setUploading(false);
       }
     },
-    [checkAuth, addToast]
+    [checkAuth, addToast],
   );
 
   const handleEditUpload = useCallback(
@@ -804,13 +804,13 @@ function GalleryManagement() {
         addToast(
           "Gagal upload gambar: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setUploading(false);
       }
     },
-    [checkAuth, addToast]
+    [checkAuth, addToast],
   );
 
   const handleDirectUpload = useCallback(
@@ -835,7 +835,7 @@ function GalleryManagement() {
         setUploading(false);
       }
     },
-    [selectedFile, handleFileUpload, addToast]
+    [selectedFile, handleFileUpload, addToast],
   );
 
   const getCroppedImg = useCallback((image, completedCrop) => {
@@ -852,7 +852,7 @@ function GalleryManagement() {
         const pixelCrop = convertToPixelCrop(
           completedCrop,
           image.naturalWidth,
-          image.naturalHeight
+          image.naturalHeight,
         );
 
         const scaleX = image.naturalWidth / image.width;
@@ -876,7 +876,7 @@ function GalleryManagement() {
           0,
           0,
           pixelCrop.width * scaleX,
-          pixelCrop.height * scaleY
+          pixelCrop.height * scaleY,
         );
 
         canvas.toBlob(
@@ -888,7 +888,7 @@ function GalleryManagement() {
             }
           },
           "image/jpeg",
-          0.95
+          0.95,
         );
       } catch (error) {
         reject(error);
@@ -906,8 +906,6 @@ function GalleryManagement() {
       const croppedFile = new File([croppedBlob], selectedFile.name, {
         type: selectedFile.type,
       });
-
-
 
       if (isEditingImage) {
         await handleEditUpload(croppedFile);
@@ -1012,7 +1010,7 @@ function GalleryManagement() {
         addToast(
           "Gagal menambahkan gallery item: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setSubmitting(false);
@@ -1025,7 +1023,7 @@ function GalleryManagement() {
       fetchGalleries,
       itemsPerPage,
       resetImageUpload,
-    ]
+    ],
   );
 
   const handleEditSubmit = useCallback(
@@ -1066,7 +1064,7 @@ function GalleryManagement() {
         addToast(
           "Gagal mengupdate gallery item: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setSubmitting(false);
@@ -1079,7 +1077,7 @@ function GalleryManagement() {
       fetchGalleries,
       currentPage,
       itemsPerPage,
-    ]
+    ],
   );
 
   const handleDelete = useCallback(async () => {
@@ -1099,7 +1097,7 @@ function GalleryManagement() {
       addToast(
         "Gagal menghapus gallery item: " +
           (error.response?.data?.error || error.message),
-        "error"
+        "error",
       );
     }
   }, [
@@ -1120,7 +1118,7 @@ function GalleryManagement() {
         setSelectedGalleries([]);
       }
     },
-    [filteredGalleries]
+    [filteredGalleries],
   );
 
   const handleSelectGallery = useCallback((id, checked) => {
@@ -1155,7 +1153,7 @@ function GalleryManagement() {
 
       addToast(
         `${response.data.deletedCount} gallery items berhasil dihapus`,
-        "success"
+        "success",
       );
       setShowDeleteMultipleModal(false);
       setSelectedGalleries([]);
@@ -1166,7 +1164,7 @@ function GalleryManagement() {
       addToast(
         "Gagal menghapus gallery items: " +
           (error.response?.data?.error || error.message),
-        "error"
+        "error",
       );
     } finally {
       setDeletingMultiple(false);
@@ -1232,7 +1230,7 @@ function GalleryManagement() {
             headers: {
               "Content-Type": "multipart/form-data",
             },
-          }
+          },
         );
 
         if (uploadResponse.data.success) {
@@ -1252,13 +1250,13 @@ function GalleryManagement() {
         addToast(
           "Gagal mengupload frame: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setFrameUploading(false);
       }
     },
-    [selectedFrameFile, checkAuth, addToast]
+    [selectedFrameFile, checkAuth, addToast],
   );
 
   const handleFrameFileSelect = useCallback(
@@ -1276,7 +1274,7 @@ function GalleryManagement() {
 
       const isValidType = allowedTypes.includes(file.type);
       const isValidExt = allowedExts.some((ext) =>
-        file.name?.toLowerCase().endsWith(ext)
+        file.name?.toLowerCase().endsWith(ext),
       );
 
       if (!isValidType && !isValidExt) {
@@ -1309,7 +1307,7 @@ function GalleryManagement() {
 
       handleFrameUpload(file);
     },
-    [addToast, handleFrameUpload]
+    [addToast, handleFrameUpload],
   );
 
   const handleFrameSubmit = useCallback(
@@ -1363,13 +1361,13 @@ function GalleryManagement() {
         addToast(
           "Gagal menambahkan frame: " +
             (error.response?.data?.error || error.message),
-          "error"
+          "error",
         );
       } finally {
         setFrameSubmitting(false);
       }
     },
-    [frameFormData, checkAuth, addToast, fetchFrames]
+    [frameFormData, checkAuth, addToast, fetchFrames],
   );
 
   const handleFrameDelete = useCallback(async () => {
@@ -1381,7 +1379,7 @@ function GalleryManagement() {
       if (!token) return;
 
       const response = await api.delete(
-        `/api/admin/bingkai/${frameToDelete._id}`
+        `/api/admin/bingkai/${frameToDelete._id}`,
       );
 
       if (response.data.success) {
@@ -1395,7 +1393,7 @@ function GalleryManagement() {
       addToast(
         "Gagal menghapus frame: " +
           (error.response?.data?.error || error.message),
-        "error"
+        "error",
       );
     } finally {
       setFrameDeleting(false);
@@ -1504,7 +1502,7 @@ function GalleryManagement() {
             {
               length: endPage - startPage + 1,
             },
-            (_, i) => startPage + i
+            (_, i) => startPage + i,
           ).map((page) => (
             <Pagination.Item
               key={page}
@@ -1559,7 +1557,7 @@ function GalleryManagement() {
       setIsEditingImage(true);
       handleFileSelect(file);
     },
-    [handleFileSelect]
+    [handleFileSelect],
   );
 
   if (!isClient) {
@@ -1915,7 +1913,7 @@ function GalleryManagement() {
                             onClick={() =>
                               handleImageView(
                                 formData.imageUrl,
-                                "Preview Gambar"
+                                "Preview Gambar",
                               )
                             }
                             onError={(e) => {
@@ -1946,8 +1944,8 @@ function GalleryManagement() {
                             {selectedAspectRatio === "no-crop"
                               ? "Original"
                               : selectedAspectRatio === "free"
-                              ? "Custom"
-                              : selectedAspectRatio.replace("-", ":")}
+                                ? "Custom"
+                                : selectedAspectRatio.replace("-", ":")}
                           </div>
                         </div>
                         <small className="text-muted d-block mt-2 text-center">
@@ -2074,13 +2072,13 @@ function GalleryManagement() {
                           onClick={() =>
                             handleImageView(
                               bannerPreviewImage,
-                              "Banner Preview"
+                              "Banner Preview",
                             )
                           }
                           onError={(e) => {
                             console.warn(
                               "Banner preview load failed:",
-                              e.target.src
+                              e.target.src,
                             );
                             setTimeout(() => {
                               if (
@@ -2213,7 +2211,7 @@ function GalleryManagement() {
                       onClick={() =>
                         handleImageView(
                           currentBanner.imageUrl,
-                          "Current Banner"
+                          "Current Banner",
                         )
                       }
                     >
@@ -2234,7 +2232,7 @@ function GalleryManagement() {
                         onError={(e) => {
                           console.warn(
                             "Current banner load failed:",
-                            e.target.src
+                            e.target.src,
                           );
                           setTimeout(() => {
                             if (
@@ -2284,7 +2282,7 @@ function GalleryManagement() {
                           <FaCalendarAlt className="me-1" />
                           Diupdate:{" "}
                           {new Date(currentBanner.updatedAt).toLocaleString(
-                            "id-ID"
+                            "id-ID",
                           )}
                         </small>
                       </div>
@@ -2470,12 +2468,12 @@ function GalleryManagement() {
                                 <Form.Check
                                   type="checkbox"
                                   checked={selectedGalleries.includes(
-                                    gallery._id
+                                    gallery._id,
                                   )}
                                   onChange={(e) =>
                                     handleSelectGallery(
                                       gallery._id,
-                                      e.target.checked
+                                      e.target.checked,
                                     )
                                   }
                                   disabled={status !== "authenticated"}
@@ -2488,7 +2486,7 @@ function GalleryManagement() {
                                   onClick={() =>
                                     handleImageView(
                                       gallery.imageUrl,
-                                      gallery.title
+                                      gallery.title,
                                     )
                                   }
                                 >
@@ -2549,7 +2547,7 @@ function GalleryManagement() {
                               </td>
                               <td>
                                 {new Date(
-                                  gallery.uploadDate
+                                  gallery.uploadDate,
                                 ).toLocaleDateString("id-ID")}
                               </td>
                               <td>
@@ -2583,7 +2581,7 @@ function GalleryManagement() {
                                       onClick={() =>
                                         handleImageView(
                                           gallery.imageUrl,
-                                          gallery.title
+                                          gallery.title,
                                         )
                                       }
                                     >
@@ -2751,7 +2749,7 @@ function GalleryManagement() {
                           onError={(e) => {
                             console.warn(
                               "Frame preview load failed:",
-                              e.target.src
+                              e.target.src,
                             );
                             e.target.src = `data:image/svg+xml;base64,${btoa(`
                               <svg width="250" height="200" xmlns="http://www.w3.org/2000/svg">
@@ -2968,7 +2966,7 @@ function GalleryManagement() {
                                         withBuster(frame.imageUrl),
                                         `Frame - ${
                                           frame.originalName || "Unknown"
-                                        }`
+                                        }`,
                                       )
                                     }
                                   >
@@ -3047,7 +3045,7 @@ function GalleryManagement() {
                                   <small>
                                     {frame.fileSize
                                       ? `${Math.round(
-                                          frame.fileSize / 1024
+                                          frame.fileSize / 1024,
                                         )} KB`
                                       : "Unknown"}
                                   </small>
@@ -3055,7 +3053,7 @@ function GalleryManagement() {
                                 <td>
                                   <small>
                                     {new Date(
-                                      frame.createdAt
+                                      frame.createdAt,
                                     ).toLocaleDateString("id-ID")}
                                   </small>
                                 </td>
@@ -3094,7 +3092,7 @@ function GalleryManagement() {
                                             withBuster(frame.imageUrl),
                                             `Frame - ${
                                               frame.originalName || "Unknown"
-                                            }`
+                                            }`,
                                           )
                                         }
                                       >
@@ -3351,7 +3349,7 @@ function GalleryManagement() {
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        // handleImageView(editingGallery.imageUrl, editingGallery.title); 
+                        // handleImageView(editingGallery.imageUrl, editingGallery.title);
                         // Removed click to view to avoid confusion with edit
                       }}
                     >
@@ -3368,23 +3366,31 @@ function GalleryManagement() {
                       />
                     </div>
                     <div>
-                        <Button 
-                            variant="outline-primary" 
-                            size="sm"
-                            onClick={() => editFileInputRef.current?.click()}
-                            disabled={uploading}
-                        >
-                            <FaEdit className="me-1" /> Ganti Gambar
-                        </Button>
-                        <input
-                            type="file"
-                            className="d-none"
-                            ref={editFileInputRef}
-                            accept="image/jpeg,image/jpg,image/png,image/avif,image/webp"
-                            onChange={(e) => handleEditFileSelect(e.target.files[0])}
-                        />
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => editFileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        <FaEdit className="me-1" /> Ganti Gambar
+                      </Button>
+                      <input
+                        type="file"
+                        className="d-none"
+                        ref={editFileInputRef}
+                        accept="image/jpeg,image/jpg,image/png,image/avif,image/webp"
+                        onChange={(e) =>
+                          handleEditFileSelect(e.target.files[0])
+                        }
+                      />
                     </div>
-                    {uploading && <div className="mt-2"><small className="text-muted">Mengupload gambar baru...</small></div>}
+                    {uploading && (
+                      <div className="mt-2">
+                        <small className="text-muted">
+                          Mengupload gambar baru...
+                        </small>
+                      </div>
+                    )}
                   </div>
                 </Form.Group>
               </>

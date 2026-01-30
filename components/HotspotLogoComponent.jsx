@@ -215,9 +215,12 @@ export default function HotspotLogoComponent() {
             line-height: 1.3 !important;
           }
         }
-        /* Responsive untuk layar dibawah 420px */
+        /* Responsive untuk layar dibawah 420px (Vivo V23e ~393-412px) */
         @media (max-width: 420px) {
-           /* ... */
+          .hotspot-logo-container {
+             max-width: 300px !important;
+          }
+
           .hotspot-button {
             width: 24px !important;
             height: 24px !important;
@@ -230,7 +233,7 @@ export default function HotspotLogoComponent() {
           }
 
           .hotspot-popup {
-            width: 180px !important;
+            width: 170px !important;
             padding: 3px 8px 6px !important;
             border-radius: 6px !important;
           }
